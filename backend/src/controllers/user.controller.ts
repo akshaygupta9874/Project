@@ -1,13 +1,13 @@
 import { Request, Response } from "express";
 import asyncTryCatchHandler from "../middlewares/TryCatch.js";
 import { UserLoginSchema, UserRegistrationSchema } from "../zodSchemas/user.schema.js";
-import UserModel, { IUser } from "../models/user.model.js";
+import UserModel from "../models/user.model.js";
 import { redisClient } from "../index.js";
 import bcrypt from "bcryptjs";
-import crypto from "crypto"
+import crypto from "crypto";
 import { sendOtpEmail, sendVerifyEmail } from "../config/sendMail.config.js";
 import { AuthenticatedRequest } from "../middlewares/isAuthenticated.js";
-import { generateAccessToken, getAccessTokenRedisKey, getRefreshTokenRedisKey, revokeRefreshToken, verifyRefreshToken } from "../utils/generateToken.js";
+import { generateAccessToken, getAccessTokenRedisKey, getRefreshTokenRedisKey, revokeRefreshToken, rotateRefreshToken, verifyRefreshToken } from "../utils/generateToken.js";
 
 export const userRegistrationController = asyncTryCatchHandler(
     async (request: Request, response: Response) => {
@@ -171,22 +171,42 @@ export const refreshToken = asyncTryCatchHandler(async (request: Request, respon
 })
 
 
-export const userLogoutController = asyncTryCatchHandler(async (request: AuthenticatedRequest, response: Response) => {
-    const userId = request.userId
-    if (!userId) {
-        return response.status(401).json({ message: "Unauthorized" });
-    }
+export const userLogoutController = asyncTryCatchHandler(
+    async (request: AuthenticatedRequest, response: Response) => {
+        const userId = request.userId;
 
-    await redisClient.del(getRefreshTokenRedisKey(userId));
-    await redisClient.del(getAccessTokenRedisKey(userId));
-    response.clearCookie("refreshToken", { httpOnly: true, secure: true, sameSite: "strict" });
-    response.clearCookie("accessToken", { httpOnly: true, secure: true, sameSite: "strict" });
-
-    await redisClient.del(`user:${userId}`)
-    response.status(200).json(
-        {
-            message: "user logged out successfully"
+        if (!userId) {
+            return response.status(401).json({
+                message: "Unauthorized",
+            });
         }
-    )
-}
-)
+
+        await revokeRefreshToken(userId, request.sessionID ?? undefined);
+        await redisClient.del(`user:${userId}`);
+
+        response.clearCookie("accessToken", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+        });
+
+        response.clearCookie("refreshToken", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+        });
+
+        // Destroy Redis Session + sessionId cookie
+        request.session.destroy?.((err) => {
+            if (err) {
+                return response.status(500).json({
+                    message: "Failed to destroy session",
+                });
+            }
+
+            return response.status(200).json({
+                message: "User logged out successfully",
+            });
+        });
+    }
+);

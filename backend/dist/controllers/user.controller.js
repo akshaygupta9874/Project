@@ -5,7 +5,7 @@ import { redisClient } from "../index.js";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { sendOtpEmail, sendVerifyEmail } from "../config/sendMail.config.js";
-import { generateAccessToken, getAccessTokenRedisKey, getRefreshTokenRedisKey, verifyRefreshToken } from "../utils/generateToken.js";
+import { generateAccessToken, revokeRefreshToken, verifyRefreshToken } from "../utils/generateToken.js";
 export const userRegistrationController = asyncTryCatchHandler(async (request, response) => {
     const validatedData = UserRegistrationSchema.safeParse(request.body);
     if (!validatedData.success) {
@@ -111,15 +111,32 @@ export const refreshToken = asyncTryCatchHandler(async (request, response) => {
 export const userLogoutController = asyncTryCatchHandler(async (request, response) => {
     const userId = request.userId;
     if (!userId) {
-        return response.status(401).json({ message: "Unauthorized" });
+        return response.status(401).json({
+            message: "Unauthorized",
+        });
     }
-    await redisClient.del(getRefreshTokenRedisKey(userId));
-    await redisClient.del(getAccessTokenRedisKey(userId));
-    response.clearCookie("refreshToken", { httpOnly: true, secure: true, sameSite: "strict" });
-    response.clearCookie("accessToken", { httpOnly: true, secure: true, sameSite: "strict" });
+    await revokeRefreshToken(userId, request.sessionID ?? undefined);
     await redisClient.del(`user:${userId}`);
-    response.status(200).json({
-        message: "user logged out successfully"
+    response.clearCookie("accessToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+    });
+    response.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+    });
+    // Destroy Redis Session + sessionId cookie
+    request.session.destroy?.((err) => {
+        if (err) {
+            return response.status(500).json({
+                message: "Failed to destroy session",
+            });
+        }
+        return response.status(200).json({
+            message: "User logged out successfully",
+        });
     });
 });
 //# sourceMappingURL=user.controller.js.map

@@ -3,6 +3,7 @@ import { redisClient } from "../index.js";
 import UserModel from "../models/user.model.js";
 import asyncTryCatchHandler from "../middlewares/TryCatch.js";
 import { generateToken } from "../utils/generateToken.js";
+import { registerSession, revokeUserSessions } from "../middlewares/session.middleware.js";
 /**
  * Shared branding config — pulled once so both templates stay in sync.
  */
@@ -270,35 +271,63 @@ export const sendVerifyEmail = async ({ email, token }) => {
 export const verifyEmail = asyncTryCatchHandler(async (req, res) => {
     const { token } = req.params;
     if (!token) {
-        return res.status(400).json({ success: false, message: "Verification token is required" });
+        return res.status(400).json({
+            success: false,
+            message: "Verification token is required",
+        });
     }
     const verifyKey = `verify:${token}`;
     const userDataJSON = await redisClient.get(verifyKey);
     if (!userDataJSON) {
-        return res.status(400).json({ success: false, message: "Verification token is Not Valid" });
+        return res.status(400).json({
+            success: false,
+            message: "Verification token is not valid",
+        });
     }
     const userData = JSON.parse(userDataJSON);
     const { firstName, lastName, email, password } = userData;
     if (!email) {
-        return res.status(400).json({ success: false, message: "Invalid, expired, or already used verification link" });
+        return res.status(400).json({
+            success: false,
+            message: "Invalid, expired, or already used verification link",
+        });
     }
     const user = await UserModel.findOne({ email });
     if (user) {
-        return res.status(409).json({ success: false, message: "account found for this email already !!" });
+        return res.status(409).json({
+            success: false,
+            message: "Account already exists for this email",
+        });
     }
     const newUser = await UserModel.create({
         firstName,
         lastName,
         email,
-        password
+        password,
     });
     const userId = newUser._id.toString();
+    req.session.userId = userId;
+    req.session.role = newUser.role;
+    req.session.createdAt = Date.now();
+    await revokeUserSessions(userId);
+    await new Promise((resolve, reject) => {
+        req.session.save?.((err) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+            resolve();
+        });
+    });
+    if (req.sessionID) {
+        await registerSession(userId, req.sessionID);
+    }
     const { accessToken, refreshToken } = await generateToken({
         id: userId,
         firstName,
         lastName,
         email,
-    });
+    }, req.sessionID ?? undefined);
     res.cookie("accessToken", accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -319,9 +348,13 @@ export const verifyEmail = asyncTryCatchHandler(async (req, res) => {
         role: newUser.role,
     }));
     await redisClient.del(verifyKey);
-    return res.status(200).json({ success: true, message: "Email verified successfully. Your account is created successfully." });
+    return res.status(200).json({
+        success: true,
+        message: "Email verified successfully. Your account has been created successfully.",
+    });
 });
-export const verifyOTP = async (request, response) => {
+export const verifyOTP = async (req, response, next) => {
+    const request = req;
     const { email, otp } = request.body;
     if (!email || !otp) {
         return response.status(400).json({
@@ -348,9 +381,26 @@ export const verifyOTP = async (request, response) => {
             message: "No User Found with given Details"
         });
     }
-    const { refreshToken, accessToken, expiresIn } = await generateToken({
-        firstName: user.firstName, lastName: user.lastName, email: user.email, id: user._id.toString()
+    const userId = user._id.toString();
+    request.session.userId = userId;
+    request.session.role = user.role;
+    request.session.createdAt = Date.now();
+    await revokeUserSessions(userId);
+    await new Promise((resolve, reject) => {
+        request.session.save?.((err) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+            resolve();
+        });
     });
+    if (request.sessionID) {
+        await registerSession(userId, request.sessionID);
+    }
+    const { refreshToken, accessToken } = await generateToken({
+        firstName: user.firstName, lastName: user.lastName, email: user.email, id: user._id.toString()
+    }, request.sessionID ?? undefined);
     response.cookie("refreshToken", refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",

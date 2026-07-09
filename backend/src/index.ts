@@ -10,6 +10,7 @@ import dotenv from "dotenv"
 import connectDB from "./config/db.config.js";
 import useRouter from "./routes/user.route.js";
 import errorHandler from "./middlewares/errorHandler.js";
+import { sessionMiddleware } from "./middlewares/session.middleware.js";
 
 
 dotenv.config()
@@ -25,6 +26,7 @@ app.use(express.json())
 app.use(mongoSanitize())
 app.use(helmet())
 app.use(cookieParser())
+app.use(sessionMiddleware)
 
 const redisUrl = process.env.REDIS_URL
 
