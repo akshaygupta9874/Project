@@ -1,0 +1,57 @@
+{
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    
+    // The NodeNext Rules
+    "module": "NodeNext",
+    // Tells the compiler to output JavaScript code that uses the ES Modules (ESM) system (i.e., import/export), which is the modern standard supported by Node.js.
+    "moduleResolution": "NodeNext",
+    // "moduleResolution": "NodeNext" is a TypeScript compiler option that tells TypeScript how to locate and resolve imported modules, using the same rules as modern Node.js (ES Modules + CommonJS).
+    "target": "ES2022",
+    // Tells the compiler which JavaScript version to output. Using ES2022 ensures you can use modern features like Top-level await, Object.hasOwn(), and private class fields without the compiler trying to "down-level" (rewrite) them into older, slower code.
+    "types": ["node"],
+//     By default, TypeScript automatically includes all definition files (.d.ts) found in your node_modules/@types folder. If you have @types/node, @types/jest, and @types/react installed, TypeScript will automatically make all of those types available globally throughout your entire project.
+
+// By explicitly setting "types": ["node"], you are restricting that behavior:
+
+// Scope Control: You are telling the compiler: "Only include the type definitions for node."
+
+// Global Namespace Cleanup: TypeScript will ignore other packages in @types unless you specifically import them. This prevents naming collisions and keeps your global scope clean.
+
+// Explicit Intent: It makes it clear to anyone reading your tsconfig.json exactly which environments your code expects to run in (in this case, a Node.js environment).
+    "sourceMap": true,
+    // What it does
+// When TypeScript compiles your code, it turns high-level TypeScript (with interfaces, types, and modern syntax) into standard JavaScript. This process changes the code structure significantly.
+
+// When you enable sourceMap: true, the compiler generates a separate .map file (e.g., app.js.map) alongside your generated .js files. This file acts as a "map" that tells the browser, "The code you see here in the browser debugger actually corresponds to this line in the original app.ts file."
+
+// Why it is critical
+// Without source maps, debugging is incredibly painful. Here is the difference:
+
+// Without Source Maps: When you open the "Sources" tab in Chrome DevTools, you see the compiled JavaScript. If an error occurs on line 50, you are looking at transpiled, minified, or bundled code that looks nothing like what you wrote. Setting breakpoints is nearly impossible.
+
+// With Source Maps: When you open the "Sources" tab, your original TypeScript files appear. You can set breakpoints directly in your .ts files, inspect variables using your original type names, and step through your code as if the browser were running the TypeScript directly.
+    "strict": true,
+    // Think of it as a "master switch." When you set it to true, you are telling TypeScript to stop making assumptions and to enforce the highest level of type safety possible for your project.
+    "esModuleInterop": true,
+// CommonJS modules use module.exports, while ES modules use export default. Historically, these two systems were incompatible.
+
+// In a project without esModuleInterop, if you tried to import a library written in CommonJS using modern import syntax, it would often fail or require you to use an awkward syntax like import * as React from 'react' instead of import React from 'react'.
+    "noUncheckedIndexedAccess": true,
+//     Normally, TypeScript assumes that accessing an array or object by an index/key always returns a value of that type, even if it's actually undefined (like accessing index 10 of an array with only 2 items).
+
+// What it does: It forces you to acknowledge that an index access might result in undefined. It changes the inferred type of the result to include | undefined.
+
+// Why it's good: It helps prevent the classic "cannot read property of undefined" runtime errors.
+    "useUnknownInCatchVariables": true,
+//     What it does: It forces the error variable to be typed as unknown.
+
+// Why it's good: Since you can't guarantee what will be thrown (anything from a string to a complex Error object), unknown forces you to perform a type check (like if (error instanceof Error)) before accessing properties like .message or .stack. This is much safer than the loose behavior of any.
+    "skipLibCheck": true,
+// What it does: It tells the compiler to skip type-checking all definition files (.d.ts files) in your node_modules.
+
+// Why it's good: It significantly speeds up compilation. Without this, TypeScript would try to validate the types of every library you have installed, which often leads to errors in those libraries that you can't control anyway.
+    "forceConsistentCasingInFileNames": true
+  }
+}
