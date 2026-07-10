@@ -2,7 +2,8 @@ import mongoose, { Document, Model, Schema } from "mongoose";
 import bcrypt from "bcryptjs";
 
 export enum UserRole {
-  USER = "USER",
+  RIDER = "RIDER",
+  DRIVER = "DRIVER",
   ADMIN = "ADMIN",
 }
 
@@ -60,7 +61,7 @@ const userSchema = new Schema<IUser>(
     role: {
       type: String,
       enum: Object.values(UserRole),
-      default: UserRole.USER,
+      default: UserRole.RIDER,
     },
 
     // isVerified: {

@@ -6,7 +6,7 @@ import asyncTryCatchHandler from "../middlewares/TryCatch.js";
 import { generateToken } from "../utils/generateToken.js";
 import { AuthenticatedRequest } from "../middlewares/isAuthenticated.js";
 import { registerSession, revokeUserSessions } from "../middlewares/session.middleware.js";
-
+import { generateCSRFToken } from "../middlewares/csrfMiddleware.js"
 /**
  * Shared branding config — pulled once so both templates stay in sync.
  */
@@ -97,6 +97,11 @@ interface OtpEmailParams {
 }
 
 interface VerifyEmailParams {
+    email: string;
+    token: string;
+}
+
+interface ResetPasswordEmailParams {
     email: string;
     token: string;
 }
@@ -246,6 +251,74 @@ If this wasn't you, you can safely ignore this email.
 © ${YEAR} ${APP_NAME}`;
 };
 
+export const getResetPasswordHtml = ({ email, token }: ResetPasswordEmailParams): string => {
+    const resetUrl = `${FRONTEND_URL.replace(/\/+$/, "")}/reset-password/${encodeURIComponent(token)}`;
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="x-apple-disable-message-reformatting" />
+<title>${APP_NAME} Reset Your Password</title>
+<style>${baseStyles}</style>
+</head>
+<body>
+<table role="presentation" class="wrapper" width="100%" border="0" cellspacing="0" cellpadding="0">
+<tr>
+<td align="center" class="p-24">
+<table role="presentation" class="container" border="0" cellspacing="0" cellpadding="0">
+<tr>
+<td class="header">
+<span class="brand">${APP_NAME}</span>
+</td>
+</tr>
+<tr>
+<td class="p-32">
+<h1 class="title">Reset your password</h1>
+<p class="text">
+We received a request to reset the password for <strong>${email}</strong>. Click the button below to continue.
+</p>
+<table role="presentation" border="0" cellspacing="0" cellpadding="0" style="margin: 16px 0 20px 0;">
+<tr>
+<td align="center">
+<a class="btn" href="${resetUrl}" target="_blank" rel="noopener">Reset password</a>
+</td>
+</tr>
+</table>
+<p class="muted">If the button doesn't work, copy and paste this link into your browser:</p>
+<p class="muted"><a class="link" href="${resetUrl}" target="_blank" rel="noopener">${resetUrl}</a></p>
+<p class="muted">If you didn't request this, you can safely ignore this email.</p>
+</td>
+</tr>
+<tr>
+<td class="footer">
+© ${YEAR} ${APP_NAME}. All rights reserved.
+</td>
+</tr>
+<tr>
+<td height="16" aria-hidden="true"></td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+</body>
+</html>`;
+};
+
+export const getResetPasswordText = ({ email, token }: ResetPasswordEmailParams): string => {
+    const resetUrl = `${FRONTEND_URL.replace(/\/+$/, "")}/reset-password/${encodeURIComponent(token)}`;
+    return `Reset your password - ${email}
+
+We received a request to reset your ${APP_NAME} password. Use the link below to continue:
+${resetUrl}
+
+If you didn't request this, you can safely ignore this email.
+
+© ${YEAR} ${APP_NAME}`;
+};
+
 /* ------------------------------------------------------------------ */
 /*  Nodemailer wiring                                                  */
 /* ------------------------------------------------------------------ */
@@ -265,6 +338,7 @@ export const transporter: Transporter = nodemailer.createTransport({
     },
     pool: true,
 });
+
 
 /**
  * Sends the OTP email. Includes both html and text so spam filters
@@ -290,6 +364,16 @@ export const sendVerifyEmail = async ({ email, token }: VerifyEmailParams) => {
         subject: `Verify your ${APP_NAME} account`,
         html: getVerifyEmailHtml({ email, token }),
         text: getVerifyEmailText({ email, token }),
+    });
+};
+
+export const sendResetPasswordEmail = async ({ email, token }: ResetPasswordEmailParams) => {
+    return transporter.sendMail({
+        from: process.env.MAIL_FROM || `"${APP_NAME}" <no-reply@example.com>`,
+        to: email,
+        subject: `Reset your ${APP_NAME} password`,
+        html: getResetPasswordHtml({ email, token }),
+        text: getResetPasswordText({ email, token }),
     });
 };
 
@@ -398,6 +482,7 @@ export const verifyEmail = asyncTryCatchHandler(
         );
 
         await redisClient.del(verifyKey);
+        await redisClient.del(`verify:email:${email}`);
 
         return res.status(200).json({
             success: true,
@@ -467,7 +552,7 @@ export const verifyOTP: RequestHandler = async (req: Request, response: Response
     const { refreshToken, accessToken } = await generateToken({
         firstName: user.firstName, lastName: user.lastName, email: user.email, id: user._id.toString()
     }, request.sessionID ?? undefined);
-
+    const csrfToken = generateCSRFToken(userId, response)
     response.cookie("refreshToken", refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -480,6 +565,24 @@ export const verifyOTP: RequestHandler = async (req: Request, response: Response
         sameSite: "strict",
         maxAge: 15 * 60 * 1000,
     });
+    response.cookie("csrfToken", csrfToken, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "none",
+        maxAge: 15 * 60 * 1000,
+    })
+
+    await redisClient.setEx(
+        `user:${userId}`,
+        15 * 60,
+        JSON.stringify({
+            _id: userId,
+            firstName : user.firstName,
+            lastName : user.lastName,
+            email : user.email,
+            role: user.role,
+        })
+    );
 
     return response.status(200).json(
         {

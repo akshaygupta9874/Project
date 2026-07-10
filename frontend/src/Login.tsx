@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { motion, type Variants } from "framer-motion";
 import { QrCode, Navigation } from "lucide-react";
 import { apiRequest } from "./lib/api";
+import { AxiosError } from "axios";
+import { useAuthContext } from "./context/authContext";
 
 // ---------- Form animation ----------
 const containerVariants: Variants = {
@@ -227,6 +229,7 @@ function EtaPill() {
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { checkAuthentication } = useAuthContext();
   const [isFocused, setIsFocused] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -248,7 +251,7 @@ export default function LoginPage() {
       setStatus(data.message);
       setShowOtp(true);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Login failed");
+      setStatus(error instanceof AxiosError ? error.response?.data.message : "Login failed");
     } finally {
       setIsSubmitting(false);
     }
@@ -264,9 +267,10 @@ export default function LoginPage() {
         body: { email, otp },
       });
       setStatus(data.message);
+      await checkAuthentication();
       navigate("/dashboard", { replace: true });
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "OTP verification failed");
+      setStatus(error instanceof AxiosError ? error.response?.data.message : "OTP verification failed");
     } finally {
       setIsSubmitting(false);
     }
@@ -302,32 +306,31 @@ export default function LoginPage() {
           </motion.p>
 
           <motion.form variants={itemVariants} className="mb-6 space-y-4" onSubmit={handleLogin}>
-          <div className="relative">
-            <div
-              className={`absolute -inset-0.5 rounded-xl bg-gradient-to-r from-sky-500 via-emerald-400 to-violet-500 opacity-0 blur transition duration-500 ${
-                isFocused ? "opacity-60" : ""
-              }`}
-            />
+            <div className="relative">
+              <div
+                className={`absolute -inset-0.5 rounded-xl bg-gradient-to-r from-sky-500 via-emerald-400 to-violet-500 opacity-0 blur transition duration-500 ${isFocused ? "opacity-60" : ""
+                  }`}
+              />
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                required
+                className="relative w-full rounded-xl border border-black/10 bg-white/95 px-5 py-4 text-lg outline-none transition-all duration-300 placeholder:text-black/40 focus:border-transparent focus:ring-2 focus:ring-black/80"
+              />
+            </div>
+
             <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
               required
               className="relative w-full rounded-xl border border-black/10 bg-white/95 px-5 py-4 text-lg outline-none transition-all duration-300 placeholder:text-black/40 focus:border-transparent focus:ring-2 focus:ring-black/80"
             />
-          </div>
-
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-            className="relative w-full rounded-xl border border-black/10 bg-white/95 px-5 py-4 text-lg outline-none transition-all duration-300 placeholder:text-black/40 focus:border-transparent focus:ring-2 focus:ring-black/80"
-          />
 
             <button
               type="submit"
@@ -356,14 +359,6 @@ export default function LoginPage() {
               >
                 Verify OTP
               </button>
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={() => navigate("/dashboard")}
-                className="w-full rounded-xl border border-black/10 bg-white/80 py-3.5 text-base font-medium transition-all hover:bg-white hover:shadow-sm active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                Open dashboard
-              </button>
             </motion.div>
           )}
 
@@ -377,6 +372,25 @@ export default function LoginPage() {
             <div className="h-px flex-1 bg-black/15" />
             <span className="text-xs font-medium uppercase tracking-wider text-black/50">or</span>
             <div className="h-px flex-1 bg-black/15" />
+          </motion.div>
+
+          <motion.div variants={itemVariants} className="mb-3 flex justify-between">
+
+            <button
+              type="button"
+              onClick={() => navigate("/signup")}
+              className="text-sm font-medium text-black/70 underline underline-offset-4"
+            >
+              Dont have Account? Signup Here
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate("/forgot-password")}
+              className="text-sm font-medium text-black/70 underline underline-offset-4"
+            >
+              Forgot password?
+            </button>
           </motion.div>
 
           <motion.div variants={itemVariants} className="mb-3">

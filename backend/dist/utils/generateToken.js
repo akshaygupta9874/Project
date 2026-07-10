@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { redisClient } from "../index.js";
+import { revokeCSRFToken } from "../middlewares/csrfMiddleware.js";
 const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET;
 const REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_SECRET;
 const ACCESS_TOKEN_TTL = "15m";
@@ -102,6 +103,7 @@ export const revokeRefreshToken = async (userId, sessionId) => {
     }
     const refreshTokenKey = getRefreshTokenRedisKey(userId, sessionId);
     const accessTokenKey = getAccessTokenRedisKey(userId, sessionId);
+    await revokeCSRFToken(userId);
     await redisClient.del(refreshTokenKey);
     await redisClient.del(accessTokenKey);
 };

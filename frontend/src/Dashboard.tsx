@@ -1,5 +1,9 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, MapPin, Clock3, Sparkles, ShieldCheck, CarFront, Compass, BellRing } from "lucide-react";
+import { apiRequest } from "./lib/api";
+import LoadingScreen from "./components/LoadingScreen";
 
 const quickActions = [
   { title: "Book a ride", subtitle: "Fastest way home", icon: CarFront },
@@ -14,6 +18,26 @@ const stats = [
 ];
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  async function handleLogout() {
+    setIsLoggingOut(true);
+
+    try {
+      await apiRequest("/logout", { method: "POST" });
+      navigate("/login", { replace: true });
+    } catch {
+      navigate("/login", { replace: true });
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }
+
+  if (isLoggingOut) {
+    return <LoadingScreen label="Signing you out" sublabel="Clearing your session and redirecting you safely" />;
+  }
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#fff_0%,_#f5efe4_45%,_#ece2d0_100%)] px-4 py-6 text-black sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
@@ -34,12 +58,22 @@ export default function Dashboard() {
               </p>
             </div>
 
-            <div className="flex items-center gap-3 rounded-2xl border border-black/10 bg-black px-4 py-3 text-white shadow-lg">
-              <BellRing size={18} />
-              <div>
-                <p className="text-sm font-semibold">Driver update</p>
-                <p className="text-xs text-white/70">Your driver is 2 min away</p>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 rounded-2xl border border-black/10 bg-black px-4 py-3 text-white shadow-lg">
+                <BellRing size={18} />
+                <div>
+                  <p className="text-sm font-semibold">Driver update</p>
+                  <p className="text-xs text-white/70">Your driver is 2 min away</p>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-black transition hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isLoggingOut ? "Logging out..." : "Logout"}
+              </button>
             </div>
           </div>
         </motion.header>

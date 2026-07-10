@@ -8,8 +8,7 @@ import cookieParser from "cookie-parser";
 
 import dotenv from "dotenv"
 import connectDB from "./config/db.config.js";
-import useRouter from "./routes/user.route.js";
-import errorHandler from "./middlewares/errorHandler.js";
+import userRouter from "./routes/user.route.js";
 import { sessionMiddleware } from "./middlewares/session.middleware.js";
 
 
@@ -54,8 +53,8 @@ redisClient.connect()
 
 connectDB();
 
-app.use("/v1/api",useRouter)
-app.use(errorHandler)
+app.use("/v1/api",userRouter)
+// app.use(errorHandler)
 
 const PORT = process.env.PORT  || 3000;
 

@@ -2,6 +2,7 @@ import crypto from "crypto";
 import jwt, { JwtPayload, SignOptions } from "jsonwebtoken";
 import { redisClient } from "../index.js";
 import { Response } from "express";
+import { generateCSRFToken, revokeCSRFToken } from "../middlewares/csrfMiddleware.js";
 
 export interface TokenPayload extends JwtPayload {
   firstName?: string;
@@ -28,11 +29,8 @@ const REFRESH_TOKEN_TTL = "7d";
 const REFRESH_TOKEN_TTL_SECONDS = Number(process.env.REFRESH_TOKEN_TTL_SECONDS) || 7 * 24 * 60 * 60;
 const ACCESS_TOKEN_TTL_SECONDS = Number(process.env.ACCESS_TOKEN_TTL_SECONDS) || 15 * 60;
 
-export const REFRESH_TOKEN_REDIS_KEY_PREFIX = "refresh-token";
-export const ACCESS_TOKEN_REDIS_KEY_PREFIX = "access-token";
-
-export const getRefreshTokenRedisKey = (userId: string, sessionId?: string) => `${REFRESH_TOKEN_REDIS_KEY_PREFIX}:${userId}${sessionId ? `:${sessionId}` : ""}`;
-export const getAccessTokenRedisKey = (userId: string, sessionId?: string) => `${ACCESS_TOKEN_REDIS_KEY_PREFIX}:${userId}${sessionId ? `:${sessionId}` : ""}`;
+export const getRefreshTokenRedisKey = (userId: string, sessionId?: string) => `refresh-token:${userId}${sessionId ? `:${sessionId}` : ""}`;
+export const getAccessTokenRedisKey = (userId: string, sessionId?: string) => `access-token:${userId}${sessionId ? `:${sessionId}` : ""}`;
 
 if (!ACCESS_TOKEN_SECRET || !REFRESH_TOKEN_SECRET) {
   throw new Error("JWT secrets are not configured in environment variables");
@@ -119,7 +117,7 @@ export const generateAccessToken = async (id: string, response: Response, sessio
   };
 };
 
-export const rotateRefreshToken = async (userId: string, sessionId: string, response: Response) => {
+export const rotateRefreshToken = async (userId: string, response: Response, sessionId?: string) => {
   const newRefreshToken = jwt.sign({ id: userId, type: "refresh", sessionId, jti: crypto.randomUUID() }, REFRESH_TOKEN_SECRET, {
     expiresIn: REFRESH_TOKEN_TTL,
     subject: userId,
@@ -137,13 +135,15 @@ export const rotateRefreshToken = async (userId: string, sessionId: string, resp
   return newRefreshToken;
 };
 
-export const revokeRefreshToken = async (userId: string, sessionId?: string): Promise<void> => {
+export const revokeRefreshToken = async (userId: string, response: Response, sessionId?: string): Promise<void> => {
   if (!userId) {
     throw new Error("revokeRefreshToken: userId is required");
   }
-
+  response.clearCookie("refreshToken");
+  response.clearCookie("accessToken");
   const refreshTokenKey = getRefreshTokenRedisKey(userId, sessionId);
   const accessTokenKey = getAccessTokenRedisKey(userId, sessionId);
+  await revokeCSRFToken(userId)
   await redisClient.del(refreshTokenKey);
   await redisClient.del(accessTokenKey);
 };

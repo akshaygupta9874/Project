@@ -1,7 +1,9 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, type Variants } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { apiRequest } from "./lib/api";
+import { AxiosError } from "axios";
 
 // ---------- Form animation ----------
 const containerVariants: Variants = {
@@ -155,6 +157,7 @@ function WelcomePill() {
 }
 
 export default function SignupPage() {
+  const navigate = useNavigate();
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -175,7 +178,7 @@ export default function SignupPage() {
       });
       setStatus(data.message);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Signup failed");
+      setStatus(error instanceof AxiosError ? error.response?.data.message  : "Signup failed");
     } finally {
       setIsSubmitting(false);
     }
@@ -307,6 +310,16 @@ export default function SignupPage() {
           </motion.div>
 
           {/* Disclaimer Text */}
+          <motion.div variants={itemVariants} className="text-center">
+            <button
+              type="button"
+              onClick={() => navigate("/login")}
+              className="text-sm font-medium text-black/70 underline underline-offset-4"
+            >
+              Already have an account? Sign in
+            </button>
+          </motion.div>
+
           <motion.p variants={itemVariants} className="text-center text-[12px] leading-relaxed text-black/50">
             By proceeding, you consent to our Terms of Service and Privacy Policy, and to receive communications from Ride and its affiliates.
           </motion.p>

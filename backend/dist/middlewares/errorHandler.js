@@ -1,6 +1,8 @@
 const errorHandler = (error, _request, response, _next) => {
     const statusCode = error.statusCode || error.status || 500;
-    const message = statusCode === 500 ? "Internal Server Error" : error.message;
+    const message = statusCode >= 500
+        ? "Something went wrong. Please try again later."
+        : "The request could not be processed. Please check your input and try again.";
     console.error(error);
     response.status(statusCode).json({
         message

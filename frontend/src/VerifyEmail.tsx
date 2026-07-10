@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiRequest } from "./lib/api";
+import { AxiosError } from "axios";
 
 export default function VerifyEmail() {
   const { token } = useParams();
@@ -21,7 +22,7 @@ export default function VerifyEmail() {
         setStatus(data.message);
         navigate("/dashboard", { replace: true });
       } catch (error) {
-        setStatus(error instanceof Error ? error.message : "Verification failed");
+        setStatus(error instanceof AxiosError ? error.response?.data.message  : "Verification failed");
       }
     }
 
