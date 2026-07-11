@@ -83,6 +83,7 @@ export const verifyCsrfToken = async (request: Request, response: Response, next
 export const revokeCSRFToken = async (userId : string) => {
      const csrfKey = `csrf:${userId}`;
      await redisClient.del(csrfKey)
+     
 }
 
 export const refreshCSRFToken = async (userId:string , response : Response) => {

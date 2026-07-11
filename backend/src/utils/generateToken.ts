@@ -2,12 +2,12 @@ import crypto from "crypto";
 import jwt, { JwtPayload, SignOptions } from "jsonwebtoken";
 import { redisClient } from "../index.js";
 import { Response } from "express";
-import { generateCSRFToken, revokeCSRFToken } from "../middlewares/csrfMiddleware.js";
+import { revokeCSRFToken } from "../middlewares/csrfMiddleware.js";
 
 export interface TokenPayload extends JwtPayload {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
+  firstName: string;
+  lastName: string;
+  email: string;
   id: string;
   type?: "access" | "refresh";
   sessionId?: string;
@@ -30,7 +30,6 @@ const REFRESH_TOKEN_TTL_SECONDS = Number(process.env.REFRESH_TOKEN_TTL_SECONDS) 
 const ACCESS_TOKEN_TTL_SECONDS = Number(process.env.ACCESS_TOKEN_TTL_SECONDS) || 15 * 60;
 
 export const getRefreshTokenRedisKey = (userId: string, sessionId?: string) => `refresh-token:${userId}${sessionId ? `:${sessionId}` : ""}`;
-export const getAccessTokenRedisKey = (userId: string, sessionId?: string) => `access-token:${userId}${sessionId ? `:${sessionId}` : ""}`;
 
 if (!ACCESS_TOKEN_SECRET || !REFRESH_TOKEN_SECRET) {
   throw new Error("JWT secrets are not configured in environment variables");
@@ -66,7 +65,6 @@ export async function generateToken(payload: TokenPayload, sessionId?: string): 
   const refreshToken = jwt.sign(refreshPayload, REFRESH_TOKEN_SECRET, refreshOptions);
 
   await redisClient.setEx(getRefreshTokenRedisKey(payload.id, effectiveSessionId), REFRESH_TOKEN_TTL_SECONDS, refreshToken);
-  await redisClient.setEx(getAccessTokenRedisKey(payload.id, effectiveSessionId), ACCESS_TOKEN_TTL_SECONDS, accessToken);
 
   return {
     accessToken,
@@ -75,7 +73,7 @@ export async function generateToken(payload: TokenPayload, sessionId?: string): 
   };
 }
 
-export const verifyRefreshToken = async (refreshToken: string, sessionId?: string) => {
+export const verifyRefreshToken = async (refreshToken: string, sessionId: string) => {
   try {
     const decodedRefreshToken = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET) as JwtPayload & TokenPayload;
     if (!decodedRefreshToken || decodedRefreshToken.type !== "refresh") {
@@ -95,29 +93,19 @@ export const verifyRefreshToken = async (refreshToken: string, sessionId?: strin
   }
 };
 
-export const generateAccessToken = async (id: string, response: Response, sessionId?: string) => {
-  const effectiveSessionId = sessionId ?? crypto.randomUUID();
-  const accessToken = jwt.sign({ id, type: "access", sessionId: effectiveSessionId }, ACCESS_TOKEN_SECRET, {
+export const generateAccessToken = async (id: string, response: Response, sessionId: string) => {
+  const accessToken = jwt.sign({ id, type: "access", sessionId: sessionId }, ACCESS_TOKEN_SECRET, {
     expiresIn: "15m",
-  });
-
-  await redisClient.setEx(getAccessTokenRedisKey(id, effectiveSessionId), ACCESS_TOKEN_TTL_SECONDS, accessToken);
-
-  response.cookie("accessToken", accessToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    maxAge: 15 * 60 * 1000,
   });
 
   return {
     accessToken,
-    expiresIn: ACCESS_TOKEN_TTL_SECONDS,
-    sessionId: effectiveSessionId,
+    expiresIn: 15 * 60,
+    sessionId: sessionId,
   };
 };
 
-export const rotateRefreshToken = async (userId: string, response: Response, sessionId?: string) => {
+export const rotateRefreshToken = async (userId: string, response: Response, sessionId: string) => {
   const newRefreshToken = jwt.sign({ id: userId, type: "refresh", sessionId, jti: crypto.randomUUID() }, REFRESH_TOKEN_SECRET, {
     expiresIn: REFRESH_TOKEN_TTL,
     subject: userId,
@@ -140,10 +128,8 @@ export const revokeRefreshToken = async (userId: string, response: Response, ses
     throw new Error("revokeRefreshToken: userId is required");
   }
   response.clearCookie("refreshToken");
-  response.clearCookie("accessToken");
+  response.clearCookie("csrfToken");
   const refreshTokenKey = getRefreshTokenRedisKey(userId, sessionId);
-  const accessTokenKey = getAccessTokenRedisKey(userId, sessionId);
-  await revokeCSRFToken(userId)
   await redisClient.del(refreshTokenKey);
-  await redisClient.del(accessTokenKey);
+  await revokeCSRFToken(userId)
 };

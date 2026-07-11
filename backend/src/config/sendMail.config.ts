@@ -401,7 +401,7 @@ export const verifyEmail = asyncTryCatchHandler(
 
         const userData = JSON.parse(userDataJSON);
 
-        const { firstName, lastName, email, password } = userData;
+        const { firstName, lastName, email, password }  : {firstName : string , lastName : string , email :string ,password :string}= userData;
 
         if (!email) {
             return res.status(400).json({
@@ -434,16 +434,8 @@ export const verifyEmail = asyncTryCatchHandler(
 
         await revokeUserSessions(userId);
 
-        await new Promise<void>((resolve, reject) => {
-            req.session.save?.((err) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve();
-            });
-        });
 
+        await req.session.save?.();
         if (req.sessionID) {
             await registerSession(userId, req.sessionID);
         }
@@ -453,14 +445,8 @@ export const verifyEmail = asyncTryCatchHandler(
             firstName,
             lastName,
             email,
-        }, req.sessionID ?? undefined);
 
-        res.cookie("accessToken", accessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-            maxAge: 15 * 60 * 1000,
-        });
+        }, req.sessionID??undefined);
 
         res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
@@ -487,6 +473,7 @@ export const verifyEmail = asyncTryCatchHandler(
         return res.status(200).json({
             success: true,
             message: "Email verified successfully. Your account has been created successfully.",
+            accessToken : accessToken
         });
     }
 );
@@ -535,15 +522,7 @@ export const verifyOTP: RequestHandler = async (req: Request, response: Response
 
     await revokeUserSessions(userId);
 
-    await new Promise<void>((resolve, reject) => {
-        request.session.save?.((err) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve();
-        });
-    });
+    await request.session.save?.();
 
     if (request.sessionID) {
         await registerSession(userId, request.sessionID);
@@ -558,12 +537,6 @@ export const verifyOTP: RequestHandler = async (req: Request, response: Response
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
         maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-    response.cookie("accessToken", accessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 15 * 60 * 1000,
     });
     response.cookie("csrfToken", csrfToken, {
         httpOnly: false,
@@ -586,7 +559,8 @@ export const verifyOTP: RequestHandler = async (req: Request, response: Response
 
     return response.status(200).json(
         {
-            message: "Logged In Succesfully"
+            message: "Logged In Succesfully",
+            accessToken : accessToken
         }
     )
 }

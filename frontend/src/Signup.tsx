@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, type Variants } from "framer-motion";
 import { Sparkles } from "lucide-react";
-import { apiRequest } from "./lib/api";
+import api from "./apiInterceptor";
 import { AxiosError } from "axios";
 
 // ---------- Form animation ----------
@@ -172,9 +172,11 @@ export default function SignupPage() {
     setIsSubmitting(true);
 
     try {
-      const data = await apiRequest<{ message: string }>("/register", {
-        method: "POST",
-        body: { firstName, lastName, email, password },
+      const {data} = await api.post<{ message: string }>("/register", {
+        firstName,
+        lastName,
+        email,
+        password
       });
       setStatus(data.message);
     } catch (error) {

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, type Variants } from "framer-motion";
 import { QrCode, Navigation } from "lucide-react";
-import { apiRequest } from "./lib/api";
+import api from "./apiInterceptor";
 import { AxiosError } from "axios";
 import { useAuthContext } from "./context/authContext";
 
@@ -244,9 +244,9 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      const data = await apiRequest<{ message: string }>("/login", {
-        method: "POST",
-        body: { email, password },
+      const { data } = await api.post<{ message: string }>("/login", {
+        email,
+        password,
       });
       setStatus(data.message);
       setShowOtp(true);
@@ -262,9 +262,9 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      const data = await apiRequest<{ message: string }>("/verify-otp", {
-        method: "POST",
-        body: { email, otp },
+      const { data } = await api.post<{ message: string }>("/verify-otp", {
+        email,
+        otp,
       });
       setStatus(data.message);
       await checkAuthentication();

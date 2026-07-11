@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, MapPin, Clock3, Sparkles, ShieldCheck, CarFront, Compass, BellRing } from "lucide-react";
-import { apiRequest } from "./lib/api";
+import api from "./apiInterceptor";
 import LoadingScreen from "./components/LoadingScreen";
 
 const quickActions = [
@@ -25,7 +25,7 @@ export default function Dashboard() {
     setIsLoggingOut(true);
 
     try {
-      await apiRequest("/logout", { method: "POST" });
+      await api.post("/logout");
       navigate("/login", { replace: true });
     } catch {
       navigate("/login", { replace: true });

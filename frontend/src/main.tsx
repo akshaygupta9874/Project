@@ -14,7 +14,6 @@ import { AuthContextProvider } from './context/authContext.tsx'
 import { ProtectedRoutes } from './components/ProtectedRoutes.tsx'
 
 createRoot(document.getElementById('root')!).render(
-
   <BrowserRouter>
     <AuthContextProvider>
       <Routes>
@@ -28,11 +27,6 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/dashboard" element={<Dashboard />} />
         </Route>
       </Routes >
-
     </AuthContextProvider>
-
-
   </BrowserRouter>
-
-
 )

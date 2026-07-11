@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { apiRequest } from "./lib/api";
+import api from "./apiInterceptor";
 import { AxiosError } from "axios";
 
 export default function ForgotPasswordPage() {
@@ -16,13 +16,12 @@ export default function ForgotPasswordPage() {
     setIsSubmitting(true);
 
     try {
-      const data = await apiRequest<{ message: string }>("/forgot-password", {
-        method: "POST",
-        body: { email },
+      const { data } = await api.post<{ message: string }>("/forgot-password", {
+        email,
       });
       setStatus(data.message);
     } catch (error) {
-      setStatus(error instanceof AxiosError ? error.response?.data.message  : "Unable to send reset link");
+      setStatus(error instanceof AxiosError ? error.response?.data.message : "Unable to send reset link");
     } finally {
       setIsSubmitting(false);
     }

@@ -9,8 +9,10 @@ export const ProtectedRoutes = ({allowedroles } : {allowedroles : string[]}) => 
     const {user , isAuthenticated , loading} = useAuthContext() as authContextType;
 
     if(loading){
+        console.log(isAuthenticated)
         return <LoadingScreen></LoadingScreen>
     }
+    console.log("here",isAuthenticated)
     if(!isAuthenticated){
         return <UnauthorizedPage/>
     }

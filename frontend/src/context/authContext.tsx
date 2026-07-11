@@ -1,5 +1,5 @@
 import {createContext ,useContext , useState ,useEffect} from "react";
-
+import api, { setAccessToken } from "../apiInterceptor";
 export interface authContextType {
     isAuthenticated : boolean;
     user : any;
@@ -18,25 +18,23 @@ export const AuthContextProvider =  ({children} : {children : React.ReactNode})=
         checkAuthentication();
     },[])
 
-    const checkAuthentication = async ()=>{
-        try{
-            const response = await fetch("http://localhost:3001/v1/api/myprofile",{
-                method:"GET",
-                credentials: "include"
-            });
-            const userData = await response.json();
-            if (userData) {
-                setIsAuthenticated(true);
-                setUser(userData);
-            }
-        } catch (error) {
-            console.error("Error checking authentication:", error);
-            setUser(null);
-        } finally {
-            setLoading(false);
+   const checkAuthentication = async () => {
+    try {
+        const response = await api.post("/refresh");
+        if (response?.data) {
+            const { accessToken, user } = response.data;
+            setAccessToken(accessToken);
+            setUser(user);
+            setIsAuthenticated(true);
         }
-    };
-
+    } catch (error) {
+        setAccessToken(null);
+        setIsAuthenticated(false);
+        setUser(null);
+    } finally {
+        setLoading(false);
+    }
+};
     return (
         <authContext.Provider value={{isAuthenticated , user , loading , checkAuthentication}}>
             {children}

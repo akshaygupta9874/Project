@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { apiRequest } from "./lib/api";
+import api from "./apiInterceptor";
 import { AxiosError } from "axios";
 
 export default function ResetPasswordPage() {
@@ -26,14 +26,14 @@ export default function ResetPasswordPage() {
     setIsSubmitting(true);
 
     try {
-      const data = await apiRequest<{ message: string }>("/reset-password", {
-        method: "POST",
-        body: { token, newPassword },
+      const { data } = await api.post<{ message: string }>("/reset-password", {
+        token,
+        newPassword,
       });
       setStatus(data.message);
       setTimeout(() => navigate("/login", { replace: true }), 1200);
     } catch (error) {
-      setStatus(error instanceof AxiosError ? error.response?.data.message  : "Unable to reset password");
+      setStatus(error instanceof AxiosError ? error.response?.data.message : "Unable to reset password");
     } finally {
       setIsSubmitting(false);
     }
