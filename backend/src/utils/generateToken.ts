@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import jwt, { JwtPayload, SignOptions } from "jsonwebtoken";
-import { redisClient } from "../index.js";
+import { redisClient } from "../redis/client.js";
 import { Response } from "express";
 import { revokeCSRFToken } from "../middlewares/csrfMiddleware.js";
 

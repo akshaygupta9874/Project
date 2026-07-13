@@ -1,65 +1,79 @@
-import express from "express"
-import { createClient } from "redis";
+import dotenv from "dotenv";
+dotenv.config();
 
-import cors from "cors"
-import mongoSanitize from 'express-mongo-sanitize';
+import express from "express";
+import http from "http";
+
+import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import mongoSanitize from "express-mongo-sanitize";
 
-import dotenv from "dotenv"
 import connectDB from "./config/db.config.js";
-import userRouter from "./routes/user.route.js";
+import { connectRedis } from "./redis/client.js";
+
 import { sessionMiddleware } from "./middlewares/session.middleware.js";
 
+import authRouter from "./routes/auth.route.js";
+import userRouter from "./routes/user.route.js";
+import driverRouter from "./routes/driver.route.js";
+import rideRouter from "./routes/ride.route.js";
 
-dotenv.config()
+// import { errorHandler } from "./middlewares/error.middleware.js";
+
+import { initializeWebSocketServer } from "./sockets/socket.js";
 
 const app = express();
+const httpServer = http.createServer(app);
 
-//middlewares
-app.use(cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
-    credentials: true
-}))
-app.use(express.json())
-app.use(mongoSanitize())
-app.use(helmet())
-app.use(cookieParser())
-app.use(sessionMiddleware)
+app.use(
+    cors({
+        origin: process.env.FRONTEND_URL ?? "http://localhost:5173",
+        credentials: true,
+    })
+);
 
-const redisUrl = process.env.REDIS_URL
+app.use(express.json());
 
-if(!redisUrl){
-    console.log("Please Provide Redis URL ! ")
-    process.exit(1)
+app.use(
+    express.urlencoded({
+        extended: true,
+    })
+);
+
+app.use(mongoSanitize());
+
+app.use(helmet());
+
+app.use(cookieParser());
+
+app.use(sessionMiddleware);
+
+// Routes
+app.use("/v1/auth", authRouter);
+app.use("/v1/user", userRouter);
+app.use("/v1/drivers", driverRouter);
+app.use("/v1/rides", rideRouter);
+
+// app.use(errorHandler);
+
+const PORT = Number(process.env.PORT) || 3000;
+
+async function bootstrap() {
+    try {
+        await connectRedis();
+
+        await connectDB();
+
+        initializeWebSocketServer(httpServer);
+
+        httpServer.listen(PORT, () => {
+            console.log(`🚀 Backend running on http://localhost:${PORT}`);
+        });
+    } catch (error) {
+        console.error("Failed to start application:", error);
+        process.exit(1);
+    }
 }
 
-export const redisClient = createClient({
-    url : redisUrl,
-    socket: {
-        reconnectStrategy: false
-    }
-})
-//redisClient.on('error', ...): Redis is a separate server. If that server goes down, your app will throw an error. This line tells your app: "If you ever have a problem with Redis, just log the error instead of crashing the whole application."
-redisClient.on('error', (err) => console.error('Redis Client Error', err));
-redisClient.connect()
-    .then( ()=> {
-        console.log("connected to Redis")
-    })
-    .catch((err) => {
-        console.error("Failed to connect to Redis. Please start Redis or update REDIS_URL in backend/.env.", err);
-        process.exit(1)
-    })
-
-connectDB();
-
-app.use("/v1/api",userRouter)
-// app.use(errorHandler)
-
-const PORT = process.env.PORT  || 3000;
-
-app.listen(PORT , ()=>{
-    console.log(`Backend is Running on PORT :- ${PORT}`)
-})
-
-
+bootstrap();

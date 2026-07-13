@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import { redisClient } from "../index.js";
+import { redisClient } from "../redis/client.js";
 import type { JwtPayload } from "jsonwebtoken";
 import UserModel from "../models/user.model.js";
 import { getUserSessionsKey, SessionData } from "./session.middleware.js";

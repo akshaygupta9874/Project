@@ -2,7 +2,7 @@ import axios, { type AxiosError, type AxiosRequestConfig } from "axios";
 
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:3001/v1/api",
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:3001/v1/auth",
   withCredentials: true, // Essential for HttpOnly refresh cookies
 });
 
@@ -10,7 +10,7 @@ let isRefreshing = false;
 let failedQueue: Array<{ resolve: (value?: unknown) => void; reject: (reason?: unknown) => void }> = [];
 
 const authApi = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:3001/v1/api",
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:3001/v1/auth",
   withCredentials: true,
 });
 

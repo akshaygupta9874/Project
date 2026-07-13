@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { Request, Response, NextFunction, RequestHandler } from "express";
-import { redisClient } from "../index.js";
+import { redisClient } from "../redis/client.js";
 import { getRefreshTokenRedisKey } from "../utils/generateToken.js";
 
 type UserRole = string;

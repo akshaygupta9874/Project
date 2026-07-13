@@ -1,5 +1,5 @@
 import nodemailer, { Transporter } from "nodemailer";
-import { redisClient } from "../index.js";
+import { redisClient } from "../redis/client.js";
 import { NextFunction, Request, RequestHandler, Response } from "express";
 import UserModel from "../models/user.model.js";
 import asyncTryCatchHandler from "../middlewares/TryCatch.js";

@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { redisClient } from "../index.js";
+import { redisClient } from "../redis/client.js";
 import { NextFunction, Request, Response } from "express";
 import { AuthenticatedRequest } from "./isAuthenticated.js";
 

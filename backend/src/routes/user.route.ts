@@ -1,23 +1,12 @@
-import express from "express" ; 
-import {forgotPasswordController, myProfile, refreshToken, resendOtpController, resendVerificationEmailController, resetPasswordController, userLoginController, userLogoutController, userRegistrationController} from "../controllers/user.controller.js"
-import { verifyEmail, verifyOTP } from "../config/sendMail.config.js";
-import { authMiddleware } from "../middlewares/isAuthenticated.js";
-import { verifyCsrfToken } from "../middlewares/csrfMiddleware.js";
+import {Router} from "express"
+import { userProfileController, userSessionsController } from "../controllers/user.controller.js"
+import { authMiddleware } from "../middlewares/isAuthenticated.js"
+import { revokeSessionController } from "../controllers/user.controller.js"
 
-const userRouter = express.Router();
+const userRouter = Router()
 
-userRouter.post("/register",userRegistrationController)
-userRouter.post("/verify/:token",verifyEmail)
-userRouter.post("/resend-verification-email",authMiddleware,verifyCsrfToken,resendVerificationEmailController)
-userRouter.post("/login",userLoginController);
-userRouter.post("/verify-otp",verifyOTP)
-userRouter.post("/resend-otp",authMiddleware,verifyCsrfToken,resendOtpController)
-userRouter.post("/forgot-password",forgotPasswordController)
-userRouter.post("/reset-password",resetPasswordController)
-userRouter.get("/myprofile",authMiddleware,myProfile)
-userRouter.post("/refresh",refreshToken)
-userRouter.post("/logout",authMiddleware,verifyCsrfToken,userLogoutController) 
-
-
+userRouter.get("/profile",authMiddleware,userProfileController)
+userRouter.get("/sessions",authMiddleware,userSessionsController)
+userRouter.post("/removeSession/:sessionId",authMiddleware,revokeSessionController)
 
 export default userRouter;
