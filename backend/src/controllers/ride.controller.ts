@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { createRideSchema } from "../zodSchemas/ride.schema.js"; 
 import asyncTryCatchHandler from "../middlewares/TryCatch.js";
-import { AuthenticatedRequest } from "../middlewares/isAuthenticated.js";
+import { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 import { DriverModel } from "../models/driver.model.js";
 
 import * as RideService from "../services/ride.service.js";

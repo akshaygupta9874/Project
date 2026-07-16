@@ -1,7 +1,7 @@
 import express from "express" ; 
 import {forgotPasswordController, myProfile, refreshToken, resendOtpController, resendVerificationEmailController, resetPasswordController, userLoginController, userLogoutController, userRegistrationController} from "../controllers/auth.controller.js"
 import { verifyEmail, verifyOTP } from "../config/sendMail.config.js";
-import { authMiddleware } from "../middlewares/isAuthenticated.js";
+import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { verifyCsrfToken } from "../middlewares/csrfMiddleware.js";
 
 const authRouter = express.Router();

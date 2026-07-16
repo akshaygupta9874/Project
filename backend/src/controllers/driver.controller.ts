@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import asyncTryCatchHandler from "../middlewares/TryCatch.js";
-import { AuthenticatedRequest } from "../middlewares/isAuthenticated.js";
+import { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 import { DriverRegistrationInput, driverRegistrationSchema, updateLocationSchema } from "../zodSchemas/driver.schema.js";
 import { DriverModel } from "../models/driver.model.js";
 import { updateDriverLocation } from "../redis/services/geo.service.js";

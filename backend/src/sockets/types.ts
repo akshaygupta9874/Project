@@ -2,7 +2,7 @@
 
 import { IncomingMessage } from "http";
 import { WebSocket } from "ws";
-import { AuthenticatedRequest } from "../middlewares/isAuthenticated.js";
+import { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 
 import { UserRole } from "../models/user.model.js";
 

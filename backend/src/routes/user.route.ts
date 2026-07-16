@@ -1,6 +1,6 @@
 import {Router} from "express"
 import { userProfileController, userSessionsController } from "../controllers/user.controller.js"
-import { authMiddleware } from "../middlewares/isAuthenticated.js"
+import { authMiddleware } from "../middlewares/auth.middleware.js"
 import { revokeSessionController } from "../controllers/user.controller.js"
 
 const userRouter = Router()

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "../middlewares/isAuthenticated.js";
+import { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 import { redisClient } from "../redis/client.js";
 import UserModel from "../models/user.model.js";
 import { removeSessionFromUser } from "../middlewares/session.middleware.js";

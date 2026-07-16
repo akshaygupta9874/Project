@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { redisClient } from "../redis/client.js";
 import { NextFunction, Request, Response } from "express";
-import { AuthenticatedRequest } from "./isAuthenticated.js";
+import { AuthenticatedRequest } from "./auth.middleware.js";
 
 
 export const generateCSRFToken = async (userID: string, response: Response)=>{

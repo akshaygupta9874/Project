@@ -4,7 +4,7 @@ import { NextFunction, Request, RequestHandler, Response } from "express";
 import UserModel from "../models/user.model.js";
 import asyncTryCatchHandler from "../middlewares/TryCatch.js";
 import { generateToken } from "../utils/generateToken.js";
-import { AuthenticatedRequest } from "../middlewares/isAuthenticated.js";
+import { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 import { registerSession, revokeUserSessions } from "../middlewares/session.middleware.js";
 import { generateCSRFToken } from "../middlewares/csrfMiddleware.js"
 /**

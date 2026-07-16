@@ -13,6 +13,7 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1086.0",
     "axios": "^1.18.1",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
@@ -23,7 +24,9 @@
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.7.3",
+    "multer": "^2.2.0",
     "nodemailer": "^9.0.3",
+    "razorpay": "^2.9.8",
     "redis": "^6.1.0",
     "socket.io": "^4.8.3",
     "zod": "^4.4.3"
@@ -39,6 +42,7 @@
     "@types/helmet": "^0.0.48",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/mongoose": "^5.11.96",
+    "@types/multer": "^2.2.0",
     "@types/node": "^26.1.0",
     "@types/nodemailer": "^8.0.1",
     "@types/redis": "^4.0.10",

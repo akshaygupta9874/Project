@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { driverProfileController, driverRegistrationController, updateDriverLocationController } from "../controllers/driver.controller.js";
-import { authMiddleware } from "../middlewares/isAuthenticated.js";
+import { authMiddleware } from "../middlewares/auth.middleware.js";
 
 const driverRouter = Router();
 

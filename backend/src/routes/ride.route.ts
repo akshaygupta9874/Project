@@ -12,7 +12,7 @@ import {
     getRidesHistory,
     startRide,
 } from "../controllers/ride.controller.js";
-import { authMiddleware } from "../middlewares/isAuthenticated.js";
+import { authMiddleware } from "../middlewares/auth.middleware.js";
 
 const rideRouter = Router();
 
