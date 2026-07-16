@@ -28,9 +28,12 @@ import {
     RideStatus,
 } from "../models/ride.model.js";
 
+import { paymentService } from "../payment/services/payment.service.js";
+import { fareService } from "./fare.service.js";
+
 import { DriverModel } from "../models/driver.model.js";
 import { emitRideAccepted, emitDriverArrived, emitRideStarted, emitRideCancelled, emitRideCompleted } from "../sockets/emitters/rider.emitter.js";
-import { stopDispatch ,dispatchRide } from "./dispatch-ride.service.js";
+import { stopDispatch, dispatchRide } from "./dispatch-ride.service.js";
 
 export interface CreateRideInput {
     riderId: string;
@@ -521,8 +524,8 @@ export async function cancelRide(
                 ride.driver.toString(),
                 {
                     rideId: ride._id.toString(),
-                    cancelledBy : "RIDER",
-                    reason : input.reason
+                    cancelledBy: "RIDER",
+                    reason: input.reason
 
                 }
             );
@@ -611,6 +614,21 @@ export async function completeRide(
         driver.statistics.totalEarnings +=
             ride.fare.final ??
             ride.fare.estimated;
+
+        const finalFare =
+            ride.fare.final ??
+            ride.fare.estimated;
+
+        const platformCommission =
+            Math.round(finalFare * 0.2);
+
+        const driverEarning =
+            finalFare - platformCommission;
+
+        const fareBreakdown =
+            fareService.calculateFinalFare(
+                ride
+            );
 
         //--------------------------------------------------
         // Save
@@ -828,8 +846,8 @@ export async function cancelRideByDriver(
             ride.rider.toString(),
             {
                 rideId: ride.id,
-                cancelledBy:"DRIVER",
-                reason:input.reason
+                cancelledBy: "DRIVER",
+                reason: input.reason
             }
         );
 
