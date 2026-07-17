@@ -23,17 +23,19 @@ import mongoose, { Types } from "mongoose";
 import { setDriverAvailable, setDriverBusy } from "../redis/services/driver-presence.service.js";
 import {
     IRide,
-    PaymentStatus,
     RideModel,
+    RidePaymentStatus,
     RideStatus,
 } from "../models/ride.model.js";
 
 import { paymentService } from "../payment/services/payment.service.js";
+import { PaymentStatus } from "../payment/types/payment.types.js";
 import { fareService } from "./fare.service.js";
 
 import { DriverModel } from "../models/driver.model.js";
 import { emitRideAccepted, emitDriverArrived, emitRideStarted, emitRideCancelled, emitRideCompleted } from "../sockets/emitters/rider.emitter.js";
 import { stopDispatch, dispatchRide } from "./dispatch-ride.service.js";
+import { AppError } from "../utils/AppError.js";
 
 export interface CreateRideInput {
     riderId: string;
@@ -236,7 +238,7 @@ export async function acceptRide(
         // Driver verified?
         //--------------------------------------------------
 
-        if (!driver.isVerified) {
+        if (driver.verificationStatus!== "APPROVED") {
             throw new Error("Driver is not verified.");
         }
 
@@ -244,7 +246,9 @@ export async function acceptRide(
         // Driver already on another ride?
         //--------------------------------------------------
 
-        if (driver.currentRide) {
+        console.log(driver.currentRide)
+
+        if (driver.currentRide!==null) {
             throw new Error(
                 "Driver already has an active ride."
             );
@@ -272,7 +276,7 @@ export async function acceptRide(
         );
 
         if (!ride) {
-            throw new Error(
+            throw new AppError(
                 "Ride not found or already accepted."
             );
         }
@@ -359,7 +363,7 @@ export async function arriveAtPickup(
     );
 
     if (!ride) {
-        throw new Error(
+        throw new AppError(
             "Ride not found or cannot be marked as arrived."
         );
     }
@@ -399,7 +403,7 @@ export async function startRide(
     );
 
     if (!ride) {
-        throw new Error(
+        throw new AppError(
             "Ride not found or cannot be started."
         );
     }
@@ -593,6 +597,12 @@ export async function completeRide(
         ride.status = RideStatus.COMPLETED;
         ride.completedAt = new Date();
 
+        ride.paymentStatus = RidePaymentStatus.PENDING;
+        const finalFare = fareService.calculateFinalFare(ride)
+
+        ride.fare.final = finalFare.totalPaise;
+        ride.fare.breakdown =
+            finalFare;
         //--------------------------------------------------
         // Free Driver
         //--------------------------------------------------
@@ -612,23 +622,8 @@ export async function completeRide(
             ride.distance.estimated;
 
         driver.statistics.totalEarnings +=
-            ride.fare.final ??
+            finalFare.driverEarningPaise ??
             ride.fare.estimated;
-
-        const finalFare =
-            ride.fare.final ??
-            ride.fare.estimated;
-
-        const platformCommission =
-            Math.round(finalFare * 0.2);
-
-        const driverEarning =
-            finalFare - platformCommission;
-
-        const fareBreakdown =
-            fareService.calculateFinalFare(
-                ride
-            );
 
         //--------------------------------------------------
         // Save
@@ -702,7 +697,7 @@ export async function getDriverCurrentRide(
     const driver = await DriverModel.findById(input.driverId);
 
     if (!driver) {
-        throw new Error("Driver not found.");
+        throw new AppError("Driver not found.");
     }
 
     if (!driver.currentRide) {
@@ -765,7 +760,7 @@ export async function cancelRideByDriver(
         ).session(session);
 
         if (!driver) {
-            throw new Error("Driver not found.");
+            throw new AppError("Driver not found.");
         }
 
         //--------------------------------------------------
@@ -799,7 +794,7 @@ export async function cancelRideByDriver(
         );
 
         if (!ride) {
-            throw new Error(
+            throw new AppError(
                 "Ride not found or cannot be cancelled."
             );
         }

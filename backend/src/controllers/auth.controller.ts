@@ -278,7 +278,8 @@ export const resendOtpController = asyncTryCatchHandler(
             });
         }
 
-        const { email } = validatedData.data;
+        const { email,password } = validatedData.data;
+        console.log(password)
         const rateLimitKey = `resend-otp-rate-limit:${request.ip}:${email}`;
 
         if (await redisClient.get(rateLimitKey)) {
@@ -287,11 +288,20 @@ export const resendOtpController = asyncTryCatchHandler(
             });
         }
 
-        const userFound = await UserModel.findOne({ email });
+        const userFound = await UserModel.findOne({ email }).select("+password");
         if (!userFound) {
             return response.status(400).json({
-                message: "We couldn't resend the verification code. Please try again later."
+                message: "We couldn't resend the verification code. Please try again later. or check the credentials"
             });
+        }
+
+        const passwordMatched = bcrypt.compare(password,userFound.password);
+        if(!passwordMatched){
+            return response.status(401).json(
+                {
+                     message: "We couldn't resend the verification code. Please try again later. or check the credentials"
+                }
+            )
         }
 
         const otp = crypto.randomInt(100000, 1000000).toString();

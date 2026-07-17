@@ -73,6 +73,8 @@ export function initializeWebSocketServer(
 
                         }
 
+                        
+
                         //--------------------------------------------------
                         // Register Socket Handlers
                         //--------------------------------------------------
@@ -112,12 +114,13 @@ export function initializeWebSocketServer(
                         );
 
                     } catch (err) {
+                        console.error("Socket initialization failed:");
+                        console.error(err);
 
                         authenticatedSocket.close(
-                            1008,
-                            "Unauthorized"
+                            1011,
+                            "Internal Server Error"
                         );
-
                     }
 
                 }

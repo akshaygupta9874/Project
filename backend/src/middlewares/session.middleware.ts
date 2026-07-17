@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import { redisClient } from "../redis/client.js";
 import { getRefreshTokenRedisKey } from "../utils/generateToken.js";
+import UserModel from "../models/user.model.js";
 
 type UserRole = string;
 
@@ -46,10 +47,13 @@ export const revokeUserSessions = async (userId: string) => {
 };
 
 export const removeSessionFromUser = async (userId: string, sessionId: string) => {
+  const user = await UserModel.findById(userId).select("+email")
   const sessionsKey = getUserSessionsKey(userId);
   await redisClient.sRem(sessionsKey, sessionId);
   await redisClient.del(`session:${sessionId}`);
   await redisClient.del(getRefreshTokenRedisKey(userId, sessionId));
+  await redisClient.del(`user:${user?.email}`);
+  await redisClient.del(`csrf:${userId}`)
 };
 
 const generateSessionId = (): string => {

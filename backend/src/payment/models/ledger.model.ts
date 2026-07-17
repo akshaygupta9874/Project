@@ -15,7 +15,7 @@ const LedgerEntrySchema = new Schema<ILedgerEntry>(
         transactionId: {
             type: String,
             required: true,
-            index: true,
+
         },
 
         account: {

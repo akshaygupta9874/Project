@@ -13,7 +13,7 @@ export interface AuthenticatedRequest extends Request {
 
 const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET as string;
 
-interface AuthPayload extends JwtPayload {
+export interface AuthPayload extends JwtPayload {
     id: string;
     type: string;
     sessionId: string;
@@ -92,10 +92,12 @@ export async function authMiddleware(
         } else {
             authRequest.userId = JSON.parse(cachedUser)._id;
         }
+        console.log(authRequest.userId+"hello")
 
         authRequest.session.userId = decodedData.id;
         authRequest.session.createdAt = Date.now();
         authRequest.sessionID = decodedData.sessionId;
+
 
         return next();
     } catch {

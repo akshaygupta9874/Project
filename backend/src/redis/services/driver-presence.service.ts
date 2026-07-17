@@ -28,7 +28,7 @@ import type {
 // Constants
 // ======================================================
 
-const DRIVER_PRESENCE_TTL_SECONDS = 60;
+const DRIVER_PRESENCE_TTL_SECONDS = 600;
 
 // ======================================================
 // Internal Helpers

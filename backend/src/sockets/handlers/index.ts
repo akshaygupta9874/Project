@@ -7,6 +7,9 @@ export function registerSocketHandlers(
     socket: AuthenticatedSocket
 ): void {
 
+    console.log("Socket Role:", socket.user.role);
+console.log("User:", socket.user);
+
     switch (socket.user.role) {
 
         case UserRole.DRIVER:

@@ -2,6 +2,9 @@ import mongoose from "mongoose";
 import dotenv from "dotenv"
 dotenv.config();
 
+import dns from 'node:dns';
+dns.setServers(['1.1.1.1', '8.8.8.8']);
+
 const MONGODB_URI = process.env.MONGODB_URI as string
 
 if (!MONGODB_URI) {

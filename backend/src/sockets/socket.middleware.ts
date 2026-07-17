@@ -7,14 +7,13 @@ import type {
     AuthenticatedSocket,
     AuthenticatedSocketUser,
 } from "./types.js";
-
-import { UserRole } from "../models/user.model.js";
+import UserModel, { UserRole } from "../models/user.model.js";
+import { TokenPayload } from "../utils/generateToken.js";
 
 interface AccessTokenPayload extends JwtPayload {
     userId: string;
     role: UserRole;
     sessionId: string;
-    jti? : string;
 }
 
 function extractAccessToken(request: IncomingMessage): string {
@@ -37,30 +36,31 @@ export async function authenticateSocket(
 ): Promise<void> {
 
     const token = extractAccessToken(request);
-
     const payload = jwt.verify(
         token,
-        process.env.ACCESS_TOKEN_PUBLIC_KEY!
-    ) as AccessTokenPayload;
+        process.env.JWT_ACCESS_SECRET!
+    ) as TokenPayload;
+
+    const USER = await UserModel.findById(payload.id).select("+role");
 
     const user: AuthenticatedSocketUser = {
-        userId: payload.userId,
-        role: payload.role,
-        sessionId: payload.sessionId,
+        userId: payload.id,
+        role: USER!.role,
+        sessionId: payload.sessionId!,
         jti : payload.jti
     };
 
-    if (payload.role === UserRole.DRIVER) {
+    if (USER!.role === UserRole.DRIVER) {
 
         const driver = await DriverModel.findOne({
-            user: payload.userId,
+            user: payload.id,
         }).select("_id");
 
         if (!driver) {
             throw new Error("Driver profile not found.");
         }
 
-        user.driverId = driver.id;
+        user.driverId = driver._id.toString();
     }
 
     ws.user = user;

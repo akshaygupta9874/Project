@@ -23,11 +23,11 @@ interface AuthTokens {
 const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET as string;
 const REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_SECRET as string;
 
-const ACCESS_TOKEN_TTL = "15m";
+const ACCESS_TOKEN_TTL = "1d";
 const REFRESH_TOKEN_TTL = "7d";
 
 const REFRESH_TOKEN_TTL_SECONDS = Number(process.env.REFRESH_TOKEN_TTL_SECONDS) || 7 * 24 * 60 * 60;
-const ACCESS_TOKEN_TTL_SECONDS = Number(process.env.ACCESS_TOKEN_TTL_SECONDS) || 15 * 60;
+const ACCESS_TOKEN_TTL_SECONDS = Number(process.env.ACCESS_TOKEN_TTL_SECONDS) || 24*60* 60;
 
 export const getRefreshTokenRedisKey = (userId: string, sessionId?: string) => `refresh-token:${userId}${sessionId ? `:${sessionId}` : ""}`;
 
@@ -95,12 +95,12 @@ export const verifyRefreshToken = async (refreshToken: string, sessionId: string
 
 export const generateAccessToken = async (id: string, response: Response, sessionId: string) => {
   const accessToken = jwt.sign({ id, type: "access", sessionId: sessionId }, ACCESS_TOKEN_SECRET, {
-    expiresIn: "15m",
+    expiresIn: "1d",
   });
 
   return {
     accessToken,
-    expiresIn: 15 * 60,
+    expiresIn: 24*60*60,
     sessionId: sessionId,
   };
 };

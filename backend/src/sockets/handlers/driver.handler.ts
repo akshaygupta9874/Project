@@ -229,6 +229,7 @@ export function registerDriverHandlers(
             const result = SocketMessageSchema.safeParse(parsed);
 
             if (!result.success) {
+                
                 sendSocketError(socket, "Invalid WebSocket message.");
                 return;
             }
@@ -241,7 +242,9 @@ export function registerDriverHandlers(
             }
 
             await handler(socket, result.data.data);
-        } catch {
+        } catch (err){
+
+            console.log(err)
 
             socket.send(
                 JSON.stringify({

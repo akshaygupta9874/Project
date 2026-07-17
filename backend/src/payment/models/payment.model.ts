@@ -110,7 +110,6 @@ const PaymentSchema = new Schema<IPayment>(
     // CHANGED: Added index because webhook verification frequently queries by gatewayPaymentId.
     gatewayPaymentId: {
       type: String,
-      index: true,
     },
 
     amountPaise: {
@@ -210,15 +209,6 @@ const PaymentSchema = new Schema<IPayment>(
 // Indexes
 // ============================================================================
 
-// One gateway order = one payment
-PaymentSchema.index(
-  {
-    gatewayOrderId: 1,
-  },
-  {
-    unique: true,
-  }
-);
 
 // Payment id becomes available only after checkout
 PaymentSchema.index(

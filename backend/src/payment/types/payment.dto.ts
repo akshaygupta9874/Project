@@ -17,10 +17,8 @@ import {
 
 export interface CreateOrderInput {
     ride: Types.ObjectId;
-    rider: Types.ObjectId;
-    driver: Types.ObjectId;
 
-    fareBreakdown: IFareBreakdown;
+    rider: Types.ObjectId;
 
     idempotencyKey: string;
 }

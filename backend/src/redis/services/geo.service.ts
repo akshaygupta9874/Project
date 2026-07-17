@@ -34,12 +34,19 @@ export async function updateDriverLocation(
 export async function findNearbyDrivers(
     latitude: number,
     longitude: number,
-    radiusKm: number = 5,
+    radiusKm: number = 20,
     count: number = 20
 ): Promise<NearbyDriver[]> {
     assertValidCoords(latitude, longitude);
 
     try {
+
+        console.log({
+    key: DRIVER_LOCATION_KEY,
+    latitude,
+    longitude,
+    radiusKm
+});
         const results = await redisClient.geoSearchWith(
             DRIVER_LOCATION_KEY,
             { latitude, longitude },

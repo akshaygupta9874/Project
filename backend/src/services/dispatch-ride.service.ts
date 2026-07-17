@@ -15,7 +15,7 @@ import { socketRegistry } from "../sockets/registry/socket.registry.js";
 
 const DISPATCH_BATCH_SIZE = 3;
 
-const DISPATCH_TIMEOUT_MS = 15_000;
+const DISPATCH_TIMEOUT_MS = 1000000;
 
 // ======================================================
 // Types
@@ -59,6 +59,7 @@ export async function dispatchRide(
             ride.pickup.coordinates.latitude,
             ride.pickup.coordinates.longitude
         );
+    console.log(drivers)
 
     //--------------------------------------------------
     // No Drivers Available

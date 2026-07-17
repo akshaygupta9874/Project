@@ -18,6 +18,8 @@ import authRouter from "./routes/auth.route.js";
 import userRouter from "./routes/user.route.js";
 import driverRouter from "./routes/driver.route.js";
 import rideRouter from "./routes/ride.route.js";
+import paymentRouter from "./payment/routes/payment.routes.js";
+import webhookRouter from "./payment/routes/webhook.routes.js";
 
 // import { errorHandler } from "./middlewares/error.middleware.js";
 
@@ -52,8 +54,12 @@ app.use(sessionMiddleware);
 // Routes
 app.use("/v1/auth", authRouter);
 app.use("/v1/user", userRouter);
-app.use("/v1/drivers", driverRouter);
-app.use("/v1/rides", rideRouter);
+app.use("/v1/driver", driverRouter);
+app.use("/v1/ride", rideRouter);
+app.use("/v1/payments", paymentRouter);
+
+// Webhooks are called by Razorpay, not your frontend.
+app.use("/v1/webhooks", webhookRouter);
 
 // app.use(errorHandler);
 

@@ -41,8 +41,10 @@ export const createOrder =
     res: Response
   ) => {
 
-    if(!req.userId){
-       throw new AppError(
+    console.log(req.body+"hi")
+
+    if (!req.userId) {
+      throw new AppError(
         "Unaauthenticated",
         400,
         "Unaauthenticated"
@@ -55,36 +57,19 @@ export const createOrder =
       );
 
     const {
-      ride,
-      driver,
+      rideId,
+      driverId,
       fareBreakdown,
       idempotencyKey,
     } = req.body;
 
     const result =
       await paymentService.createOrder({
-
-        ride:
-          new Types.ObjectId(
-            ride
-          ),
-
-        rider,
-
-        driver:
-          new Types.ObjectId(
-            driver
-          ),
-
-        fareBreakdown,
-
+        ride: rideId,
+        rider: new Types.ObjectId(req.userId!),
         idempotencyKey:
           idempotencyKey ??
-          deriveIdempotencyKey(
-            ride,
-            req.userId
-          ),
-
+          deriveIdempotencyKey(rideId,req.body.rider),
       });
 
     res.status(201).json({
@@ -101,8 +86,8 @@ export const verifyCheckout =
     res: Response
   ) => {
 
-    if(!req.userId){
-       throw new AppError(
+    if (!req.userId) {
+      throw new AppError(
         "Unaauthenticated",
         400,
         "Unaauthenticated"
@@ -145,8 +130,8 @@ export const getPayment =
     res: Response
   ) => {
 
-        if(!req.userId){
-       throw new AppError(
+    if (!req.userId) {
+      throw new AppError(
         "Unaauthenticated",
         400,
         "Unaauthenticated"
@@ -219,8 +204,8 @@ export const getPaymentsByRide =
     res: Response
   ) => {
 
-        if(!req.userId){
-       throw new AppError(
+    if (!req.userId) {
+      throw new AppError(
         "Unaauthenticated",
         400,
         "Unaauthenticated"
@@ -228,7 +213,7 @@ export const getPaymentsByRide =
     }
 
     if (!req.params.rideId) {
- throw new AppError(
+      throw new AppError(
         "Ride id is required.",
         400,
         "RIDE_ID_REQUIRED"
@@ -287,8 +272,8 @@ export const listPayments =
     res: Response
   ) => {
 
-        if(!req.userId){
-       throw new AppError(
+    if (!req.userId) {
+      throw new AppError(
         "Unaauthenticated",
         400,
         "Unaauthenticated"
@@ -351,8 +336,8 @@ export const refundPayment =
     res: Response
   ) => {
 
-        if(!req.userId){
-       throw new AppError(
+    if (!req.userId) {
+      throw new AppError(
         "Unaauthenticated",
         400,
         "Unaauthenticated"

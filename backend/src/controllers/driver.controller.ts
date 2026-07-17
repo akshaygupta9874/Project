@@ -18,6 +18,13 @@ export const driverRegistrationController = asyncTryCatchHandler(
                 errors: zodValidatedData.error.issues
             });
         }
+        if(zodValidatedData.data.userId!=authRequest.userId){
+            return response.status(401).json(
+                {
+                    message : "Unauthorized"
+                }
+            )
+        }
         const { profilePhoto, vehicleImages, vehicle, documents } = zodValidatedData.data as DriverRegistrationInput;
         const existingDriver = await DriverModel.findOne({ user: userId });
         if (existingDriver && existingDriver.isVerified) {
@@ -72,7 +79,9 @@ export const driverProfileController = asyncTryCatchHandler(
     async (request: Request, response: Response) => {
         const authRequest = request as AuthenticatedRequest;
         const userId = authRequest.userId;
-        const driverProfile = await DriverModel.findOne({ userId: userId }).select("-_id");
+        console.log(userId+"hi")
+        const driverProfile = await DriverModel.findOne({ user : userId });
+        console.log(driverProfile)
         if (!driverProfile) {
             return response.status(404).json(
                 {
@@ -89,36 +98,36 @@ export const driverProfileController = asyncTryCatchHandler(
     }
 )
 
-export const updateDriverLocationController = asyncTryCatchHandler(
-    async (request: AuthenticatedRequest, response: Response) => {
-        const zodValidatedData = updateLocationSchema.safeParse(request.body)
-        if (!zodValidatedData.success) {
-            return response.status(400).json({
-                success: false,
-                message: "Invalid input data",
-                errors: zodValidatedData.error.issues
-            });
-        }
-        const userId = request.userId
+// export const updateDriverLocationController = asyncTryCatchHandler(
+//     async (request: AuthenticatedRequest, response: Response) => {
+//         const zodValidatedData = updateLocationSchema.safeParse(request.body)
+//         if (!zodValidatedData.success) {
+//             return response.status(400).json({
+//                 success: false,
+//                 message: "Invalid input data",
+//                 errors: zodValidatedData.error.issues
+//             });
+//         }
+//         const userId = request.userId
 
-        const driverProfile = await DriverModel.findOne({ userId: userId }).select("_id");
-        if (!driverProfile) {
-            return response.status(404).json(
-                {
-                    message: "You have not Registered for the Driver Role till now "
-                }
-            )
-        }
-        const driverId = driverProfile._id;
-        const {longitude , latitude} = zodValidatedData.data
+//         const driverProfile = await DriverModel.findOne({ userId: userId }).select("_id");
+//         if (!driverProfile) {
+//             return response.status(404).json(
+//                 {
+//                     message: "You have not Registered for the Driver Role till now "
+//                 }
+//             )
+//         }
+//         const driverId = driverProfile._id;
+//         const {longitude , latitude} = zodValidatedData.data
 
-        updateDriverLocation(driverId.toString(),longitude,latitude)
+//         updateDriverLocation(driverId.toString(),longitude,latitude)
 
-        return response.status(200).json(
-            {
-                message : "Driver ka location updated Successfully"
-            }
-        )
+//         return response.status(200).json(
+//             {
+//                 message : "Driver ka location updated Successfully"
+//             }
+//         )
 
-    }
-)
+//     }
+// )

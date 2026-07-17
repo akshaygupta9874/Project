@@ -1,4 +1,5 @@
 import { Router } from "express";
+
 import {
     acceptRide,
     arriveRide,
@@ -12,34 +13,76 @@ import {
     getRidesHistory,
     startRide,
 } from "../controllers/ride.controller.js";
-import { authMiddleware } from "../middlewares/auth.middleware.js";
 
-const rideRouter = Router();
+import {
+    authMiddleware,
+} from "../middlewares/auth.middleware.js";
 
-rideRouter.use(authMiddleware)
+const router = Router();
 
-// Rider Routes
-rideRouter.post("/createRide", createRide);
+router.use(authMiddleware);
 
-rideRouter.get("/current", getCurrentRide);
+// ============================================================================
+// Rider
+// ============================================================================
 
-rideRouter.get("/history", getRidesHistory);
+router.post(
+    "/",
+    createRide
+);
 
-rideRouter.get("/:rideId", getRideById);
+router.get(
+    "/current",
+    getCurrentRide
+);
 
-rideRouter.patch("/:rideId/cancel", cancelRide);
+router.get(
+    "/history",
+    getRidesHistory
+);
 
-// Driver Routes
-rideRouter.get("/driver/current", getCurrentRideOfDriver);
+router.get(
+    "/:rideId",
+    getRideById
+);
 
-rideRouter.patch("/:rideId/accept", acceptRide);
+router.patch(
+    "/:rideId/cancel",
+    cancelRide
+);
 
-rideRouter.patch("/:rideId/arrive", arriveRide);
+// ============================================================================
+// Driver
+// ============================================================================
 
-rideRouter.patch("/:rideId/start", startRide);
+router.get(
+    "/driver/current",
+    getCurrentRideOfDriver
+);
 
-rideRouter.patch("/:rideId/complete", completeRide);
+router.patch(
+    "/:rideId/accept",
+    acceptRide
+);
 
-rideRouter.patch("/:rideId/driver/cancel", cancelRideByDriver);
+router.patch(
+    "/:rideId/arrive",
+    arriveRide
+);
 
-export default rideRouter;
+router.patch(
+    "/:rideId/start",
+    startRide
+);
+
+router.patch(
+    "/:rideId/complete",
+    completeRide
+);
+
+router.patch(
+    "/:rideId/driver/cancel",
+    cancelRideByDriver
+);
+
+export default router;

@@ -7,7 +7,6 @@ export const fareBreakdownSchema = z.object({
   timeFarePaise: z.number().int().nonnegative(),
   surgePaise: z.number().int().nonnegative().default(0),
   platformCommissionPaise: z.number().int().nonnegative(),
-  gstOnCommissionPaise: z.number().int().nonnegative(),
   driverEarningPaise: z.number().int().nonnegative(),
   totalPaise: z.number().int().positive(),
 });
@@ -62,6 +61,9 @@ export const listPaymentsQuerySchema = z.object({
 export function validate(schema: ZodSchema) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const result = schema.safeParse({ body: req.body, params: req.params, query: req.query });
+    console.log("typeof req.body:", typeof req.body);
+console.log("req.body:", JSON.stringify(req.body, null, 2));
+    console.log(result,req.body)
     if (!result.success) {
       res.status(422).json({
         message: 'Validation failed',
@@ -73,6 +75,7 @@ export function validate(schema: ZodSchema) {
     if (parsed.body !== undefined) req.body = parsed.body;
     if (parsed.params !== undefined) req.params = parsed.params as typeof req.params;
     if (parsed.query !== undefined) req.query = parsed.query as typeof req.query;
+    console.log(req.body+"jknj")
     next();
   };
 }

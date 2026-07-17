@@ -9,22 +9,18 @@ class FareService {
     calculateFinalFare(
         ride: IRide
     ): IFareBreakdown {
-
-        const totalPaise =
-            ride.fare.final ??
-            ride.fare.estimated;
+;
 
         const baseFarePaise =
-            totalPaise;
+           ride.fare.breakdown?.baseFarePaise ?? 0 ;
 
-        const distanceFarePaise =
-            0;
+        const distanceFarePaise = ride.fare.breakdown?.distanceFarePaise ?? 0 ;
 
-        const timeFarePaise =
-            0;
+        const timeFarePaise = ride.fare.breakdown?.timeFarePaise ?? 0 ;
 
-        const surgePaise =
-            0;
+        const surgePaise = ride.fare.breakdown?.timeFarePaise ?? 0 ;
+
+        const totalPaise = ride.fare.breakdown?.totalPaise ?? ride.fare.final ?? ride.fare.estimated;
 
         const platformCommissionPaise =
             Math.round(

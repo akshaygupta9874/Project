@@ -1,12 +1,40 @@
-import {Router} from "express"
-import { userProfileController, userSessionsController } from "../controllers/user.controller.js"
-import { authMiddleware } from "../middlewares/auth.middleware.js"
-import { revokeSessionController } from "../controllers/user.controller.js"
+import { Router } from "express";
 
-const userRouter = Router()
+import {
+    userProfileController,
+    userSessionsController,
+    revokeSessionController,
+} from "../controllers/user.controller.js";
 
-userRouter.get("/profile",authMiddleware,userProfileController)
-userRouter.get("/sessions",authMiddleware,userSessionsController)
-userRouter.post("/removeSession/:sessionId",authMiddleware,revokeSessionController)
+import {
+    authMiddleware,
+} from "../middlewares/auth.middleware.js";
 
-export default userRouter;
+const router = Router();
+
+router.use(authMiddleware);
+
+// ============================================================================
+// Profile
+// ============================================================================
+
+router.get(
+    "/profile",
+    userProfileController
+);
+
+// ============================================================================
+// Sessions
+// ============================================================================
+
+router.get(
+    "/sessions",
+    userSessionsController
+);
+
+router.delete(
+    "/sessions/:sessionId",
+    revokeSessionController
+);
+
+export default router;

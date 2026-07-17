@@ -64,11 +64,11 @@ export const userSessionsController = asyncTryCatchHandler(async (request: Reque
     const userId = authRequest.userId;
     const sessionsKey = `user-sessions:${userId}`;
     const sessions = await redisClient.sMembers(sessionsKey);
-    const parsedSessions: string[] = sessions.map((session) => JSON.parse(session));
+    // const parsedSessions: string[] = sessions.map((session) => JSON.parse(session));
     return response.status(200).json(
         {
             message: "User Sessions Fetched Successfully",
-            sessions: parsedSessions
+            sessions
         }
     )
 }

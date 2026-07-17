@@ -35,7 +35,6 @@ import {
 
 import {
   IFareBreakdown,
-  CurrencyType,
   PaymentGateway,
   PaymentMethod,
   PaymentStatus,
@@ -48,6 +47,8 @@ import {
   MIN_PAYMENT_AMOUNT_PAISE,
   REDIS_KEYS,
 } from "../constants/payment.constants.js";
+
+import { RideModel, RidePaymentStatus, RideStatus } from "../../models/ride.model.js";
 
 const RAZORPAY_METHOD_MAP: Record<
   string,
@@ -177,9 +178,83 @@ class PaymentService {
     input: CreateOrderInput
   ): Promise<CreateOrderResult> {
 
-    validateFareBreakdown(
-      input.fareBreakdown
-    );
+    //--------------------------------------------------
+    // Find Ride
+    //--------------------------------------------------
+
+    const ride =
+      await RideModel.findById(
+        input.ride
+      );
+
+    if (!ride) {
+
+      throw new AppError(
+        "Ride not found.",
+        404,
+        "RIDE_NOT_FOUND"
+      );
+
+    }
+
+    //--------------------------------------------------
+    // Ride must be completed
+    //--------------------------------------------------
+
+    if (
+      ride.status !==
+      RideStatus.COMPLETED
+    ) {
+
+      throw new AppError(
+        "Ride is not completed.",
+        400,
+        "RIDE_NOT_COMPLETED"
+      );
+
+    }
+
+    //--------------------------------------------------
+    // Payment must still be pending
+    //--------------------------------------------------
+
+    if (
+      ride.paymentStatus !==
+      RidePaymentStatus.PENDING
+    ) {
+
+      throw new AppError(
+        "Payment already processed.",
+        400,
+        "INVALID_PAYMENT_STATUS"
+      );
+
+    }
+
+    //--------------------------------------------------
+    // Security Check
+    //
+    // Rider in token must own this ride.
+    //--------------------------------------------------
+
+    if (
+      ride.rider.toString() !==
+      input.rider.toString()
+    ) {
+
+      throw new AppError(
+        "Unauthorized.",
+        403,
+        "FORBIDDEN"
+      );
+
+    }
+
+
+
+    //--------------------------------------------------
+    // Idempotency
+    //--------------------------------------------------
 
     const existing =
       await paymentRepository.findByIdempotencyKey(
@@ -189,6 +264,7 @@ class PaymentService {
     if (existing) {
 
       return {
+
         paymentId:
           existing._id.toString(),
 
@@ -207,14 +283,19 @@ class PaymentService {
 
         status:
           existing.status,
+
       };
 
     }
 
+    //--------------------------------------------------
+    // Acquire Lock
+    //--------------------------------------------------
+
     const release =
       await acquireLock(
         REDIS_KEYS.paymentOrderLock(
-          input.ride.toString() // CHANGED: rideId -> ride
+          input.ride.toString()
         ),
         IDEMPOTENCY_LOCK_TTL_MS
       );
@@ -231,7 +312,78 @@ class PaymentService {
 
     try {
 
-      // Re-check after lock acquisition.
+      //--------------------------------------------------
+      // Re-fetch Ride
+      //
+      // Another request may have completed payment
+      // while this request was waiting for the lock.
+      //--------------------------------------------------
+
+      const lockedRide =
+        await RideModel.findById(
+          input.ride.toString()
+        );
+
+      if (!lockedRide) {
+
+        throw new AppError(
+          "Ride not found.",
+          404,
+          "RIDE_NOT_FOUND"
+        );
+
+      }
+
+      //--------------------------------------------------
+      // Driver Validation
+      //--------------------------------------------------
+
+      if (!lockedRide.driver) {
+
+        throw new AppError(
+          "Driver not assigned.",
+          400,
+          "DRIVER_NOT_ASSIGNED"
+        );
+
+      }
+
+      const driver =
+        lockedRide.driver;
+      const fareBreakdown =
+        lockedRide.fare.breakdown;
+
+      if (!fareBreakdown) {
+
+        throw new AppError(
+          "Fare breakdown missing.",
+          500,
+          "FARE_BREAKDOWN_MISSING"
+        );
+
+      }
+
+      validateFareBreakdown(
+        fareBreakdown
+      );
+
+      if (
+        lockedRide.paymentStatus !==
+        RidePaymentStatus.PENDING
+      ) {
+
+        throw new AppError(
+          "Payment already processed.",
+          409,
+          "PAYMENT_ALREADY_COMPLETED"
+        );
+
+      }
+
+      //--------------------------------------------------
+      // Re-check Idempotency
+      //--------------------------------------------------
+
       const raced =
         await paymentRepository.findByIdempotencyKey(
           input.idempotencyKey
@@ -240,6 +392,7 @@ class PaymentService {
       if (raced) {
 
         return {
+
           paymentId:
             raced._id.toString(),
 
@@ -258,17 +411,69 @@ class PaymentService {
 
           status:
             raced.status,
+
         };
 
       }
 
+      //--------------------------------------------------
+      // Prevent Multiple Payments
+      //
+      // Different idempotency keys should still not
+      // create multiple active payments for one ride.
+      //--------------------------------------------------
+
+      const existingPayments =
+        await paymentRepository.findByRide(
+          input.ride.toString()
+        );
+
+      const activePayment =
+        existingPayments.find(
+          (payment) =>
+            payment.status !==
+            PaymentStatus.FAILED
+        );
+
+      if (activePayment) {
+
+        return {
+
+          paymentId:
+            activePayment._id.toString(),
+
+          gatewayOrderId:
+            activePayment.gatewayOrderId,
+
+          amountPaise:
+            activePayment.amountPaise,
+
+          currency:
+            activePayment.currency,
+
+          razorpayKeyId:
+            process.env
+              .RAZORPAY_KEY_ID!,
+
+          status:
+            activePayment.status,
+
+        };
+
+      }
+
+      //--------------------------------------------------
+      // Continue with Razorpay Order Creation...
+      //--------------------------------------------------
+      //--------------------------------------------------
+      // Create Razorpay Order
+      //--------------------------------------------------
+      console.log(lockedRide)
       const order =
         await razorpayClient.orders.create(
           {
             amount:
-              input
-                .fareBreakdown
-                .totalPaise,
+              lockedRide.fare.breakdown!.totalPaise,
 
             currency:
               CURRENCY.INR,
@@ -276,33 +481,42 @@ class PaymentService {
             receipt:
               input.ride.toString(),
 
-            // CHANGED: Razorpay captures automatically.
+            // CHANGED:
+            // Auto-capture enabled.
+            // Webhook will later confirm capture.
             payment_capture: true,
 
             notes: {
+
               ride:
-                input.ride.toString(),
+                lockedRide._id.toString(),
 
               rider:
-                input.rider.toString(),
+                lockedRide.rider.toString(),
 
               driver:
-                input.driver.toString(),
+                driver.toString(),
+
             },
           }
         );
 
+      //--------------------------------------------------
+      // Persist Payment
+      //--------------------------------------------------
+
       const payment =
         await paymentRepository.create(
           {
+
             ride:
-              input.ride,
+              lockedRide._id,
 
             rider:
-              input.rider,
+              lockedRide.rider,
 
             driver:
-              input.driver,
+              driver,
 
             gateway:
               PaymentGateway.RAZORPAY,
@@ -311,30 +525,44 @@ class PaymentService {
               order.id,
 
             amountPaise:
-              input
-                .fareBreakdown
-                .totalPaise,
+              lockedRide.fare.breakdown!.totalPaise,
 
             currency:
-              CURRENCY.INR as CurrencyType,
+              CURRENCY.INR,
 
             status:
               PaymentStatus.CREATED,
 
-            fareBreakdown:
-              input.fareBreakdown,
+            fareBreakdown,
 
             idempotencyKey:
               input.idempotencyKey,
 
-            // CHANGED: attempts -> attemptNumber
             attemptNumber: 1,
 
             refundedAmountPaise: 0,
 
-            metadata: {},
+            metadata: {
+
+              // ADDED:
+              // Helpful for debugging and future analytics.
+              rideStatus:
+                lockedRide.status,
+
+              paymentStatus:
+                lockedRide.paymentStatus,
+
+              createdBy:
+                "checkout",
+
+            },
+
           }
         );
+
+      //--------------------------------------------------
+      // Return Checkout Details
+      //--------------------------------------------------
 
       return {
 
@@ -361,6 +589,10 @@ class PaymentService {
 
     } finally {
 
+      //--------------------------------------------------
+      // Always Release Redis Lock
+      //--------------------------------------------------
+
       await release();
 
     }
@@ -379,8 +611,7 @@ class PaymentService {
   ): Promise<PaymentStatus> {
 
     const secret =
-      process.env
-        .RAZORPAY_KEY_SECRET!;
+      process.env.RAZORPAY_KEY_SECRET!;
 
     const expectedSignature =
       createHmac(
@@ -437,7 +668,17 @@ class PaymentService {
 
     }
 
-    const updated =
+    // Already processed by webhook.
+    if (
+      payment.status ===
+      PaymentStatus.CAPTURED
+    ) {
+
+      return payment.status;
+
+    }
+
+    const updatedPayment =
       await paymentRepository.transitionStatus(
         payment._id.toString(),
 
@@ -453,12 +694,12 @@ class PaymentService {
       );
 
     // CHANGED:
-    // If transition fails it usually means the webhook
-    // has already updated the payment. Returning the
-    // current status makes this endpoint idempotent.
+    // If transition fails it usually means another request
+    // or the webhook already updated the payment.
+    // Return the current status to keep this endpoint idempotent.
 
     return (
-      updated?.status ??
+      updatedPayment?.status ??
       payment.status
     );
 
@@ -607,6 +848,19 @@ class PaymentService {
 
             session
           );
+          // ADDED: Mark ride as paid.
+
+          await RideModel.findByIdAndUpdate(
+            payment.ride,
+            {
+              $set: {
+                paymentStatus: PaymentStatus.CAPTURED,
+              },
+            },
+            {
+              session,
+            }
+          );
 
         }
       );
@@ -638,28 +892,39 @@ class PaymentService {
       return;
     }
 
-    await paymentRepository.transitionStatus(
-      payment._id.toString(),
+    const updatedPayment =
+      await paymentRepository.transitionStatus(
+        payment._id.toString(),
+        payment.status,
+        {
+          status: PaymentStatus.FAILED,
 
-      payment.status,
+          failureReason:
+            entity.error_description ??
+            undefined,
 
-      {
-        status:
-          PaymentStatus.FAILED,
+          failureCode:
+            entity.error_code ??
+            undefined,
+        }
+      );
 
-        failureReason:
-          entity.error_description ??
-          undefined,
-
-        failureCode:
-          entity.error_code ??
-          undefined,
-      }
-    );
+    if (!updatedPayment) {
+      return;
+    }
 
     await paymentRepository.incrementAttempts(
       payment._id.toString()
     );
+
+    await RideModel.findByIdAndUpdate(
+      payment.ride,
+      {
+        paymentStatus: RidePaymentStatus.FAILED,
+      }
+    );
+
+
   }
 
   /**
