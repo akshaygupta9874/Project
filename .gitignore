@@ -1,3 +1,17 @@
+# Ignore environment variables
+backend/.env
+frontend/.env
+
+# Dependency directories
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Production builds
+frontend/dist/
+frontend/build/
+
+
 # Dependencies
 node_modules/
 

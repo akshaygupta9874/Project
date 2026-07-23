@@ -229,7 +229,7 @@ function EtaPill() {
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { checkAuthentication } = useAuthContext();
+  const { checkAuthentication, isAuthenticated, loading } = useAuthContext();
   const [isFocused, setIsFocused] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -237,6 +237,12 @@ export default function LoginPage() {
   const [status, setStatus] = useState("");
   const [showOtp, setShowOtp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isAuthenticated, loading, navigate]);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

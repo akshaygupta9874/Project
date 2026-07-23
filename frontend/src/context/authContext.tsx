@@ -1,51 +1,80 @@
-import {createContext ,useContext , useState ,useEffect} from "react";
-import api, { setAccessToken } from "../apiInterceptor";
-export interface authContextType {
-    isAuthenticated : boolean;
-    user : any;
-    loading : boolean;
-    checkAuthentication : () => Promise<void>;
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import api, { clearAccessToken, setAccessToken } from "../apiInterceptor";
+type UserRole = "RIDER" | "DRIVER" | "ADMIN";
+
+export interface User {
+  _id?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  role?: UserRole[];
 }
 
-const authContext = createContext<authContextType | null>(null);
+export interface AuthContextType {
+  isAuthenticated: boolean;
+  user: User | null;
+  loading: boolean;
+  checkAuthentication: () => Promise<void>;
+  logout: () => Promise<void>;
+}
 
-export const AuthContextProvider =  ({children} : {children : React.ReactNode})=>{
-    const [isAuthenticated , setIsAuthenticated] = useState(false);
-    const [user , setUser] = useState(null);
-    const [loading , setLoading] = useState(true);
+const AuthContext = createContext<AuthContextType | null>(null);
 
-    useEffect(()=>{
-        checkAuthentication();
-    },[])
+export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-   const checkAuthentication = async () => {
+  useEffect(() => {
+    void checkAuthentication();
+  }, []);
+
+  const checkAuthentication = async () => {
     try {
-        const response = await api.post("/refresh");
-        if (response?.data) {
-            const { accessToken, user } = response.data;
-            setAccessToken(accessToken);
-            setUser(user);
-            setIsAuthenticated(true);
-        }
-    } catch (error) {
-        setAccessToken(null);
-        setIsAuthenticated(false);
+      const response = await api.post("/refresh");
+      const { accessToken, user: refreshedUser } = response.data ?? {};
+
+      if (typeof accessToken === "string" && refreshedUser) {
+        setAccessToken(accessToken);
+        setUser(refreshedUser);
+        setIsAuthenticated(true);
+      } else {
+        clearAccessToken();
         setUser(null);
+        setIsAuthenticated(false);
+      }
+    } catch {
+      clearAccessToken();
+      setIsAuthenticated(false);
+      setUser(null);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
+  };
+
+  const logout = async () => {
+    try {
+      await api.post("/logout");
+    } catch {
+      // ignore logout failures
+    } finally {
+      clearAccessToken();
+      setIsAuthenticated(false);
+      setUser(null);
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={{ isAuthenticated, user, loading, checkAuthentication, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
-    return (
-        <authContext.Provider value={{isAuthenticated , user , loading , checkAuthentication}}>
-            {children}
-        </authContext.Provider>
-    )
-}
 
 export const useAuthContext = () => {
-    const context = useContext(authContext);
-    if (!context) {
-        throw new Error("useAuthContext must be used within an authContextProvider");
-    }
-    return context;
-}
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuthContext must be used within an AuthContextProvider");
+  }
+  return context;
+};

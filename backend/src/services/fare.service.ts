@@ -47,7 +47,7 @@ class FareService {
             driverEarningPaise,
 
             totalPaise,
-
+            
         };
 
     }

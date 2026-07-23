@@ -1,188 +1,533 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { ArrowRight, MapPin, Clock3, Sparkles, ShieldCheck, CarFront, Compass, BellRing } from "lucide-react";
-import api from "./apiInterceptor";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  MapPin,
+  Navigation,
+  Car,
+  User,
+  LogOut,
+  History,
+  Sparkles,
+  ArrowRight,
+  Locate,
+  Loader2,
+} from "lucide-react";
+import { Autocomplete, useJsApiLoader } from "@react-google-maps/api";
 import LoadingScreen from "./components/LoadingScreen";
+import { Button } from "./components/ui/button";
+import { Input } from "./components/ui/input";
+import { appApi } from "./lib/api";
+import { connectRiderSocket } from "./lib/socket";
+import { useAuthContext } from "./context/authContext";
+import type { DriverProfile } from "./lib/driverApi";
+import DriverCTA from "./components/DriverCTA";
 
-const quickActions = [
-  { title: "Book a ride", subtitle: "Fastest way home", icon: CarFront },
-  { title: "Plan a trip", subtitle: "Set a destination", icon: Compass },
-  { title: "Ride history", subtitle: "See your recent trips", icon: Clock3 },
-];
+/**
+ * Rider Dashboard
+ * - Elegant full-width light-brown "travel ticket" theme: parchment surfaces, saddle-leather
+ *   and brass accents, seamless responsive layout across all displays.
+ */
 
-const stats = [
-  { label: "Trips this week", value: "24" },
-  { label: "Preferred ride", value: "Black" },
-  { label: "Saved places", value: "7" },
-];
+type RideStatus =
+  | "SEARCHING"
+  | "DRIVER_ASSIGNED"
+  | "DRIVER_ARRIVING"
+  | "STARTED"
+  | "COMPLETED"
+  | "CANCELLED";
+
+interface RidePoint {
+  address: string;
+  coordinates: { latitude: number; longitude: number };
+}
+
+interface Ride {
+  _id: string;
+  pickup: RidePoint;
+  destination: RidePoint;
+  fare: { estimated: number; final?: number | null };
+  distance: { estimated: number | null };
+  duration: { estimated: number | null };
+  status: RideStatus;
+}
+
+const DISPLAY_FONT = "'Fraunces', 'Iowan Old Style', Georgia, serif";
+const BODY_FONT =
+  "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { user, logout } = useAuthContext();
+  const [driverProfile, setDriverProfile] = useState<DriverProfile | null>(null);
+  const [isLoadingDriver, setIsLoadingDriver] = useState(true);
+
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [rideError, setRideError] = useState("");
+  const [serverMessage, setServerMessage] = useState("");
+
+  const [pickup, setPickup] = useState("");
+  const [destination, setDestination] = useState("");
+  const [pickupCoords, setPickupCoords] =
+    useState<{ latitude: number; longitude: number } | null>(null);
+  const [destinationCoords, setDestinationCoords] =
+    useState<{ latitude: number; longitude: number } | null>(null);
+
+  const [isRequestingRide, setIsRequestingRide] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+
+  const socketRef = useRef<WebSocket | null>(null);
+  const pickupAutocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const destinationAutocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+
+  const { isLoaded: isPlacesLoaded } = useJsApiLoader({
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? "",
+    libraries: ["places"],
+  });
+
+  useEffect(() => {
+    async function loadDriver() {
+      try {
+        const res = await appApi.get("/driver/profile");
+        setDriverProfile(res.data.data);
+      } catch {
+        setDriverProfile(null);
+      } finally {
+        setIsLoadingDriver(false);
+      }
+    }
+
+    loadDriver();
+  }, []);
+
+  // ---- Bootstrap: if a ride already exists, jump straight to its page ----
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await appApi.get<{ message: string; ride: Ride }>("/ride/current");
+        if (cancelled) return;
+        const ride = response.data.ride;
+        if (ride && ride.status !== "COMPLETED" && ride.status !== "CANCELLED") {
+          navigate(`/ride/${ride._id}`, { replace: true });
+          return;
+        }
+      } catch {
+        // no active ride – stay on dashboard
+      } finally {
+        if (!cancelled) setIsBootstrapping(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
+
+  // ---- Passive socket connect so notifications still arrive on this screen ----
+  useEffect(() => {
+    const riderSocket = connectRiderSocket({
+      onReady: () => setServerMessage("Connected to live updates."),
+      onError: (message: string) => setServerMessage(message),
+      onRideAccepted: () => setServerMessage("Driver has accepted your ride."),
+      onDriverLocation: () => { },
+      onDriverArrived: () => setServerMessage("Driver has arrived at pickup."),
+      onRideStarted: () => setServerMessage("Your ride has started."),
+      onRideCompleted: () => setServerMessage("Your ride is complete."),
+      onRideCancelled: (payload: any) =>
+        setServerMessage(`Ride cancelled by ${payload.cancelledBy.toLowerCase()}.`),
+      onNoDriversAvailable: () =>
+        setServerMessage("No drivers were available for your request."),
+    });
+    socketRef.current = riderSocket;
+    return () => riderSocket?.close();
+  }, []);
+
+  // ---- Autocomplete plumbing ----
+  const updatePlaceData = (
+    autocomplete: google.maps.places.Autocomplete | null,
+    setAddress: React.Dispatch<React.SetStateAction<string>>,
+    setCoords: React.Dispatch<
+      React.SetStateAction<{ latitude: number; longitude: number } | null>
+    >,
+  ) => {
+    const place = autocomplete?.getPlace();
+    if (!place) return;
+    const address = place.formatted_address || place.name || "";
+    const location = place.geometry?.location;
+    if (location) setCoords({ latitude: 23.02, longitude: 86.78 });
+    setAddress(address);
+  };
+
+  const handleUseCurrentLocation = () => {
+    setRideError("");
+    if (!navigator.geolocation) {
+      setRideError("Geolocation is not supported by this browser.");
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setPickupCoords({ latitude, longitude });
+        setPickup(`Current location (${latitude.toFixed(3)}, ${longitude.toFixed(3)})`);
+        setIsLocating(false);
+      },
+      (error) => {
+        setRideError(`Unable to access location: ${error.message}`);
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
+
+  const handleCreateRide = async () => {
+    if (!pickup.trim() || !destination.trim()) {
+      setRideError("Please provide both pickup and destination details.");
+      return;
+    }
+    if (!pickupCoords || !destinationCoords) {
+      setRideError("Please select both pickup and destination from the suggestions.");
+      return;
+    }
+    if (!user?._id) {
+      setRideError("Unable to determine your profile. Please sign in again.");
+      return;
+    }
+
+    setRideError("");
+    setIsRequestingRide(true);
+    try {
+      const response = await appApi.post<{ message: string; ride: Ride }>("/ride", {
+        rider: user._id,
+        pickup: { address: pickup, coordinates: pickupCoords },
+        destination: { address: destination, coordinates: destinationCoords },
+        fare: { estimated: 160 },
+        distance: { estimated: 5 },
+        duration: { estimated: 14 },
+      });
+      navigate(`/ride/${response.data.ride._id}`);
+    } catch {
+      setRideError("Unable to create a ride request. Please try again.");
+    } finally {
+      setIsRequestingRide(false);
+    }
+  };
 
   async function handleLogout() {
     setIsLoggingOut(true);
-
     try {
-      await api.post("/logout");
-      navigate("/login", { replace: true });
-    } catch {
-      navigate("/login", { replace: true });
+      await logout();
     } finally {
+      navigate("/login", { replace: true });
       setIsLoggingOut(false);
     }
   }
 
   if (isLoggingOut) {
-    return <LoadingScreen label="Signing you out" sublabel="Clearing your session and redirecting you safely" />;
+    return (
+      <LoadingScreen
+        label="Signing you out"
+        sublabel="Clearing your session and redirecting you safely"
+      />
+    );
   }
 
-  return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#fff_0%,_#f5efe4_45%,_#ece2d0_100%)] px-4 py-6 text-black sm:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        <motion.header
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-[2rem] border border-black/10 bg-white/80 p-6 shadow-[0_25px_80px_-30px_rgba(0,0,0,0.35)] backdrop-blur-xl"
-        >
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-sm font-medium text-emerald-700">
-                <Sparkles size={14} />
-                Premium ready
-              </div>
-              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Good evening, Alex</h1>
-              <p className="mt-2 max-w-2xl text-sm text-black/65 sm:text-base">
-                Your next ride is just a tap away. Reserve a premium pickup and glide through the city in comfort.
-              </p>
-            </div>
+  if (isBootstrapping) {
+    return <LoadingScreen label="Getting things ready" sublabel="Checking for active rides" />;
+  }
 
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-3 rounded-2xl border border-black/10 bg-black px-4 py-3 text-white shadow-lg">
-                <BellRing size={18} />
-                <div>
-                  <p className="text-sm font-semibold">Driver update</p>
-                  <p className="text-xs text-white/70">Your driver is 2 min away</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-                className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-black transition hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isLoggingOut ? "Logging out..." : "Logout"}
-              </button>
+  const canBook = pickup && destination && pickupCoords && destinationCoords && !isRequestingRide;
+  const displayName = user?.firstName
+    ? `${user.firstName} ${user.lastName ?? ""}`.trim()
+    : "Rider";
+
+  return (
+    <div
+      className="relative min-h-screen w-full overflow-x-hidden bg-[#EFEBE9] text-[#3E2723]"
+      style={{ fontFamily: BODY_FONT }}
+    >
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap');
+      `}</style>
+
+      {/* Ambient background matching elegant theme */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -left-32 h-96 w-96 rounded-full bg-[#D7CCC8]/30 blur-3xl" />
+        <div className="absolute top-1/3 -right-40 h-[28rem] w-[28rem] rounded-full bg-[#D7CCC8]/25 blur-3xl" />
+        <div className="absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-[#E4D8D3]/30 blur-3xl" />
+      </div>
+
+      {/* Full width container layout */}
+      <div className="relative w-full px-4 sm:px-8 lg:px-12 py-8 space-y-8">
+        
+        {/* Header */}
+        <motion.header
+          initial={{ opacity: 0, y: -16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="w-full rounded-3xl border border-[#D7CCC8]/60 bg-[#FAF6F0]/90 backdrop-blur-xl shadow-lg px-6 py-4 flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-[#5D4037] to-[#3E2723] shadow-lg shadow-[#3E2723]/30 ring-2 ring-[#EFEBE9] ring-offset-2 ring-offset-[#D7CCC8]"
+            >
+              <Car className="h-5 w-5 text-[#FAF6F0]" />
             </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-[#795548]">Uber</p>
+              <h1
+                className="text-lg font-semibold text-[#3E2723]"
+                style={{ fontFamily: DISPLAY_FONT }}
+              >
+                Hey, {displayName.split(" ")[0]}
+              </h1>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate("/history")}
+              className="grid h-10 w-10 place-items-center rounded-full border border-[#D7CCC8] bg-[#FAF6F0] text-[#5D4037] transition hover:bg-[#EFEBE9]"
+              aria-label="History"
+            >
+              <History className="h-4 w-4" />
+            </button>
+            <button
+              onClick={handleLogout}
+              className="grid h-10 w-10 place-items-center rounded-full border border-[#D7CCC8] bg-[#FAF6F0] text-[#5D4037] transition hover:bg-[#EFEBE9]"
+              aria-label="Logout"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         </motion.header>
 
-        <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
-          <motion.section
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-            className="rounded-[2rem] border border-black/10 bg-[#0f172a] p-6 text-white shadow-[0_30px_90px_-30px_rgba(0,0,0,0.6)]"
+        {/* Hero greeting */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1, duration: 0.6 }}
+          className="w-full"
+        >
+          <p className="text-sm text-[#795548]">Where are we heading today?</p>
+          <h2
+            className="mt-2 text-4xl leading-tight tracking-tight sm:text-5xl text-[#3E2723]"
+            style={{ fontFamily: DISPLAY_FONT, fontWeight: 600 }}
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm uppercase tracking-[0.25em] text-white/60">Current trip</p>
-                <h2 className="mt-2 text-2xl font-semibold">Airport pickup</h2>
-              </div>
-              <div className="rounded-full bg-white/10 px-3 py-1 text-sm text-white/80">Now</div>
-            </div>
+            Book a ride in
+            <span className="bg-gradient-to-r from-[#5D4037] via-[#795548] to-[#4E342E] bg-clip-text text-transparent italic mx-2">
+              seconds.
+            </span>
+          </h2>
+        </motion.section>
 
-            <div className="mt-6 rounded-[1.4rem] border border-white/10 bg-white/10 p-4">
-              <div className="flex items-start gap-3">
-                <MapPin size={18} className="mt-1 text-emerald-400" />
-                <div>
-                  <p className="text-sm text-white/60">Pickup</p>
-                  <p className="text-lg font-medium">Downtown Pier 8</p>
-                </div>
-              </div>
-              <div className="my-4 h-px bg-white/10" />
-              <div className="flex items-start gap-3">
-                <MapPin size={18} className="mt-1 text-sky-400" />
-                <div>
-                  <p className="text-sm text-white/60">Destination</p>
-                  <p className="text-lg font-medium">Sea View Terminal</p>
-                </div>
-              </div>
-            </div>
+        {/* Booking card — styled as a boarding-pass / travel ticket */}
+        <motion.div
+          initial={{ opacity: 0, y: 30, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ delay: 0.2, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="relative w-full rounded-[32px] border border-[#D7CCC8] bg-[#FAF6F0] p-6 sm:p-8 shadow-xl shadow-[#3E2723]/10"
+        >
+          <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-[#795548]">
+            <Sparkles className="h-3.5 w-3.5 text-[#5D4037]" />
+            New trip
+          </div>
 
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <button className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black transition hover:-translate-y-0.5">
-                Request now
-              </button>
-              <button className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/90 transition hover:bg-white/10">
-                Schedule later
-              </button>
-            </div>
-          </motion.section>
+          {/* Ticket perforation */}
+          <div className="relative -mx-6 sm:-mx-8 mb-6">
+            <div className="absolute left-0 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#EFEBE9]" />
+            <div className="absolute right-0 top-1/2 h-6 w-6 translate-x-1/2 -translate-y-1/2 rounded-full bg-[#EFEBE9]" />
+            <div className="border-t border-dashed border-[#D7CCC8]" />
+          </div>
 
-          <motion.section
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="rounded-[2rem] border border-black/10 bg-white/80 p-6 shadow-[0_25px_80px_-35px_rgba(0,0,0,0.25)] backdrop-blur-xl"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-black/60">Your status</p>
-                <h3 className="text-xl font-semibold">Ride-ready</h3>
-              </div>
-              <div className="rounded-full bg-emerald-500/10 p-2 text-emerald-700">
-                <ShieldCheck size={18} />
-              </div>
-            </div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[#795548]">
+            Route
+          </p>
 
-            <div className="mt-6 space-y-3">
-              {stats.map((item) => (
-                <div key={item.label} className="flex items-center justify-between rounded-2xl bg-[#f8f3e9] px-4 py-3">
-                  <span className="text-sm text-black/60">{item.label}</span>
-                  <span className="text-sm font-semibold text-black">{item.value}</span>
-                </div>
-              ))}
-            </div>
-          </motion.section>
+          {/* Pickup + destination stack */}
+          <div className="relative rounded-2xl border border-[#D7CCC8] bg-[#EFEBE9]/60 p-3 space-y-1">
+            <div className="pointer-events-none absolute left-[30px] top-[42px] bottom-[42px] border-l-2 border-dashed border-[#BCAAA4]" />
+
+            <FieldRow
+              icon={<Dot color="saddle" />}
+              trailing={<MapPin className="h-4 w-4 text-[#795548]" />}
+              label="Pickup"
+              value={pickup}
+              placeholder="Where from?"
+              isLoaded={isPlacesLoaded}
+              onChange={(v) => {
+                setPickup(v);
+                setPickupCoords({ latitude: 23.02, longitude: 86.7 });
+              }}
+              onLoad={(a) => (pickupAutocompleteRef.current = a)}
+              onPlaceChanged={() =>
+                updatePlaceData(pickupAutocompleteRef.current, setPickup, setPickupCoords)
+              }
+            />
+            <div className="my-1 h-px bg-[#D7CCC8]" />
+            <FieldRow
+              icon={<Dot color="brass" />}
+              trailing={<Navigation className="h-4 w-4 text-[#795548]" />}
+              label="Destination"
+              value={destination}
+              placeholder="Where to?"
+              isLoaded={isPlacesLoaded}
+              onChange={(v) => {
+                setDestination(v);
+                setDestinationCoords({ latitude: 23.05, longitude: 86.76 });
+              }}
+              onLoad={(a) => (destinationAutocompleteRef.current = a)}
+              onPlaceChanged={() =>
+                updatePlaceData(
+                  destinationAutocompleteRef.current,
+                  setDestination,
+                  setDestinationCoords,
+                )
+              }
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+            <button
+              onClick={handleUseCurrentLocation}
+              disabled={isLocating}
+              className="group inline-flex items-center gap-2 rounded-full border border-[#D7CCC8] bg-[#EFEBE9] px-4 py-2.5 text-sm font-semibold text-[#3E2723] transition hover:bg-[#D7CCC8] disabled:opacity-60 shadow-sm"
+            >
+              {isLocating ? (
+                <Loader2 className="h-4 w-4 animate-spin text-[#5D4037]" />
+              ) : (
+                <Locate className="h-4 w-4 text-[#5D4037] transition group-hover:scale-110" />
+              )}
+              Use current location
+            </button>
+
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={handleCreateRide}
+              disabled={!canBook}
+              className="inline-flex items-center gap-2 rounded-full bg-[#5D4037] px-6 py-3 text-sm font-bold text-[#FAF6F0] shadow-lg shadow-[#3E2723]/20 transition hover:bg-[#4E342E] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {isRequestingRide ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Finding driver…
+                </>
+              ) : (
+                <>
+                  Find driver
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </motion.button>
+          </div>
+
+          {/* Inline messages */}
+          <AnimatePresence>
+            {rideError && (
+              <motion.div
+                initial={{ opacity: 0, y: -4, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: "auto" }}
+                exit={{ opacity: 0, y: -4, height: 0 }}
+                className="mt-4 overflow-hidden rounded-xl border border-[#A1887F] bg-[#EFEBE9] px-4 py-3 text-sm text-[#5D4037]"
+              >
+                {rideError}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+
+        {/* Driver CTA */}
+        <div className="w-full">
+          <DriverCTA
+            user={user!}
+            driver={driverProfile}
+            loading={isLoadingDriver}
+          />
         </div>
 
-        <motion.section
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="rounded-[2rem] border border-black/10 bg-white/80 p-6 shadow-[0_25px_80px_-35px_rgba(0,0,0,0.25)] backdrop-blur-xl"
-        >
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-black/60">Quick actions</p>
-              <h3 className="text-xl font-semibold">Move around effortlessly</h3>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            {quickActions.map((action) => {
-              const Icon = action.icon;
-              return (
-                <button
-                  key={action.title}
-                  className="group rounded-[1.25rem] border border-black/10 bg-[#f8f3e9] p-4 text-left transition hover:-translate-y-1 hover:shadow-lg"
-                >
-                  <div className="mb-3 inline-flex rounded-2xl bg-black p-2 text-white">
-                    <Icon size={18} />
-                  </div>
-                  <h4 className="font-semibold">{action.title}</h4>
-                  <p className="mt-1 text-sm text-black/60">{action.subtitle}</p>
-                  <div className="mt-4 flex items-center text-sm font-medium text-black/70">
-                    Open <ArrowRight size={16} className="ml-2 transition group-hover:translate-x-1" />
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </motion.section>
+        {/* Passive server message */}
+        <AnimatePresence>
+          {serverMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="fixed inset-x-0 bottom-6 z-40 mx-auto flex max-w-md items-center gap-2 rounded-full border border-[#3E2723]/20 bg-[#3E2723]/95 px-5 py-3 text-xs font-medium text-[#FAF6F0] shadow-2xl backdrop-blur-xl"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#D7CCC8] opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-[#D7CCC8]" />
+              </span>
+              {serverMessage}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-    </main>
+    </div>
+  );
+}
+
+/* ---------- helpers ---------- */
+
+function Dot({ color }: { color: "saddle" | "brass" }) {
+  if (color === "brass") {
+    return (
+      <span className="inline-block h-2.5 w-2.5 rotate-45 bg-[#795548] shadow-[0_0_10px_rgba(121,85,72,0.4)]" />
+    );
+  }
+  return (
+    <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#5D4037] shadow-[0_0_10px_rgba(93,64,55,0.4)]" />
+  );
+}
+
+function FieldRow({
+  icon,
+  trailing,
+  label,
+  value,
+  placeholder,
+  isLoaded,
+  onChange,
+  onLoad,
+  onPlaceChanged,
+}: {
+  icon: React.ReactNode;
+  trailing: React.ReactNode;
+  label: string;
+  value: string;
+  placeholder: string;
+  isLoaded: boolean;
+  onChange: (v: string) => void;
+  onLoad: (a: google.maps.places.Autocomplete) => void;
+  onPlaceChanged: () => void;
+}) {
+  const input = (
+    <Input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="h-10 border-0 bg-transparent px-0 text-base text-[#3E2723] placeholder:text-[#A1887F] focus-visible:ring-0 shadow-none"
+    />
+  );
+
+  return (
+    <div className="flex items-center gap-3 px-3 py-2 w-full">
+      <div className="grid h-6 w-6 place-items-center flex-none">{icon}</div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-[#795548]">
+          {label}
+        </p>
+        {isLoaded ? (
+          <Autocomplete onLoad={onLoad} onPlaceChanged={onPlaceChanged}>
+            {input}
+          </Autocomplete>
+        ) : (
+          input
+        )}
+      </div>
+      <div className="flex-none">{trailing}</div>
+    </div>
   );
 }

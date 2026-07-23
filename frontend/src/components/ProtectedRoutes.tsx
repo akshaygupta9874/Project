@@ -1,28 +1,31 @@
 import LoadingScreen from "./LoadingScreen";
-
-import { useAuthContext , type authContextType } from "../context/authContext";
-import { Outlet } from "react-router-dom";
+import { useAuthContext } from "../context/authContext";
+import { Navigate, Outlet } from "react-router-dom";
 import UnauthorizedPage from "./UnauthorizedPage";
+type UserRole = "RIDER" | "DRIVER" | "ADMIN";
 
-export const ProtectedRoutes = ({allowedroles } : {allowedroles : string[]}) => {
+export const ProtectedRoutes = ({
+  allowedroles,
+}: {
+  allowedroles: UserRole[];
+}) => {
+  const { user, isAuthenticated, loading } = useAuthContext();
 
-    const {user , isAuthenticated , loading} = useAuthContext() as authContextType;
+  if (loading) {
+    return <LoadingScreen />;
+  }
 
-    if(loading){
-        console.log(isAuthenticated)
-        return <LoadingScreen></LoadingScreen>
-    }
-    console.log("here",isAuthenticated)
-    if(!isAuthenticated){
-        return <UnauthorizedPage/>
-    }
-    console.log(user.role)
-    if(allowedroles && !allowedroles.includes(user.role)){
-        return <UnauthorizedPage/>
-    }
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
 
-    return (
-        <Outlet/>
-    )
+  if (
+    allowedroles.length > 0 &&
+    (!user?.role ||
+      !user.role.some((role:UserRole) => allowedroles.includes(role)))
+  ) {
+    return <UnauthorizedPage />;
+  }
 
-}
+  return <Outlet />;
+};

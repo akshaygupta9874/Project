@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "./apiInterceptor";
 import { AxiosError } from "axios";
+import { useAuthContext } from "./context/authContext";
 
 export default function VerifyEmail() {
   const { token } = useParams();
   const navigate = useNavigate();
+  const { checkAuthentication } = useAuthContext();
   const [status, setStatus] = useState("Verifying your account...");
 
   useEffect(() => {
@@ -18,14 +20,15 @@ export default function VerifyEmail() {
       try {
         const { data } = await api.post<{ message: string }>(`/verify/${token}`);
         setStatus(data.message);
+        await checkAuthentication();
         navigate("/dashboard", { replace: true });
       } catch (error) {
         setStatus(error instanceof AxiosError ? error.response?.data.message : "Verification failed");
       }
     }
 
-    verifyAccount();
-  }, [token]);
+    void verifyAccount();
+  }, [token, checkAuthentication, navigate]);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f0ece2] px-6 text-black">

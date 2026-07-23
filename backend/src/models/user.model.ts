@@ -9,10 +9,10 @@ export enum UserRole {
 
 export interface IUser extends Document {
   firstName: string;
-  lastName : string
+  lastName: string
   email: string;
   password: string;
-  role: UserRole;
+  role: UserRole[];
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -25,7 +25,7 @@ const userSchema = new Schema<IUser>(
       minlength: 2,
       maxlength: 50,
     },
-    lastName : {
+    lastName: {
       type: String,
       required: true,
       trim: true,
@@ -50,9 +50,13 @@ const userSchema = new Schema<IUser>(
     },
 
     role: {
-      type: String,
-      enum: Object.values(UserRole),
-      default: UserRole.RIDER,
+      type: [
+        {
+          type: String,
+          enum: Object.values(UserRole),
+        },
+      ],
+      default: [UserRole.RIDER],
     },
   },
   {

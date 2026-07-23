@@ -19,15 +19,19 @@ interface AccessTokenPayload extends JwtPayload {
 function extractAccessToken(request: IncomingMessage): string {
     const authorization = request.headers.authorization;
 
-    if (!authorization) {
-        throw new Error("Missing Authorization header.");
+    if (authorization && authorization.startsWith("Bearer ")) {
+        return authorization.slice(7);
     }
 
-    if (!authorization.startsWith("Bearer ")) {
-        throw new Error("Invalid Authorization header.");
+    const host = request.headers.host ?? "localhost";
+    const url = new URL(request.url ?? "", `http://${host}`);
+    const token = url.searchParams.get("token") ?? url.searchParams.get("access_token");
+
+    if (!token) {
+        throw new Error("Missing Authorization header or token query parameter.");
     }
 
-    return authorization.slice(7);
+    return token.startsWith("Bearer ") ? token.slice(7) : token;
 }
 
 export async function authenticateSocket(

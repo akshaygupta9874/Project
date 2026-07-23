@@ -9,9 +9,13 @@ import VerifyEmail from './VerifyEmail.tsx'
 import Dashboard from './Dashboard.tsx'
 import ForgotPasswordPage from './ForgotPassword.tsx'
 import ResetPasswordPage from './ResetPassword.tsx'
+import RideHistory from './RideHistory.tsx'
+import DriverRegistration from './DriverRegistration.tsx'
+import DriverDashboard from './DriverDashboard.tsx'
 export { default as LoadingScreen } from './components/LoadingScreen.tsx'
 import { AuthContextProvider } from './context/authContext.tsx'
 import { ProtectedRoutes } from './components/ProtectedRoutes.tsx'
+import RideDetails from './RideDetails.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <BrowserRouter>
@@ -23,10 +27,14 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password/:token?" element={<ResetPasswordPage />} />
         <Route path="/token/:token" element={<VerifyEmail />} />
-        <Route  element={<ProtectedRoutes allowedroles={["RIDER"]} />}>
+        <Route element={<ProtectedRoutes allowedroles={["RIDER", "DRIVER"]} />}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/history" element={<RideHistory />} />
+          <Route path="/driver-registration" element={<DriverRegistration />} />
+          <Route path="/driver-dashboard" element={<DriverDashboard />} />
+          <Route path="/ride/:rideId" element={<RideDetails />} />
         </Route>
-      </Routes >
+      </Routes>
     </AuthContextProvider>
   </BrowserRouter>
 )

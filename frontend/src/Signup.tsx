@@ -1,9 +1,10 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, type Variants } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import api from "./apiInterceptor";
 import { AxiosError } from "axios";
+import { useAuthContext } from "./context/authContext";
 
 // ---------- Form animation ----------
 const containerVariants: Variants = {
@@ -158,6 +159,7 @@ function WelcomePill() {
 
 export default function SignupPage() {
   const navigate = useNavigate();
+  const { isAuthenticated, loading } = useAuthContext();
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -165,6 +167,12 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isAuthenticated, loading, navigate]);
 
   async function handleSignup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
