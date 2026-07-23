@@ -5,23 +5,24 @@ import {
   MapPin,
   Navigation,
   Car,
-  User,
   LogOut,
   History,
   Sparkles,
   ArrowRight,
   Locate,
   Loader2,
+  Clock,
+  Route as RouteIcon,
 } from "lucide-react";
-import { Autocomplete, useJsApiLoader } from "@react-google-maps/api";
 import LoadingScreen from "./components/LoadingScreen";
-import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { appApi } from "./lib/api";
 import { connectRiderSocket } from "./lib/socket";
 import { useAuthContext } from "./context/authContext";
 import type { DriverProfile } from "./lib/driverApi";
 import DriverCTA from "./components/DriverCTA";
+import { searchPlaces } from "./services/geoapify.service";
+
 
 /**
  * Rider Dashboard
@@ -74,17 +75,21 @@ export default function Dashboard() {
   const [destinationCoords, setDestinationCoords] =
     useState<{ latitude: number; longitude: number } | null>(null);
 
+  // Geoapify Suggestions State
+  const [pickupSuggestions, setPickupSuggestions] = useState<any[]>([]);
+  const [destinationSuggestions, setDestinationSuggestions] = useState<any[]>([]);
+  const [activeField, setActiveField] = useState<"pickup" | "destination" | null>(null);
+
+  // Geoapify Routing State
+  const [routeDistance, setRouteDistance] = useState<number | null>(null); // in meters
+  const [routeDuration, setRouteDuration] = useState<number | null>(null); // in seconds
+  const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
+
   const [isRequestingRide, setIsRequestingRide] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
 
   const socketRef = useRef<WebSocket | null>(null);
-  const pickupAutocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
-  const destinationAutocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
-
-  const { isLoaded: isPlacesLoaded } = useJsApiLoader({
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? "",
-    libraries: ["places"],
-  });
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     async function loadDriver() {
@@ -99,6 +104,17 @@ export default function Dashboard() {
     }
 
     loadDriver();
+  }, []);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setActiveField(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   // ---- Bootstrap: if a ride already exists, jump straight to its page ----
@@ -143,20 +159,87 @@ export default function Dashboard() {
     return () => riderSocket?.close();
   }, []);
 
-  // ---- Autocomplete plumbing ----
-  const updatePlaceData = (
-    autocomplete: google.maps.places.Autocomplete | null,
-    setAddress: React.Dispatch<React.SetStateAction<string>>,
-    setCoords: React.Dispatch<
-      React.SetStateAction<{ latitude: number; longitude: number } | null>
-    >,
-  ) => {
-    const place = autocomplete?.getPlace();
-    if (!place) return;
-    const address = place.formatted_address || place.name || "";
-    const location = place.geometry?.location;
-    if (location) setCoords({ latitude: 23.02, longitude: 86.78 });
-    setAddress(address);
+  // ---- Geoapify Search handlers with Debounce ----
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (activeField === "pickup" && pickup.trim().length > 2) {
+        try {
+          const features = await searchPlaces(pickup);
+          setPickupSuggestions(features || []);
+        } catch {
+          setPickupSuggestions([]);
+        }
+      } else {
+        setPickupSuggestions([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [pickup, activeField]);
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (activeField === "destination" && destination.trim().length > 2) {
+        try {
+          const features = await searchPlaces(destination);
+          setDestinationSuggestions(features || []);
+        } catch {
+          setDestinationSuggestions([]);
+        }
+      } else {
+        setDestinationSuggestions([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [destination, activeField]);
+
+  // ---- Fetch Route Matrix/Details using Geoapify Routing API when both coordinates change ----
+  useEffect(() => {
+    if (!pickupCoords || !destinationCoords) {
+      setRouteDistance(null);
+      setRouteDuration(null);
+      return;
+    }
+
+    async function fetchRouteDetails() {
+      setIsCalculatingRoute(true);
+      try {
+        const apiKey = import.meta.env.VITE_GEOAPIFY_API_KEY || "";
+        const url = `https://api.geoapify.com/v1/routing?waypoints=${pickupCoords?.latitude},${pickupCoords?.longitude}|${destinationCoords?.latitude},${destinationCoords?.longitude}&mode=drive&apiKey=${apiKey}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data && data.features && data.features.length > 0) {
+          const feature = data.features[0];
+          setRouteDistance(feature.properties.distance); // in meters
+          setRouteDuration(feature.properties.time);     // in seconds
+        }
+      } catch (err) {
+        console.error("Failed to fetch route details", err);
+      } finally {
+        setIsCalculatingRoute(false);
+      }
+    }
+
+    fetchRouteDetails();
+  }, [pickupCoords, destinationCoords]);
+
+  const handleSelectPlace = (feature: any, type: "pickup" | "destination") => {
+    const address = feature.properties?.formatted || feature.properties?.name || "Selected Location";
+    const [longitude, latitude] = feature.geometry?.coordinates || [0, 0];
+
+    if (type === "pickup") {
+      setPickup(address);
+      setPickupCoords({ latitude, longitude });
+      setPickupSuggestions([]);
+    } else {
+      setDestination(address);
+      setDestinationCoords({ latitude, longitude });
+      setDestinationSuggestions([]);
+    }
+    setActiveField(null);
   };
 
   const handleUseCurrentLocation = () => {
@@ -202,9 +285,9 @@ export default function Dashboard() {
         rider: user._id,
         pickup: { address: pickup, coordinates: pickupCoords },
         destination: { address: destination, coordinates: destinationCoords },
-        fare: { estimated: 160 },
-        distance: { estimated: 5 },
-        duration: { estimated: 14 },
+        fare: { estimated: routeDistance ? Math.round(routeDistance / 100 * 5) : 160 },
+        distance: { estimated: routeDistance ? Number((routeDistance / 1000).toFixed(1)) : 5 },
+        duration: { estimated: routeDuration ? Math.round(routeDuration / 60) : 14 },
       });
       navigate(`/ride/${response.data.ride._id}`);
     } catch {
@@ -244,6 +327,7 @@ export default function Dashboard() {
 
   return (
     <div
+      ref={containerRef}
       className="relative min-h-screen w-full overflow-x-hidden bg-[#EFEBE9] text-[#3E2723]"
       style={{ fontFamily: BODY_FONT }}
     >
@@ -329,9 +413,35 @@ export default function Dashboard() {
           transition={{ delay: 0.2, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           className="relative w-full rounded-[32px] border border-[#D7CCC8] bg-[#FAF6F0] p-6 sm:p-8 shadow-xl shadow-[#3E2723]/10"
         >
-          <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-[#795548]">
-            <Sparkles className="h-3.5 w-3.5 text-[#5D4037]" />
-            New trip
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-[#795548]">
+              <Sparkles className="h-3.5 w-3.5 text-[#5D4037]" />
+              New trip
+            </div>
+
+            {/* Display Distance & ETA dynamically once calculated */}
+            {(routeDistance !== null || isCalculatingRoute) && (
+              <div className="flex items-center gap-4 text-xs font-semibold text-[#5D4037] bg-[#EFEBE9] px-3 py-1.5 rounded-full border border-[#D7CCC8]">
+                {isCalculatingRoute ? (
+                  <div className="flex items-center gap-1.5">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Calculating route...</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-1">
+                      <RouteIcon className="h-3.5 w-3.5 text-[#795548]" />
+                      <span>{routeDistance ? `${(routeDistance / 1000).toFixed(1)} km` : ""}</span>
+                    </div>
+                    <div className="h-3 w-px bg-[#D7CCC8]" />
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5 text-[#795548]" />
+                      <span>{routeDuration ? `${Math.round(routeDuration / 60)} mins` : ""}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Ticket perforation */}
@@ -349,43 +459,67 @@ export default function Dashboard() {
           <div className="relative rounded-2xl border border-[#D7CCC8] bg-[#EFEBE9]/60 p-3 space-y-1">
             <div className="pointer-events-none absolute left-[30px] top-[42px] bottom-[42px] border-l-2 border-dashed border-[#BCAAA4]" />
 
-            <FieldRow
-              icon={<Dot color="saddle" />}
-              trailing={<MapPin className="h-4 w-4 text-[#795548]" />}
-              label="Pickup"
-              value={pickup}
-              placeholder="Where from?"
-              isLoaded={isPlacesLoaded}
-              onChange={(v) => {
-                setPickup(v);
-                setPickupCoords({ latitude: 23.02, longitude: 86.7 });
-              }}
-              onLoad={(a) => (pickupAutocompleteRef.current = a)}
-              onPlaceChanged={() =>
-                updatePlaceData(pickupAutocompleteRef.current, setPickup, setPickupCoords)
-              }
-            />
+            {/* Pickup Field */}
+            <div className="relative">
+              <FieldRow
+                icon={<Dot color="saddle" />}
+                trailing={<MapPin className="h-4 w-4 text-[#795548]" />}
+                label="Pickup"
+                value={pickup}
+                placeholder="Where from?"
+                onChange={(v) => {
+                  setPickup(v);
+                  setActiveField("pickup");
+                  setPickupCoords(null);
+                }}
+                onFocus={() => setActiveField("pickup")}
+              />
+              {activeField === "pickup" && pickupSuggestions.length > 0 && (
+                <ul className="absolute left-0 right-0 z-50 mt-1 max-h-48 overflow-y-auto rounded-xl border border-[#D7CCC8] bg-[#FAF6F0] shadow-lg">
+                  {pickupSuggestions.map((item, idx) => (
+                    <li
+                      key={idx}
+                      onClick={() => handleSelectPlace(item, "pickup")}
+                      className="cursor-pointer px-4 py-2.5 text-xs text-[#3E2723] hover:bg-[#EFEBE9] border-b border-[#D7CCC8]/30 last:border-none"
+                    >
+                      {item.properties?.formatted || item.properties?.name}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
             <div className="my-1 h-px bg-[#D7CCC8]" />
-            <FieldRow
-              icon={<Dot color="brass" />}
-              trailing={<Navigation className="h-4 w-4 text-[#795548]" />}
-              label="Destination"
-              value={destination}
-              placeholder="Where to?"
-              isLoaded={isPlacesLoaded}
-              onChange={(v) => {
-                setDestination(v);
-                setDestinationCoords({ latitude: 23.05, longitude: 86.76 });
-              }}
-              onLoad={(a) => (destinationAutocompleteRef.current = a)}
-              onPlaceChanged={() =>
-                updatePlaceData(
-                  destinationAutocompleteRef.current,
-                  setDestination,
-                  setDestinationCoords,
-                )
-              }
-            />
+
+            {/* Destination Field */}
+            <div className="relative">
+              <FieldRow
+                icon={<Dot color="brass" />}
+                trailing={<Navigation className="h-4 w-4 text-[#795548]" />}
+                label="Destination"
+                value={destination}
+                placeholder="Where to?"
+                onChange={(v) => {
+                  setDestination(v);
+                  setActiveField("destination");
+                  setDestinationCoords(null);
+                }}
+                onFocus={() => setActiveField("destination")}
+              />
+              {activeField === "destination" && destinationSuggestions.length > 0 && (
+                <ul className="absolute left-0 right-0 z-50 mt-1 max-h-48 overflow-y-auto rounded-xl border border-[#D7CCC8] bg-[#FAF6F0] shadow-lg">
+                  {destinationSuggestions.map((item, idx) => (
+                    <li
+                      key={idx}
+                      onClick={() => handleSelectPlace(item, "destination")}
+                      className="cursor-pointer px-4 py-2.5 text-xs text-[#3E2723] hover:bg-[#EFEBE9] border-b border-[#D7CCC8]/30 last:border-none"
+                    >
+                      {item.properties?.formatted || item.properties?.name}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
 
           {/* Actions */}
@@ -488,30 +622,17 @@ function FieldRow({
   label,
   value,
   placeholder,
-  isLoaded,
   onChange,
-  onLoad,
-  onPlaceChanged,
+  onFocus,
 }: {
   icon: React.ReactNode;
   trailing: React.ReactNode;
   label: string;
   value: string;
   placeholder: string;
-  isLoaded: boolean;
   onChange: (v: string) => void;
-  onLoad: (a: google.maps.places.Autocomplete) => void;
-  onPlaceChanged: () => void;
+  onFocus: () => void;
 }) {
-  const input = (
-    <Input
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      className="h-10 border-0 bg-transparent px-0 text-base text-[#3E2723] placeholder:text-[#A1887F] focus-visible:ring-0 shadow-none"
-    />
-  );
-
   return (
     <div className="flex items-center gap-3 px-3 py-2 w-full">
       <div className="grid h-6 w-6 place-items-center flex-none">{icon}</div>
@@ -519,13 +640,13 @@ function FieldRow({
         <p className="text-[10px] font-bold uppercase tracking-widest text-[#795548]">
           {label}
         </p>
-        {isLoaded ? (
-          <Autocomplete onLoad={onLoad} onPlaceChanged={onPlaceChanged}>
-            {input}
-          </Autocomplete>
-        ) : (
-          input
-        )}
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={onFocus}
+          placeholder={placeholder}
+          className="h-10 border-0 bg-transparent px-0 text-base text-[#3E2723] placeholder:text-[#A1887F] focus-visible:ring-0 shadow-none"
+        />
       </div>
       <div className="flex-none">{trailing}</div>
     </div>

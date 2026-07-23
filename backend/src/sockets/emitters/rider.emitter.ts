@@ -14,9 +14,10 @@
 
 import { socketRegistry } from "../registry/socket.registry.js";
 import { ServerEvent, ServerEvents } from "../event.constants.js";
+import { IRide } from "../../models/ride.model.js";
 
 interface RideAcceptedPayload {
-    rideId: string;
+    ride : IRide;
 }
 
 export interface DriverLocationPayload {
@@ -51,6 +52,7 @@ function emitToRider<T>(
 
     const sockets =
         socketRegistry.getRiderSockets(riderId);
+    console.log(sockets)
 
     if (!sockets) {
         return;
@@ -76,6 +78,7 @@ export function emitRideAccepted(
     riderId: string,
     payload: RideAcceptedPayload
 ): void {
+    console.log("Socket Registry",socketRegistry)
     emitToRider(
         riderId,
         ServerEvents.RIDE_ACCEPTED,

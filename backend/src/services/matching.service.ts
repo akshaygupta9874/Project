@@ -7,7 +7,7 @@ import type { NearbyDriver } from "../redis/types.js";
 export async function findEligibleDrivers(
     latitude: number,
     longitude: number,
-    radiusKm: number = 5,
+    radiusKm: number = 50000,
     count: number = 20
 ): Promise<NearbyDriver[]> {
 

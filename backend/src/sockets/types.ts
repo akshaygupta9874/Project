@@ -9,7 +9,7 @@ import { UserRole } from "../models/user.model.js";
 export interface AuthenticatedSocketUser {
     userId: string;
     driverId?: string;
-    role: UserRole;
+    role: UserRole[];
     sessionId: string;
     jti?: string;
 }

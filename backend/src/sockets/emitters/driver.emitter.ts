@@ -1,5 +1,6 @@
 // src/sockets/emitters/driver.emitter.ts
 
+import { IRide } from "../../models/ride.model.js";
 import { ServerEvents } from "../event.constants.js";
 import { socketRegistry } from "../registry/socket.registry.js";
 
@@ -13,18 +14,7 @@ interface Coordinates {
 }
 
 export interface NewRideRequestPayload {
-    rideId: string;
-    riderId: string;
-
-    pickup: Coordinates & {
-        address: string;
-    };
-
-    destination: Coordinates & {
-        address: string;
-    };
-
-    estimatedFare: number;
+    ride : IRide
 }
 
 export interface RideCancelledPayload {

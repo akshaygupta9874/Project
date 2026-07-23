@@ -1,5 +1,6 @@
 // src/sockets/registry/socket.registry.ts
 
+import { UserRole } from "../../models/user.model.js";
 import {
     AuthenticatedSocket,
     AuthenticatedSocketUser,
@@ -26,7 +27,7 @@ class SocketRegistry {
 
         this.socketUsers.set(socket, socket.user);
 
-        if (role === "DRIVER" && driverId) {
+        if (role.includes(UserRole.DRIVER) && driverId) {
             let sockets = this.driverSockets.get(driverId);
 
             if (!sockets) {
@@ -39,7 +40,7 @@ class SocketRegistry {
             return;
         }
 
-        if (role === "RIDER") {
+        if (role.includes(UserRole.RIDER)) {
             let sockets = this.riderSockets.get(userId);
 
             if (!sockets) {
@@ -58,7 +59,7 @@ class SocketRegistry {
 
         this.socketUsers.delete(socket);
 
-        if (user.role === "DRIVER" && user.driverId) {
+        if (user.role.includes(UserRole.DRIVER) && user.driverId) {
             const sockets = this.driverSockets.get(user.driverId);
 
             if (!sockets) return;
@@ -72,7 +73,7 @@ class SocketRegistry {
             return;
         }
 
-        if (user.role === "RIDER") {
+        if (user.role.includes(UserRole.RIDER)) {
             const sockets = this.riderSockets.get(user.userId);
 
             if (!sockets) return;

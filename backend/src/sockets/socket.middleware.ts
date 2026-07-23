@@ -12,28 +12,25 @@ import { TokenPayload } from "../utils/generateToken.js";
 
 interface AccessTokenPayload extends JwtPayload {
     userId: string;
-    role: UserRole;
+    role: UserRole[];
     sessionId: string;
 }
 
-function extractAccessToken(request: IncomingMessage): string {
-    const authorization = request.headers.authorization;
 
-    if (authorization && authorization.startsWith("Bearer ")) {
-        return authorization.slice(7);
-    }
+export function extractAccessToken(request: IncomingMessage): string {
+    const url = new URL(
+        request.url ?? "",
+        `http://${request.headers.host}`
+    );
 
-    const host = request.headers.host ?? "localhost";
-    const url = new URL(request.url ?? "", `http://${host}`);
-    const token = url.searchParams.get("token") ?? url.searchParams.get("access_token");
+    const token = url.searchParams.get("token");
 
     if (!token) {
-        throw new Error("Missing Authorization header or token query parameter.");
+        throw new Error("Missing access token.");
     }
 
-    return token.startsWith("Bearer ") ? token.slice(7) : token;
+    return token;
 }
-
 export async function authenticateSocket(
     ws: AuthenticatedSocket,
     request: IncomingMessage
@@ -54,7 +51,7 @@ export async function authenticateSocket(
         jti : payload.jti
     };
 
-    if (USER!.role === UserRole.DRIVER) {
+    if (USER!.role.includes( UserRole.DRIVER)) {
 
         const driver = await DriverModel.findOne({
             user: payload.id,

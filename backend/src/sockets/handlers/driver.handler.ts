@@ -69,8 +69,10 @@ async function handleUpdateLocation(
         return;
     }
 
+    console.log(result,ride._id,ride.rider)
+
     emitDriverLocation(
-        ride.rider.toString(),
+        ride.rider._id.toString(),
         {
             rideId: ride._id.toString(),
             latitude: result.data.latitude,

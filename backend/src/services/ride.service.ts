@@ -319,7 +319,7 @@ export async function acceptRide(
         emitRideAccepted(
             ride.rider.toString(),
             {
-                rideId: ride.id,
+                ride : ride,
             }
         );
 

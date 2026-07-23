@@ -63,7 +63,7 @@ export function initializeWebSocketServer(
                         //--------------------------------------------------
 
                         if (
-                            authenticatedSocket.user.role === UserRole.DRIVER &&
+                            authenticatedSocket.user.role.includes(UserRole.DRIVER) &&
                             authenticatedSocket.user.driverId
                         ) {
 
@@ -98,7 +98,7 @@ export function initializeWebSocketServer(
                                     );
 
                                     if (
-                                        authenticatedSocket.user.role === UserRole.DRIVER &&
+                                        authenticatedSocket.user.role.includes( UserRole.DRIVER) &&
                                         authenticatedSocket.user.driverId
                                     ) {
 

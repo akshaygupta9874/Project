@@ -14,7 +14,7 @@ interface SessionMethods {
 
 export interface SessionData extends SessionMethods {
   userId: string;
-  role: UserRole;
+  role: UserRole[];
   createdAt: number;
 }
 
@@ -69,7 +69,7 @@ export const sessionMiddleware: RequestHandler = async (
   let sessionId: string | null = request.cookies?.["sessionId"] ?? null;
   let session: SessionData = {
     userId: "",
-    role: "",
+    role: [],
     createdAt: 0
   };
 

@@ -2,6 +2,7 @@ import { AuthenticatedSocket } from "../types.js";
 import { UserRole } from "../../models/user.model.js";
 
 import { registerDriverHandlers } from "./driver.handler.js";
+import { registerRiderHandlers } from "./rider.handler.js";
 
 export function registerSocketHandlers(
     socket: AuthenticatedSocket
@@ -10,31 +11,11 @@ export function registerSocketHandlers(
     console.log("Socket Role:", socket.user.role);
 console.log("User:", socket.user);
 
-    switch (socket.user.role) {
-
-        case UserRole.DRIVER:
-
-            registerDriverHandlers(socket);
-
-            break;
-
-        case UserRole.RIDER:
-
-            // Rider currently doesn't send any
-            // socket events to the server.
-            break;
-
-        case UserRole.ADMIN:
-
-            // Future:
-            // registerAdminHandlers(socket);
-
-            break;
-
-        default:
-
-            socket.close();
-
-    }
-
+if(socket.user.role.includes(UserRole.DRIVER)) {
+    registerDriverHandlers(socket)
+}
+if(socket.user.role.includes(UserRole.RIDER)){
+    registerRiderHandlers(socket)
+}
+//rest about rider would be implemented later bro pehle ye krlo
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ShieldCheck, Clock, Star, Navigation, IndianRupee, Route, Timer } from "lucide-react";
+import { Navigation, Loader2, X } from "lucide-react";
 import LoadingScreen from "./components/LoadingScreen";
 import MapView from "./components/MapView";
 import { Button } from "./components/ui/button";
@@ -40,14 +40,16 @@ interface FareBreakdown {
   totalPaise: number;
 }
 
-interface DriverRide {
+export interface Ride {
   _id: string;
+  driver: string;
   pickup: RidePoint;
   destination: RidePoint;
   fare: {
     estimated: number;
     final: number | null;
     breakdown: FareBreakdown | null;
+    fareBreakdown?: FareBreakdown | null;
   };
   distance: { estimated: number; actual: number | null };
   duration: { estimated: number; actual: number | null };
@@ -90,6 +92,38 @@ interface DriverProfileData {
   };
   lastOnlineAt?: string;
 }
+
+const DriverEvents = {
+  UPDATE_LOCATION: "driver:update-location",
+  SET_AVAILABLE: "driver:set-available",
+  SET_BUSY: "driver:set-busy",
+  SET_OFFLINE: "driver:set-offline",
+  HEARTBEAT: "driver:heartbeat",
+  ACCEPT_RIDE: "driver:accept-ride",
+  REJECT_RIDE: "driver:reject-ride",
+  ARRIVED_AT_PICKUP: "driver:arrived-at-pickup",
+  START_RIDE: "driver:start-ride",
+  COMPLETE_RIDE: "driver:complete-ride",
+  CANCEL_RIDE_BY_DRIVER: "driver:cancel-ride",
+} as const;
+
+const ServerEvents = {
+  NEW_RIDE: "server:new-ride",
+  RIDE_ACCEPTED: "server:ride-accepted",
+  RIDE_NO_DRIVERS_AVAILABLE: "server:ride-no-drivers-available",
+  DRIVER_LOCATION: "server:driver-location",
+  DRIVER_ARRIVED: "server:driver-arrived",
+  RIDE_STARTED: "server:ride-started",
+  RIDE_COMPLETED: "server:ride-completed",
+  RIDE_CANCELLED: "server:ride-cancelled",
+  ERROR: "server:error",
+} as const;
+
+type DriverStatus = "OFFLINE" | "AVAILABLE" | "BUSY";
+
+const BUSY_RIDE_STATUSES: RideStatus[] = ["DRIVER_ASSIGNED", "DRIVER_ARRIVING", "STARTED"];
+const TERMINAL_RIDE_STATUSES: RideStatus[] = ["COMPLETED", "CANCELLED"];
+const HEARTBEAT_INTERVAL_MS = 10000;
 
 const VEHICLE_TYPE_LABEL: Record<VehicleType, string> = {
   CAR: "Car",
@@ -157,18 +191,28 @@ export default function DriverDashboard() {
   const { logout } = useAuthContext();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<DriverProfileData | null>(null);
-  const [currentRide, setCurrentRide] = useState<DriverRide | null>(null);
+  const [currentRide, setCurrentRide] = useState<Ride | null>(null);
   const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [driverStatus, setDriverStatus] = useState<DriverStatus>("OFFLINE");
+  const [routePolyline, setRoutePolyline] = useState<Array<{ lat: number; lng: number }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
   const watchIdRef = useRef<number | null>(null);
+  const socketRef = useRef<WebSocket | null>(null);
+
+  const driverStatusRef = useRef<DriverStatus>("OFFLINE");
+  const currentRideRef = useRef<Ride | null>(null);
+
+  useEffect(() => { driverStatusRef.current = driverStatus; }, [driverStatus]);
+  useEffect(() => { currentRideRef.current = currentRide; }, [currentRide]);
 
   useEffect(() => {
     async function loadProfileAndRide() {
       try {
         const [profileResponse, rideResponse] = await Promise.all([
           fetchDriverProfile(),
-          appApi.get<{ message: string; ride: DriverRide }>("/ride/driver/current").catch(() => null),
+          appApi.get<{ message: string; ride: Ride }>("/ride/driver/current").catch(() => null),
         ]);
 
         setProfile(profileResponse);
@@ -186,21 +230,153 @@ export default function DriverDashboard() {
     loadProfileAndRide();
   }, []);
 
+  // Fetch Geoapify routing polyline connecting Driver -> Pickup -> Destination sequentially
+  useEffect(() => {
+    async function fetchGeoapifyRoute() {
+      if (!currentRide) {
+        setRoutePolyline([]);
+        return;
+      }
+
+      const apiKey = import.meta.env.VITE_GEOAPIFY_API_KEY || "";
+      if (!apiKey) return;
+
+      const waypoints: string[] = [];
+
+      // 1. Start leg: Driver's live location if available, otherwise start from pickup
+      if (driverLocation) {
+        waypoints.push(`${driverLocation.latitude},${driverLocation.longitude}`);
+      }
+
+      // 2. Middle leg: Pickup location (always required to route through pickup)
+      waypoints.push(`${currentRide.pickup.coordinates.latitude},${currentRide.pickup.coordinates.longitude}`);
+
+      // 3. Final leg: Destination location
+      waypoints.push(`${currentRide.destination.coordinates.latitude},${currentRide.destination.coordinates.longitude}`);
+
+      // Geoapify requires at least 2 unique waypoints
+      if (waypoints.length < 2) return;
+
+      try {
+        const url = `https://api.geoapify.com/v1/routing?waypoints=${waypoints.join("|")}&mode=drive&apiKey=${apiKey}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data?.features?.[0]?.geometry?.coordinates) {
+          const coords = data.features[0].geometry.coordinates;
+          const flatPoints: Array<{ lat: number; lng: number }> = [];
+          coords.forEach((line: [number, number][]) => {
+            line.forEach(([lon, lat]) => {
+              flatPoints.push({ lat, lng: lon });
+            });
+          });
+          setRoutePolyline(flatPoints);
+        }
+      } catch (err) {
+        console.error("Failed to fetch Geoapify route polyline", err);
+      }
+    }
+
+    fetchGeoapifyRoute();
+  }, [currentRide?._id, driverLocation?.latitude, driverLocation?.longitude, currentRide?.pickup, currentRide?.destination]);
+
+  // Setup WebSocket connection, incoming message listeners, heartbeat, and location watching
   useEffect(() => {
     if (!profile) return;
 
     const driverSocket = connectDriverSocket({
       onReady: () => {
         setError("");
+        if (currentRideRef.current && BUSY_RIDE_STATUSES.includes(currentRideRef.current.status)) {
+          driverSocket.send(JSON.stringify({ event: DriverEvents.SET_BUSY, data: {} }));
+          setDriverStatus("BUSY");
+        }
       },
       onError: (message) => {
         setError(message);
       },
     });
 
+    socketRef.current = driverSocket;
+
+    driverSocket.onmessage = (event) => {
+      try {
+        const parsed = JSON.parse(event.data);
+        const { event: serverEvent, data } = parsed;
+
+        switch (serverEvent) {
+          case ServerEvents.NEW_RIDE:
+            if (data?.ride) {
+              setError("");
+              setCurrentRide(data.ride);
+            }
+            break;
+
+          case ServerEvents.RIDE_ACCEPTED:
+            if (data?.ride) setCurrentRide(data.ride);
+            break;
+
+          case ServerEvents.DRIVER_ARRIVED:
+            setCurrentRide((prev) => (prev ? { ...prev, status: "DRIVER_ARRIVING" } : prev));
+            break;
+
+          case ServerEvents.RIDE_STARTED:
+            setCurrentRide((prev) => (prev ? { ...prev, status: "STARTED" } : prev));
+            break;
+
+          case ServerEvents.RIDE_COMPLETED: {
+            setCurrentRide((prev) => {
+              const updated = prev ? { ...prev, status: "COMPLETED" as RideStatus, ...data?.ride } : null;
+              const earnedPaise = updated?.fare?.breakdown?.driverEarningPaise ?? updated?.fare?.fareBreakdown?.driverEarningPaise ?? 0;
+              
+              if (earnedPaise > 0) {
+                setProfile((prevProf) => prevProf ? {
+                  ...prevProf,
+                  statistics: {
+                    ...prevProf.statistics,
+                    completedTrips: prevProf.statistics.completedTrips + 1,
+                    totalEarnings: prevProf.statistics.totalEarnings + earnedPaise,
+                  }
+                } : prevProf);
+              }
+              return updated;
+            });
+            break;
+          }
+
+          case ServerEvents.RIDE_CANCELLED:
+            setCurrentRide((prev) =>
+              prev
+                ? { ...prev, status: "CANCELLED", cancelledBy: data?.cancelledBy, cancellationReason: data?.reason }
+                : prev,
+            );
+            break;
+
+          case ServerEvents.ERROR:
+            setError(data?.message || "Server error occurred.");
+            break;
+
+          default:
+            break;
+        }
+      } catch (err) {
+        console.error("Failed to parse incoming socket message:", err);
+      }
+    };
+
+    const heartbeatInterval = setInterval(() => {
+      if (driverStatusRef.current === "OFFLINE") return;
+      if (driverSocket.readyState === WebSocket.OPEN) {
+        driverSocket.send(JSON.stringify({ event: DriverEvents.HEARTBEAT, data: {} }));
+      }
+    }, HEARTBEAT_INTERVAL_MS);
+
     if (!navigator.geolocation) {
       setError("Geolocation is not supported in this browser.");
-      return () => driverSocket.close();
+      return () => {
+        clearInterval(heartbeatInterval);
+        driverSocket.close();
+      };
     }
 
     const watchId = navigator.geolocation.watchPosition(
@@ -210,12 +386,12 @@ export default function DriverDashboard() {
         sendDriverLocation(driverSocket, latitude, longitude);
       },
       (positionError) => {
-        setError(positionError.message);
+        setError(`Navigator : ${positionError.message} `);
       },
       {
         enableHighAccuracy: true,
         maximumAge: 1000,
-        timeout: 10000,
+        timeout: 15000,
       },
     );
 
@@ -226,15 +402,100 @@ export default function DriverDashboard() {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
       }
+      clearInterval(heartbeatInterval);
       driverSocket.close();
     };
   }, [profile]);
+
+  // Auto-transition driver status based on active ride lifecycle
+  useEffect(() => {
+    if (!currentRide) return;
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+
+    if (BUSY_RIDE_STATUSES.includes(currentRide.status) && driverStatusRef.current !== "BUSY") {
+      socketRef.current.send(JSON.stringify({ event: DriverEvents.SET_BUSY, data: {} }));
+      setDriverStatus("BUSY");
+    } else if (TERMINAL_RIDE_STATUSES.includes(currentRide.status) && driverStatusRef.current === "BUSY") {
+      socketRef.current.send(JSON.stringify({ event: DriverEvents.SET_AVAILABLE, data: {} }));
+      setDriverStatus("AVAILABLE");
+    }
+  }, [currentRide?.status]);
+
+  const handleToggleAvailability = () => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      setError("Socket connection not ready.");
+      return;
+    }
+    if (driverStatus === "BUSY") {
+      setError("You can't go offline while a ride is active.");
+      return;
+    }
+
+    const goingOnline = driverStatus === "OFFLINE";
+    socketRef.current.send(
+      JSON.stringify({
+        event: DriverEvents.SET_AVAILABLE,
+        data: { available: goingOnline },
+      }),
+    );
+    setDriverStatus(goingOnline ? "AVAILABLE" : "OFFLINE");
+  };
+
+  const handleAcceptRide = (rideId: string) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      setError("Socket connection not ready.");
+      return;
+    }
+    setError("");
+    socketRef.current.send(JSON.stringify({ event: DriverEvents.ACCEPT_RIDE, data: { rideId } }));
+    setCurrentRide((prev) => (prev ? { ...prev, status: "DRIVER_ASSIGNED" } : prev));
+  };
+
+  const handleRejectRide = (rideId: string) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      setError("Socket connection not ready.");
+      return;
+    }
+    socketRef.current.send(JSON.stringify({ event: DriverEvents.REJECT_RIDE, data: { rideId } }));
+    setCurrentRide(null);
+  };
+
+  const handleCancelRide = (rideId: string) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      setError("Socket connection not ready.");
+      return;
+    }
+    setError("");
+    socketRef.current.send(
+      JSON.stringify({
+        event: DriverEvents.CANCEL_RIDE_BY_DRIVER,
+        data: { rideId, reason: "Cancelled by driver" },
+      }),
+    );
+    setCurrentRide((prev) => (prev ? { ...prev, status: "CANCELLED", cancelledBy: "DRIVER" } : prev));
+  };
+
+  const sendRideAction = (event: string, rideId: string, extraData = {}) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      setError("Socket connection not ready.");
+      return;
+    }
+    socketRef.current.send(JSON.stringify({ event, data: { rideId, ...extraData } }));
+
+    if (event === DriverEvents.ARRIVED_AT_PICKUP) {
+      setCurrentRide((prev) => (prev ? { ...prev, status: "DRIVER_ARRIVING" } : prev));
+    } else if (event === DriverEvents.START_RIDE) {
+      setCurrentRide((prev) => (prev ? { ...prev, status: "STARTED" } : prev));
+    } else if (event === DriverEvents.COMPLETE_RIDE) {
+      setCurrentRide((prev) => (prev ? { ...prev, status: "COMPLETED" } : prev));
+    }
+  };
 
   if (loading) {
     return <LoadingScreen label="Loading driver dashboard" />;
   }
 
-  if (!profile) {
+  if (!profile || profile.verificationStatus!="APPROVED") {
     return (
       <div className="min-h-screen w-full bg-[#EFEBE9] p-6 flex items-center justify-center">
         <div className="w-full max-w-4xl rounded-3xl bg-[#FAF6F0] border border-[#D7CCC8] p-8 shadow-xl">
@@ -281,25 +542,19 @@ export default function DriverDashboard() {
       : []),
   ];
 
-  const mapPath = currentRide
-    ? driverLocation
-      ? [
-          { lat: driverLocation.latitude, lng: driverLocation.longitude },
-          { lat: currentRide.pickup.coordinates.latitude, lng: currentRide.pickup.coordinates.longitude },
-          { lat: currentRide.destination.coordinates.latitude, lng: currentRide.destination.coordinates.longitude },
-        ]
-      : [
-          { lat: currentRide.pickup.coordinates.latitude, lng: currentRide.pickup.coordinates.longitude },
-          { lat: currentRide.destination.coordinates.latitude, lng: currentRide.destination.coordinates.longitude },
-        ]
-    : [];
-
   const statusConfig = currentRide ? RIDE_STATUS_CONFIG[currentRide.status] : null;
   const paymentConfig = currentRide ? PAYMENT_STATUS_CONFIG[currentRide.paymentStatus] : null;
   const distance = currentRide ? currentRide.distance.actual ?? currentRide.distance.estimated : null;
   const duration = currentRide ? currentRide.duration.actual ?? currentRide.duration.estimated : null;
-  const fare = currentRide ? currentRide.fare.final ?? currentRide.fare.estimated : null;
-  const isFareFinal = currentRide?.fare.final != null;
+  const fare = currentRide ? currentRide.fare.breakdown?.driverEarningPaise ?? currentRide.fare.final ?? currentRide.fare.estimated : null;
+  
+  const fareBreakdownData = currentRide?.fare?.breakdown ?? currentRide?.fare?.fareBreakdown ?? null;
+
+  const driverStatusCopy: Record<DriverStatus, string> = {
+    OFFLINE: "Riders can only see you while you're online.",
+    AVAILABLE: "You are online and receiving requests.",
+    BUSY: "You're on an active trip. You'll go back to available automatically once it ends.",
+  };
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-[#EFEBE9] text-[#3E2723] transition-colors duration-300">
@@ -310,7 +565,7 @@ export default function DriverDashboard() {
 
       {/* Full Width Main Container */}
       <div className="relative w-full px-4 sm:px-8 lg:px-12 py-8 space-y-8">
-        
+
         {/* Sticky Header */}
         <header className="sticky top-4 z-50 w-full">
           <div className="w-full rounded-3xl border border-[#D7CCC8]/60 bg-[#FAF6F0]/90 backdrop-blur-xl shadow-lg px-6 py-4 flex items-center justify-between transition-all duration-300 hover:shadow-xl">
@@ -366,33 +621,31 @@ export default function DriverDashboard() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold text-[#3E2723]">Driver Status</h2>
-              <p className="text-sm text-[#795548] mt-0.5">Riders can only see you while you're online.</p>
+              <p className="text-sm text-[#795548] mt-0.5">{driverStatusCopy[driverStatus]}</p>
             </div>
-            <Button size="lg" className="rounded-full bg-[#5D4037] px-8 py-6 text-base font-bold text-[#FAF6F0] hover:bg-[#4E342E] shadow-md transition-all active:scale-95">
-              ☕ Go Online
+            <Button
+              size="lg"
+              onClick={handleToggleAvailability}
+              disabled={driverStatus === "BUSY"}
+              className={`rounded-full px-8 py-6 text-base font-bold shadow-md transition-all active:scale-95 disabled:opacity-70 ${
+                driverStatus === "AVAILABLE"
+                  ? "bg-emerald-700 hover:bg-emerald-800 text-white"
+                  : driverStatus === "BUSY"
+                  ? "bg-[#8D6E63] text-white"
+                  : "bg-[#5D4037] hover:bg-[#4E342E] text-[#FAF6F0]"
+              }`}
+            >
+              {driverStatus === "AVAILABLE" ? "🟢 Go Offline" : driverStatus === "BUSY" ? "🚗 On a Trip" : "☕ Go Online"}
             </Button>
           </div>
         </section>
 
-        {/* Earnings & Stats Grid Cards */}
-        <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 w-full">
-          <div className="rounded-3xl bg-gradient-to-br from-[#5D4037] to-[#3E2723] p-6 text-[#FAF6F0] shadow-lg transition-transform duration-300 hover:-translate-y-1">
-            <p className="text-[#D7CCC8] text-sm font-medium">Today's Earnings</p>
-            <h2 className="mt-3 text-3xl sm:text-4xl font-black">₹0</h2>
+        {/* Error Display Bar */}
+        {error && (
+          <div className="w-full rounded-2xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-800 shadow-sm">
+            {error}
           </div>
-          <div className="rounded-3xl bg-gradient-to-br from-[#6D4C41] to-[#4E342E] p-6 text-[#FAF6F0] shadow-lg transition-transform duration-300 hover:-translate-y-1">
-            <p className="text-[#D7CCC8] text-sm font-medium">Completed Trips</p>
-            <h2 className="mt-3 text-3xl sm:text-4xl font-black">{profile.statistics.completedTrips}</h2>
-          </div>
-          <div className="rounded-3xl bg-gradient-to-br from-[#795548] to-[#5D4037] p-6 text-[#FAF6F0] shadow-lg transition-transform duration-300 hover:-translate-y-1">
-            <p className="text-[#D7CCC8] text-sm font-medium">Rating</p>
-            <h2 className="mt-3 text-3xl sm:text-4xl font-black">{profile.rating.average.toFixed(1)}</h2>
-          </div>
-          <div className="rounded-3xl bg-gradient-to-br from-[#8D6E63] to-[#6D4C41] p-6 text-[#FAF6F0] shadow-lg transition-transform duration-300 hover:-translate-y-1">
-            <p className="text-[#D7CCC8] text-sm font-medium">Total Earnings</p>
-            <h2 className="mt-3 text-2xl sm:text-3xl font-black truncate">{formatPaise(profile.statistics.totalEarnings)}</h2>
-          </div>
-        </section>
+        )}
 
         {/* Current Ride Section & Map Wrapper */}
         <section className="grid gap-8 w-full">
@@ -416,7 +669,7 @@ export default function DriverDashboard() {
                 </div>
                 <h3 className="mt-5 text-xl sm:text-2xl font-bold text-[#3E2723]">Waiting for Ride Requests</h3>
                 <p className="mt-2 text-sm sm:text-base text-[#795548] max-w-md mx-auto">
-                  Stay online and nearby riders will automatically appear here.
+                  {driverStatus === "AVAILABLE" ? "You are online. Nearby requests will appear here instantly." : "Go online to start receiving ride requests."}
                 </p>
               </div>
             ) : (
@@ -429,6 +682,61 @@ export default function DriverDashboard() {
                   <div className="rounded-2xl bg-[#EFEBE9]/80 border border-[#D7CCC8] p-5">
                     <p className="text-xs uppercase tracking-widest text-[#5D4037] font-bold">Destination</p>
                     <p className="mt-2 text-base sm:text-lg font-semibold text-[#3E2723]">{currentRide.destination.address}</p>
+                  </div>
+
+                  {/* Ride Workflow Action Buttons */}
+                  <div className="flex flex-wrap gap-3 pt-2">
+                    {currentRide.status === "SEARCHING" && (
+                      <>
+                        <Button
+                          onClick={() => handleAcceptRide(currentRide._id)}
+                          className="bg-[#5D4037] hover:bg-[#4E342E] text-white rounded-full px-6 py-3 font-bold flex items-center gap-2"
+                        >
+                          Accept Ride
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleRejectRide(currentRide._id)}
+                          className="border-rose-300 text-rose-700 hover:bg-rose-50 rounded-full px-6 py-3 font-bold flex items-center gap-2"
+                        >
+                          <X className="h-4 w-4" />
+                          Reject
+                        </Button>
+                      </>
+                    )}
+                    {currentRide.status === "DRIVER_ASSIGNED" && (
+                      <Button
+                        onClick={() => sendRideAction(DriverEvents.ARRIVED_AT_PICKUP, currentRide._id)}
+                        className="bg-[#5D4037] hover:bg-[#4E342E] text-white rounded-full px-6 py-3 font-bold"
+                      >
+                        Arrived at Pickup
+                      </Button>
+                    )}
+                    {currentRide.status === "DRIVER_ARRIVING" && (
+                      <Button
+                        onClick={() => sendRideAction(DriverEvents.START_RIDE, currentRide._id)}
+                        className="bg-[#5D4037] hover:bg-[#4E342E] text-white rounded-full px-6 py-3 font-bold"
+                      >
+                        Start Ride
+                      </Button>
+                    )}
+                    {currentRide.status === "STARTED" && (
+                      <Button
+                        onClick={() => sendRideAction(DriverEvents.COMPLETE_RIDE, currentRide._id)}
+                        className="bg-emerald-700 hover:bg-emerald-800 text-white rounded-full px-6 py-3 font-bold"
+                      >
+                        Complete Ride
+                      </Button>
+                    )}
+                    {["DRIVER_ASSIGNED", "DRIVER_ARRIVING"].includes(currentRide.status) && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleCancelRide(currentRide._id)}
+                        className="border-rose-300 text-rose-700 hover:bg-rose-50 rounded-full px-6 py-3 font-bold flex items-center gap-2"
+                      >
+                        Cancel Ride
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -462,25 +770,37 @@ export default function DriverDashboard() {
             )}
 
             {currentRide?.status === "CANCELLED" && (
-              <div className="mx-6 mb-6 rounded-2xl border border-[#D7CCC8] bg-[#EFEBE9] p-4 text-sm text-[#5D4037]">
-                Cancelled{currentRide.cancelledBy ? ` by ${currentRide.cancelledBy.toLowerCase()}` : ""}
-                {currentRide.cancellationReason ? `: ${currentRide.cancellationReason}` : "."}
+              <div className="mx-6 mb-6 rounded-2xl border border-[#D7CCC8] bg-[#EFEBE9] p-4 text-sm text-[#5D4037] flex flex-wrap items-center justify-between gap-3">
+                <span>
+                  Cancelled{currentRide.cancelledBy ? ` by ${currentRide.cancelledBy.toLowerCase()}` : ""}
+                  {currentRide.cancellationReason ? `: ${currentRide.cancellationReason}` : "."}
+                </span>
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentRide(null)}
+                  className="border-[#D7CCC8] text-[#5D4037] hover:bg-[#EFEBE9] rounded-full px-4 py-2 text-xs font-bold"
+                >
+                  Back to searching
+                </Button>
               </div>
             )}
 
-            {currentRide?.status === "COMPLETED" && currentRide.fare.breakdown && (
-              <div className="mx-6 mb-6 rounded-2xl border border-[#D7CCC8] bg-[#EFEBE9] p-5">
-                <p className="text-sm font-medium text-[#3E2723]">
-                  You earned <span className="font-bold">{formatPaise(currentRide.fare.breakdown.driverEarningPaise)}</span> on this trip
-                </p>
-                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-[#5D4037] sm:grid-cols-3">
-                  <div className="flex justify-between gap-2"><dt>Base fare</dt><dd>{formatPaise(currentRide.fare.breakdown.baseFarePaise)}</dd></div>
-                  <div className="flex justify-between gap-2"><dt>Distance</dt><dd>{formatPaise(currentRide.fare.breakdown.distanceFarePaise)}</dd></div>
-                  <div className="flex justify-between gap-2"><dt>Time</dt><dd>{formatPaise(currentRide.fare.breakdown.timeFarePaise)}</dd></div>
-                  <div className="flex justify-between gap-2"><dt>Surge</dt><dd>{formatPaise(currentRide.fare.breakdown.surgePaise)}</dd></div>
-                  <div className="flex justify-between gap-2"><dt>Platform fee</dt><dd>-{formatPaise(currentRide.fare.breakdown.platformCommissionPaise)}</dd></div>
-                  <div className="flex justify-between gap-2 font-bold"><dt>Total</dt><dd>{formatPaise(currentRide.fare.breakdown.totalPaise)}</dd></div>
-                </dl>
+            {currentRide?.status === "COMPLETED" && (
+              <div className="mx-6 mb-6 rounded-2xl border border-[#D7CCC8] bg-[#EFEBE9] p-6 text-center space-y-3">
+                <p className="text-xs uppercase tracking-widest text-[#795548] font-bold">Trip Completed</p>
+                <h3 className="text-3xl font-black text-[#3E2723]">
+                  {fareBreakdownData ? formatPaise(fareBreakdownData.driverEarningPaise) : (fare != null ? formatPaise(fare) : "₹0.00")}
+                </h3>
+                <p className="text-sm text-[#5D4037]">Driver earnings added successfully.</p>
+                <div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setCurrentRide(null)}
+                    className="border-[#D7CCC8] text-[#5D4037] hover:bg-[#FAF6F0] rounded-full px-6 py-2 text-xs font-bold mt-2"
+                  >
+                    Back to searching
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -502,7 +822,7 @@ export default function DriverDashboard() {
                 center={mapCenter}
                 zoom={12}
                 markers={mapMarkers}
-                path={mapPath}
+                path={routePolyline}
               />
             </div>
           </div>

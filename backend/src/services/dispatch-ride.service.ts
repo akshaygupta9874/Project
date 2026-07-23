@@ -238,35 +238,7 @@ function notifyDrivers(
         emitNewRideRequest(
             driver.driverId,
             {
-                rideId: dispatch.ride._id.toString(),
-
-                riderId:
-                    dispatch.ride.rider.toString(),
-
-                pickup: {
-                    address:
-                        dispatch.ride.pickup.address,
-
-                    latitude:
-                        dispatch.ride.pickup.coordinates.latitude,
-
-                    longitude:
-                        dispatch.ride.pickup.coordinates.longitude,
-                },
-
-                destination: {
-                    address:
-                        dispatch.ride.destination.address,
-
-                    latitude:
-                        dispatch.ride.destination.coordinates.latitude,
-
-                    longitude:
-                        dispatch.ride.destination.coordinates.longitude,
-                },
-
-                estimatedFare:
-                    dispatch.ride.fare.estimated,
+                ride:dispatch.ride
             }
         );
 
