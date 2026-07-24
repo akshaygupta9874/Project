@@ -1,4 +1,4 @@
-import nodemailer, { Transporter } from "nodemailer";
+import { BrevoClient } from "@getbrevo/brevo";
 import { redisClient } from "../redis/client.js";
 import { NextFunction, Request, RequestHandler, Response } from "express";
 import UserModel from "../models/user.model.js";
@@ -7,6 +7,7 @@ import { generateToken } from "../utils/generateToken.js";
 import { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 import { registerSession, revokeUserSessions } from "../middlewares/session.middleware.js";
 import { generateCSRFToken } from "../middlewares/csrfMiddleware.js"
+
 /**
  * Shared branding config — pulled once so both templates stay in sync.
  */
@@ -164,7 +165,6 @@ Use the verification code below to complete your sign-in to <strong>${APP_NAME}<
 
 /**
  * OTP verification email — plain-text fallback.
- * Nodemailer/mail clients that block HTML (or spam filters) fall back to this.
  */
 export const getOtpText = ({ email, otp, expiresInMinutes = 5 }: OtpEmailParams): string => {
     return `Verify your email - ${email}
@@ -320,60 +320,68 @@ If you didn't request this, you can safely ignore this email.
 };
 
 /* ------------------------------------------------------------------ */
-/*  Nodemailer wiring                                                  */
+/*  Brevo SDK Wiring                                                    */
 /* ------------------------------------------------------------------ */
 
-/**
- * Configure this once (e.g. in a mailer.ts) and import `transporter`
- * wherever you need to send mail. Using a pooled transport avoids
- * reconnecting on every send.
- */
-export const transporter: Transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_SECURE === "true", // true for port 465, false for 587/25
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-    },
-    pool: true,
+const brevo = new BrevoClient({
+    apiKey: process.env.BREVO_API_KEY || "",
 });
 
+/**
+ * Helper to parse MAIL_FROM string (e.g. `"App Name" <no-reply@example.com>`) 
+ * into name and email fields required by Brevo.
+ */
+function getSender() {
+    const mailFrom = process.env.MAIL_FROM || `"${APP_NAME}" <no-reply@example.com>`;
+    const match = mailFrom.match(/^(?:"?([^"]*)"?\s)?(?:<?(.+@.+)>?)$/);
+    if (match) {
+        return {
+            name: match[1] || APP_NAME,
+            email: match[2] || "no-reply@example.com"
+        };
+    }
+    return {
+        name: APP_NAME,
+        email: "no-reply@example.com"
+    };
+}
 
 /**
- * Sends the OTP email. Includes both html and text so spam filters
- * and text-only clients get a sane fallback.
+ * Sends the OTP email using Brevo.
  */
 export const sendOtpEmail = async ({ email, otp, expiresInMinutes = 5 }: OtpEmailParams) => {
-    return transporter.sendMail({
-        from: process.env.MAIL_FROM || `"${APP_NAME}" <no-reply@example.com>`,
-        to: email,
+    const sender = getSender();
+    return brevo.transactionalEmails.sendTransacEmail({
+        sender: { name: sender.name, email: sender.email },
+        to: [{ email }],
         subject: `${otp} is your ${APP_NAME} verification code`,
-        html: getOtpHtml({ email, otp, expiresInMinutes }),
-        text: getOtpText({ email, otp, expiresInMinutes }),
+        htmlContent: getOtpHtml({ email, otp, expiresInMinutes }),
+        textContent: getOtpText({ email, otp, expiresInMinutes }),
     });
 };
 
 /**
- * Sends the account verification (magic link) email.
+ * Sends the account verification (magic link) email using Brevo.
  */
 export const sendVerifyEmail = async ({ email, token }: VerifyEmailParams) => {
-    return transporter.sendMail({
-        from: process.env.MAIL_FROM || `"${APP_NAME}" <no-reply@example.com>`,
-        to: email,
+    const sender = getSender();
+    return brevo.transactionalEmails.sendTransacEmail({
+        sender: { name: sender.name, email: sender.email },
+        to: [{ email }],
         subject: `Verify your ${APP_NAME} account`,
-        html: getVerifyEmailHtml({ email, token }),
-        text: getVerifyEmailText({ email, token }),
+        htmlContent: getVerifyEmailHtml({ email, token }),
+        textContent: getVerifyEmailText({ email, token }),
     });
 };
 
 export const sendResetPasswordEmail = async ({ email, token }: ResetPasswordEmailParams) => {
-    return transporter.sendMail({
-        from: process.env.MAIL_FROM || `"${APP_NAME}" <no-reply@example.com>`,
-        to: email,
+    const sender = getSender();
+    return brevo.transactionalEmails.sendTransacEmail({
+        sender: { name: sender.name, email: sender.email },
+        to: [{ email }],
         subject: `Reset your ${APP_NAME} password`,
-        html: getResetPasswordHtml({ email, token }),
-        text: getResetPasswordText({ email, token }),
+        htmlContent: getResetPasswordHtml({ email, token }),
+        textContent: getResetPasswordText({ email, token }),
     });
 };
 
