@@ -55,12 +55,16 @@ interface DriverInfo {
   firstName?: string;
   lastName?: string;
   vehicleNumber?: string | null;
+  phone?: string;
   user?: {
     firstName?: string;
     lastName?: string;
+    phone?: string;
   };
   vehicle?: {
     registrationNumber?: string;
+    model?: string;
+    color?: string;
   };
 }
 
@@ -122,15 +126,32 @@ export default function RideDetails() {
 
   const socketRef = useRef<WebSocket | null>(null);
 
+  // Helper function to fetch full ride details including driver info
+  const fetchRideDetails = async (id?: string) => {
+    try {
+      const endpoint = id ? `/ride/${id}` : "/ride/current";
+      const response = await appApi.get<{ message: string; ride: Ride }>(endpoint);
+      const currentRide = response.data.ride;
+      if (currentRide) {
+        setRide(currentRide);
+        return currentRide;
+      }
+    } catch {
+      // ignore individual fetch errors if fallback handles it
+    }
+    return null;
+  };
+
   // Load ride & fetch Geoapify routing polyline with dynamic waypoints
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const response = await appApi.get<{ message: string; ride: Ride }>("/ride/current");
-        if (cancelled) return;
-        const currentRide = response.data.ride;
-        setRide(currentRide);
+        const currentRide = await fetchRideDetails(rideId);
+        if (cancelled || !currentRide) {
+          if (!cancelled && !currentRide) setError("Unable to load ride details.");
+          return;
+        }
 
         if (currentRide?.pickup && currentRide?.destination) {
           const pLat = currentRide.pickup.coordinates.latitude;
@@ -165,14 +186,15 @@ export default function RideDetails() {
     };
   }, [rideId]);
 
-  // Live updates via WebSocket matching incoming frame structure { event: "server:driver-location", data: { latitude, longitude, rideId } }
+  // Live updates via WebSocket matching incoming frame structure
   useEffect(() => {
     const s = connectRiderSocket({
       onReady: () => setToast("Connected to live updates"),
       onError: (m: string) => setToast(m),
-      onRideAccepted: () => {
-        setRide((p) => (p ? { ...p, status: "DRIVER_ASSIGNED" } : p));
+      onRideAccepted: async () => {
         setToast("Driver has accepted your ride");
+        // Immediately fetch full ride state to populate driver info right away
+        await fetchRideDetails(rideId);
       },
       onDriverLocation: (payload: any) => {
         if (payload?.latitude != null && payload?.longitude != null) {
@@ -200,7 +222,7 @@ export default function RideDetails() {
 
     if (s) {
       const originalOnMessage = s.onmessage;
-      s.onmessage = (event) => {
+      s.onmessage = async (event) => {
         if (originalOnMessage) originalOnMessage.call(s, event);
         try {
           const parsed = JSON.parse(event.data);
@@ -210,6 +232,10 @@ export default function RideDetails() {
               setDriverLocation({ latitude, longitude });
             }
           }
+          // Also listen for general backend status update broadcasts containing driver allocation
+          if (parsed?.event === "server:ride-accepted" || parsed?.event === "server:driver-assigned") {
+            await fetchRideDetails(rideId);
+          }
         } catch {
           // silent fallback parsing ignore
         }
@@ -218,7 +244,7 @@ export default function RideDetails() {
 
     socketRef.current = s;
     return () => s?.close();
-  }, []);
+  }, [rideId]);
 
   // Auto-dismiss toast
   useEffect(() => {
@@ -270,9 +296,10 @@ export default function RideDetails() {
   const stepIndex = STATUS_STEPS.findIndex((s) => s.key === ride.status);
   const isTerminal = ride.status === "COMPLETED" || ride.status === "CANCELLED";
 
-  const driverFirstName = ride.driver?.firstName || ride.driver?.user?.firstName || "Driver";
+  const driverFirstName = ride.driver?.firstName || ride.driver?.user?.firstName || "Assigned Driver";
   const driverLastName = ride.driver?.lastName || ride.driver?.user?.lastName || "";
-  const vehicleNo = ride.driver?.vehicleNumber || ride.driver?.vehicle?.registrationNumber || "Vehicle";
+  const vehicleNo = ride.driver?.vehicleNumber || ride.driver?.vehicle?.registrationNumber || ride.driver?.vehicle?.model || "Vehicle Details Pending";
+  const driverPhone = ride.driver?.phone || ride.driver?.user?.phone;
 
   const activeFareValue = ride.fare.final ?? ride.fare.estimated ?? 0;
   const formattedFare = formatPaiseToRupee(activeFareValue);
@@ -456,7 +483,7 @@ export default function RideDetails() {
           </div>
         ) : null}
 
-        {/* Driver card */}
+        {/* Driver card — Displayed immediately when assigned or connected */}
         <AnimatePresence>
           {ride.driver && (
             <motion.div
@@ -464,13 +491,12 @@ export default function RideDetails() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10 }}
               transition={{ type: "spring", stiffness: 240, damping: 24 }}
-              className="mt-4 overflow-hidden rounded-2xl border border-[#D7CCC8] bg-[#EFEBE9]/70 p-3.5 shadow-sm"
+              className="mt-4 overflow-hidden rounded-2xl border border-[#D7CCC8] bg-[#EFEBE9]/70 p-4 shadow-sm"
             >
-              <div className="flex items-center gap-3">
-                <div className="relative">
+              <div className="flex items-center gap-3.5">
+                <div className="relative flex-shrink-0">
                   <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-[#5D4037] to-[#3E2723] text-base font-bold text-[#FAF6F0] shadow-md">
-                    {driverFirstName?.[0]}
-                    {driverLastName?.[0]}
+                    {driverFirstName?.[0]?.toUpperCase() || "D"}
                   </div>
                   <span className="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full border border-[#FAF6F0] bg-[#5D4037]">
                     <Shield className="h-2 w-2 text-[#FAF6F0]" />
@@ -480,16 +506,18 @@ export default function RideDetails() {
                   <p className="text-sm font-semibold text-[#3E2723] truncate">
                     {driverFirstName} {driverLastName}
                   </p>
-                  <div className="mt-0.5 flex items-center gap-1.5 text-xs text-[#795548]">
-                    <Star className="h-3 w-3 fill-[#795548] text-[#795548]" />
-                    <span className="text-[#3E2723] font-medium">4.9</span>
-                    <span>·</span>
-                    <span className="truncate">{vehicleNo}</span>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-[#795548]">
+                    <span className="inline-flex items-center gap-1 font-medium text-[#3E2723]">
+                      <Star className="h-3 w-3 fill-[#795548] text-[#795548]" />
+                      4.9
+                    </span>
+                    <span>•</span>
+                    <span className="truncate font-medium text-[#3E2723]">{vehicleNo}</span>
                   </div>
                 </div>
                 <a
-                  href="tel:0000000000"
-                  className="grid h-10 w-10 place-items-center rounded-full bg-[#5D4037] text-[#FAF6F0] shadow-md transition hover:scale-105"
+                  href={driverPhone ? `tel:${driverPhone}` : "tel:0000000000"}
+                  className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-[#5D4037] text-[#FAF6F0] shadow-md transition hover:scale-105"
                   aria-label="Call driver"
                 >
                   <Phone className="h-4 w-4" />

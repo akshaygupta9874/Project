@@ -525,7 +525,7 @@ export async function cancelRide(
         if (ride.driver) {
 
             emitRideCancelled(
-                ride.driver.toString(),
+                ride.driver._id.toString(),
                 {
                     rideId: ride._id.toString(),
                     cancelledBy: "RIDER",
@@ -653,7 +653,7 @@ export async function completeRide(
         //--------------------------------------------------
 
         emitRideCompleted(
-            ride.rider.toString(),
+            ride.rider._id.toString(),
             {
                 rideId: ride.id,
             }
@@ -838,7 +838,7 @@ export async function cancelRideByDriver(
         //--------------------------------------------------
 
         emitRideCancelled(
-            ride.rider.toString(),
+            ride.rider._id.toString(),
             {
                 rideId: ride.id,
                 cancelledBy: "DRIVER",
