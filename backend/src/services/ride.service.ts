@@ -108,7 +108,8 @@ export interface GetDriverRideHistoryInput {
 
 
 export async function createRide(
-    input: CreateRideInput
+    input: CreateRideInput,
+    vehicleType : string
 ): Promise<IRide> {
 
     const session = await mongoose.startSession();
@@ -180,7 +181,8 @@ export async function createRide(
         try {
 
             await dispatchRide(
-                ride
+                ride,
+                vehicleType
             );
 
         } catch (err) {
@@ -598,7 +600,7 @@ export async function completeRide(
         ride.completedAt = new Date();
 
         ride.paymentStatus = RidePaymentStatus.PENDING;
-        const finalFare = fareService.calculateFinalFare(ride)
+        const finalFare = fareService.calculateFinalFare(ride,driver.vehicle.toString())
 
         ride.fare.final = finalFare.totalPaise;
         ride.fare.breakdown =

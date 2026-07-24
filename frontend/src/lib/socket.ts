@@ -49,13 +49,15 @@ interface RiderSocketOptions {
   onNoDriversAvailable: () => void;
 }
 
+const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:3001";
+
 export function connectRiderSocket(options: RiderSocketOptions): WebSocket {
   const token = getAccessToken();
   if (!token) {
     throw new Error("Missing access token for socket connection.");
   }
 
-  const socket = new WebSocket(`ws://localhost:3001?token=${token}`);
+  const socket = new WebSocket(`${WS_URL}?token=${token}`);
 
   socket.addEventListener("open", () => {
     options.onReady();
@@ -117,7 +119,7 @@ export function connectDriverSocket(options: DriverSocketOptions): WebSocket {
     throw new Error("Missing access token for driver socket connection.");
   }
 
-  const socket = new WebSocket(`ws://localhost:3001?token=${token}`);
+  const socket = new WebSocket(`${WS_URL}?token=${token}`);
 
   socket.addEventListener("open", () => {
     options.onReady();

@@ -25,6 +25,7 @@ export const createRideSchema = z.object({
     duration: z.object({
         estimated: z.number().positive(),
     }),
+    vehicleType : z.string()
 });
 
 export type CreateRideInput = z.infer<typeof createRideSchema>;

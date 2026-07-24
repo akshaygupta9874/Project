@@ -22,15 +22,11 @@ const DISPATCH_TIMEOUT_MS = 1000000;
 // ======================================================
 
 interface ActiveDispatch {
-
     ride: IRide;
-
     drivers: NearbyDriver[];
-
     currentIndex: number;
-
+    vehicleType?: string;
     timeout?: NodeJS.Timeout;
-
 }
 
 // ======================================================
@@ -47,11 +43,15 @@ const activeDispatches = new Map<
 // ======================================================
 
 export async function dispatchRide(
-    ride: IRide
+    ride: IRide,
+    vehicleType?: string
 ): Promise<void> {
 
+    // Resolve vehicle type from parameter, ride property, or default fallback
+    const resolvedVehicleType = vehicleType || (ride as any).vehicleType;
+
     //--------------------------------------------------
-    // Find Eligible Drivers
+    // Find Eligible Drivers from Geohash/Redis
     //--------------------------------------------------
 
     const drivers =
@@ -59,13 +59,35 @@ export async function dispatchRide(
             ride.pickup.coordinates.latitude,
             ride.pickup.coordinates.longitude
         );
-    console.log(drivers)
+    console.log("All nearby drivers found:", drivers);
+
+    //--------------------------------------------------
+    // Handle Vehicle Type Matching in this file
+    //--------------------------------------------------
+
+    const filteredDrivers = drivers.filter(driver => {
+        if (!resolvedVehicleType) return true;
+        
+        // Extract vehicle type/category from the driver object across common schemas
+        const driverVehicleType = 
+            (driver as any).vehicleType || 
+            (driver as any).vehicle?.type || 
+            (driver as any).vehicleCategory ||
+            (driver as any).vehicle?.category;
+
+        // If driver has no specified vehicle type, include as fallback or strictly match if required
+        if (!driverVehicleType) return true;
+
+        return driverVehicleType.toLowerCase() === resolvedVehicleType.toLowerCase();
+    });
+
+    console.log(`Filtered drivers matching vehicle type [${resolvedVehicleType || "any"}]:`, filteredDrivers);
 
     //--------------------------------------------------
     // No Drivers Available
     //--------------------------------------------------
 
-    if (drivers.length === 0) {
+    if (filteredDrivers.length === 0) {
 
         emitNoDriversAvailable(
             ride.rider.toString(),
@@ -95,13 +117,10 @@ export async function dispatchRide(
     //--------------------------------------------------
 
     const dispatch: ActiveDispatch = {
-
         ride,
-
-        drivers,
-
+        drivers: filteredDrivers,
         currentIndex: 0,
-
+        vehicleType: resolvedVehicleType,
     };
 
     activeDispatches.set(
@@ -232,13 +251,13 @@ function notifyDrivers(
         }
 
         //--------------------------------------------------
-        // Emit Ride
+        // Emit Ride Request
         //--------------------------------------------------
 
         emitNewRideRequest(
             driver.driverId,
             {
-                ride:dispatch.ride
+                ride: dispatch.ride
             }
         );
 

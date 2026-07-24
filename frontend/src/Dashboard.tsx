@@ -25,7 +25,6 @@ import { searchPlaces } from "./services/geoapify.service";
 
 /**
  * Rider Dashboard — Premium travel-ticket edition.
- * Pure visual/animation upgrade. No implementation changes.
  */
 
 type RideStatus =
@@ -75,7 +74,7 @@ const riseIn = {
   },
 };
 
-const fadeIn : Variants= {
+const fadeIn: Variants = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { duration: 0.6, ease: "easeOut" } },
 };
@@ -109,7 +108,6 @@ export default function Dashboard() {
   const [routeDuration, setRouteDuration] = useState<number | null>(null);
   const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
 
-  const [isRequestingRide, setIsRequestingRide] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
 
   const socketRef = useRef<any>(null);
@@ -295,7 +293,7 @@ export default function Dashboard() {
     );
   };
 
-  const handleCreateRide = async () => {
+  const handleProceedToChoose = () => {
     if (!pickup.trim() || !destination.trim()) {
       setRideError("Please provide both pickup and destination details.");
       return;
@@ -309,22 +307,21 @@ export default function Dashboard() {
       return;
     }
     setRideError("");
-    setIsRequestingRide(true);
-    try {
-      const response = await appApi.post<{ message: string; ride: Ride }>("/ride", {
-        rider: user._id,
-        pickup: { address: pickup, coordinates: pickupCoords },
-        destination: { address: destination, coordinates: destinationCoords },
-        fare: { estimated: routeDistance ? Math.round((routeDistance / 100) * 5) : 160 },
-        distance: { estimated: routeDistance ? Number((routeDistance / 1000).toFixed(1)) : 5 },
-        duration: { estimated: routeDuration ? Math.round(routeDuration / 60) : 14 },
-      });
-      navigate(`/ride/${response.data.ride._id}`);
-    } catch {
-      setRideError("Unable to create a ride request. Please try again.");
-    } finally {
-      setIsRequestingRide(false);
-    }
+
+    const payload = {
+      pickup,
+      destination,
+      pickupCoords,
+      destinationCoords,
+      routeDistance,
+      routeDuration,
+    };
+
+    // Save data to sessionStorage for robust page refresh recovery
+    sessionStorage.setItem("pendingRide", JSON.stringify(payload));
+
+    // Navigate to ChooseMode screen seamlessly
+    navigate("/choose");
   };
 
   async function handleLogout() {
@@ -345,15 +342,14 @@ export default function Dashboard() {
     return <LoadingScreen sublabel="Preparing your dashboard..." />;
   }
 
-  const canBook =
+  const canProceed =
     Boolean(pickup) &&
     Boolean(destination) &&
     Boolean(pickupCoords) &&
     Boolean(destinationCoords) &&
     routeDistance !== null &&
     routeDuration !== null &&
-    !isCalculatingRoute &&
-    !isRequestingRide;
+    !isCalculatingRoute;
 
   const displayName = user?.firstName
     ? `${user.firstName} ${user.lastName ?? ""}`.trim()
@@ -800,29 +796,20 @@ export default function Dashboard() {
             </motion.button>
 
             <motion.button
-              onClick={handleCreateRide}
-              disabled={!canBook}
-              whileHover={canBook ? { y: -2 } : {}}
-              whileTap={canBook ? { scale: 0.97 } : {}}
-              className={`rd-btn-primary group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full px-6 py-3 text-sm font-semibold text-[#FBF7F1] transition disabled:cursor-not-allowed disabled:opacity-60`}
+              onClick={handleProceedToChoose}
+              disabled={!canProceed}
+              whileHover={canProceed ? { y: -2 } : {}}
+              whileTap={canProceed ? { scale: 0.97 } : {}}
+              className="rd-btn-primary group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full px-6 py-3 text-sm font-semibold text-[#FBF7F1] transition disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-              {isRequestingRide ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Finding driver…
-                </>
-              ) : (
-                <>
-                  Find driver
-                  <motion.span
-                    animate={{ x: [0, 4, 0] }}
-                    transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-                  >
-                    <ArrowRight className="h-4 w-4" />
-                  </motion.span>
-                </>
-              )}
+              Choose vehicle
+              <motion.span
+                animate={{ x: [0, 4, 0] }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <ArrowRight className="h-4 w-4" />
+              </motion.span>
             </motion.button>
           </div>
 
@@ -844,9 +831,9 @@ export default function Dashboard() {
         {/* Driver CTA */}
         <motion.section variants={riseIn}>
           <DriverCTA
-                     user={user!}
-                     driver={driverProfile}
-                     loading={isLoadingDriver}
+            user={user!}
+            driver={driverProfile}
+            loading={isLoadingDriver}
           />
         </motion.section>
 

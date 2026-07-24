@@ -43,6 +43,7 @@ export const createRide = asyncTryCatchHandler(
             fare,
             distance,
             duration,
+            vehicleType
         } = validated.data;
 
         const ride =
@@ -61,7 +62,9 @@ export const createRide = asyncTryCatchHandler(
 
                 estimatedDuration:
                     duration.estimated,
-            });
+            },
+            vehicleType
+        );
 
         return response.status(201).json({
             message:
