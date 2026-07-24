@@ -14,7 +14,7 @@ import { paymentRepository } from "../repositories/payment.repository.js";
 
 import { PaymentStatus } from "../types/payment.types.js";
 import { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
-import UserModel from "../../models/user.model.js";
+import UserModel, { UserRole } from "../../models/user.model.js";
 
 // ============================================================================
 
@@ -179,7 +179,7 @@ export const getPayment =
     }
     if (
       !isOwner &&
-      !user.role.includes("admin")
+      !user.role.includes(UserRole.ADMIN)
     ) {
 
       throw new AppError(
@@ -247,7 +247,7 @@ export const getPaymentsByRide =
     if (
       payments.length > 0 &&
       !owns &&
-      !user.role.includes("admin")
+      !user.role.includes(UserRole.ADMIN)
     ) {
 
       throw new AppError(
@@ -297,7 +297,7 @@ export const listPayments =
     }
 
     const filter =
-      user.role.includes("admin")
+      user.role.includes(UserRole.ADMIN)
         ? {
           status:
             status as PaymentStatus | undefined,
