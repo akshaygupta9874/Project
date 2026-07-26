@@ -1,8 +1,19 @@
-import axios, { type AxiosError, type AxiosInstance, type AxiosRequestConfig } from "axios";
+import axios, {
+  type AxiosError,
+  type AxiosInstance,
+  type AxiosRequestConfig,
+} from "axios";
 
-const apiBaseUrl = (import.meta.env.VITE_API_URL || "http://localhost:3001").replace(/\/+$/u, "");
+const apiBaseUrl = (
+  import.meta.env.VITE_API_URL || "http://localhost:3001"
+).replace(/\/+$/u, "");
+
 const apiBasePath = `${apiBaseUrl}/v1`;
 const authBasePath = `${apiBasePath}/auth`;
+
+// ============================================================================
+// Axios Instances
+// ============================================================================
 
 export const appApi = axios.create({
   baseURL: apiBasePath,
@@ -14,10 +25,27 @@ const api = axios.create({
   withCredentials: true,
 });
 
-let isRefreshing = false;
-let failedQueue: Array<{ resolve: (value?: unknown) => void; reject: (reason?: unknown) => void }> = [];
+// IMPORTANT:
+// This instance has NO interceptors.
+// It is only used to refresh tokens.
+const refreshClient = axios.create({
+  baseURL: authBasePath,
+  withCredentials: true,
+});
 
-const processQueue = (error: unknown, token: string | null = null) => {
+// ============================================================================
+
+let isRefreshing = false;
+
+let failedQueue: Array<{
+  resolve: (value?: unknown) => void;
+  reject: (reason?: unknown) => void;
+}> = [];
+
+const processQueue = (
+  error: unknown,
+  token: string | null = null
+) => {
   failedQueue.forEach((promise) => {
     if (error) {
       promise.reject(error);
@@ -25,10 +53,14 @@ const processQueue = (error: unknown, token: string | null = null) => {
       promise.resolve(token);
     }
   });
+
   failedQueue = [];
 };
 
-// Memory storage for the access token
+// ============================================================================
+// Access Token
+// ============================================================================
+
 let accessToken: string | null = null;
 
 export const setAccessToken = (token: string | null) => {
@@ -41,23 +73,40 @@ export const clearAccessToken = () => {
 
 export const getAccessToken = () => accessToken;
 
+// ============================================================================
+
 const getCookieValue = (name: string) => {
   if (typeof document === "undefined") return "";
-  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${name}=([^;]*)`)
+  );
+
   return match ? decodeURIComponent(match[1]) : "";
 };
+
+// ============================================================================
 
 const attachAuthInterceptors = (instance: AxiosInstance) => {
   instance.interceptors.request.use((config) => {
     config.headers = config.headers || {};
 
     if (accessToken) {
-      (config.headers as Record<string, string>)["Authorization"] = `Bearer ${accessToken}`;
+      (config.headers as Record<string, string>).Authorization =
+        `Bearer ${accessToken}`;
     }
 
     const csrfToken = getCookieValue("csrfToken");
-    if (csrfToken && config.method && ["post", "put", "patch", "delete"].includes(config.method.toLowerCase())) {
-      (config.headers as Record<string, string>)["x-csrf-token"] = csrfToken;
+
+    if (
+      csrfToken &&
+      config.method &&
+      ["post", "put", "patch", "delete"].includes(
+        config.method.toLowerCase()
+      )
+    ) {
+      (config.headers as Record<string, string>)["x-csrf-token"] =
+        csrfToken;
     }
 
     return config;
@@ -65,10 +114,24 @@ const attachAuthInterceptors = (instance: AxiosInstance) => {
 
   instance.interceptors.response.use(
     (response) => response,
-    async (error: AxiosError) => {
-      const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
 
-      if ((error.response?.status === 401 || error.response?.status === 403) && !originalRequest._retry) {
+    async (error: AxiosError) => {
+      const originalRequest =
+        error.config as AxiosRequestConfig & {
+          _retry?: boolean;
+        };
+
+      // Don't try to refresh if the refresh endpoint itself failed.
+      if (originalRequest.url?.includes("/refresh")) {
+        clearAccessToken();
+        return Promise.reject(error);
+      }
+
+      if (
+        (error.response?.status === 401 ||
+          error.response?.status === 403) &&
+        !originalRequest._retry
+      ) {
         if (isRefreshing) {
           return new Promise((resolve, reject) => {
             failedQueue.push({ resolve, reject });
@@ -81,37 +144,38 @@ const attachAuthInterceptors = (instance: AxiosInstance) => {
         isRefreshing = true;
 
         try {
-          const response = await api.post("/refresh");
-          const newAccessToken = response.data?.accessToken;
-          setAccessToken(typeof newAccessToken === "string" ? newAccessToken : null);
-          isRefreshing = false;
+          // Uses refreshClient (NO INTERCEPTOR)
+          const response = await refreshClient.post("/refresh");
+
+          const newAccessToken =
+            response.data?.accessToken;
+
+          setAccessToken(
+            typeof newAccessToken === "string"
+              ? newAccessToken
+              : null
+          );
+
           processQueue(null);
+
           return instance(originalRequest);
         } catch (err) {
-          isRefreshing = false;
-          processQueue(err, null);
+          processQueue(err);
+
           clearAccessToken();
+
           return Promise.reject(err);
+        } finally {
+          isRefreshing = false;
         }
       }
 
       return Promise.reject(error);
-    },
+    }
   );
 };
 
 attachAuthInterceptors(api);
 attachAuthInterceptors(appApi);
-// type ApiOptions = Omit<AxiosRequestConfig, "data"> & { body?: unknown };
-
-// export async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
-//   const { body, ...rest } = options;
-//   const response = await api.request<T>({
-//     url: path,
-//     ...rest,
-//     data: body,
-//   });
-//   return response.data as T;
-// }
 
 export default api;
