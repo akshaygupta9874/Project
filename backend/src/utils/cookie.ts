@@ -6,6 +6,7 @@ export const getCookieOptions = (overrides: CookieOptions = {}): CookieOptions =
   httpOnly: true,
   secure: isProduction,
   sameSite: isProduction ? "none" : "lax",
+   path: "/",
   ...overrides,
 });
 

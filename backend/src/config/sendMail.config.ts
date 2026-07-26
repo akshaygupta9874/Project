@@ -9,6 +9,7 @@ import asyncTryCatchHandler from "../middlewares/TryCatch.js";
 import UserModel from "../models/user.model.js";
 import { redisClient } from "../redis/client.js";
 import { generateToken } from "../utils/generateToken.js";
+import { getCookieOptions, getCsrfCookieOptions } from "../utils/cookie.js";
 
 /* -------------------------------------------------------------------------- */
 /*                                CONFIG & TYPES                              */
@@ -303,7 +304,7 @@ const sendSendGridEmail = async ({
 }) => {
   const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
   // Use your verified Single Sender email from SendGrid dashboard
-  const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || "no-reply@example.com"; 
+  const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || "no-reply@example.com";
 
   if (!SENDGRID_API_KEY) {
     throw new Error("SENDGRID_API_KEY is not defined in environment variables");
@@ -442,12 +443,15 @@ export const verifyEmail = asyncTryCatchHandler(
       req.sessionID ?? undefined
     );
 
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+
+    res.cookie(
+      "refreshToken",
+      refreshToken,
+      getCookieOptions({
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      })
+    );
+
 
     await redisClient.setEx(
       `user:${userId}`,
@@ -538,19 +542,22 @@ export const verifyOTP: RequestHandler = async (
 
   const csrfToken = generateCSRFToken(userId, response);
 
-  response.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
 
-  response.cookie("csrfToken", csrfToken, {
-    httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "none",
-    maxAge: 15 * 60 * 1000,
-  });
+  response.cookie(
+    "refreshToken",
+    refreshToken,
+    getCookieOptions({
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    })
+  );
+
+  response.cookie(
+    "csrfToken",
+    csrfToken,
+    getCsrfCookieOptions({
+      maxAge: 15 * 60 * 1000,
+    })
+  );
 
   await redisClient.setEx(
     `user:${userId}`,

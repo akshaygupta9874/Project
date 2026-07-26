@@ -295,7 +295,7 @@ export const resendOtpController = asyncTryCatchHandler(
             });
         }
 
-        const passwordMatched = bcrypt.compare(password,userFound.password);
+        const passwordMatched = await bcrypt.compare(password,userFound.password);
         if(!passwordMatched){
             return response.status(401).json(
                 {
@@ -395,9 +395,6 @@ export const userLogoutController = asyncTryCatchHandler(
         await revokeRefreshToken(userId, response, request.sessionID);
         await redisClient.del(`user:${userId}`);
         response.clearCookie("sessionId", getCookieOptions())
-
-        response.clearCookie("accessToken", getCookieOptions());
-
         response.clearCookie("refreshToken", getCookieOptions());
         response.clearCookie("csrfToken", getCsrfCookieOptions());
 
