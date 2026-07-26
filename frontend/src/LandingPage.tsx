@@ -7,16 +7,22 @@ import {
   ChevronDown,
   Circle,
   Square,
-  Send,
   Navigation,
   Sparkles,
   Car,
   Star,
+  Loader2,
+  Locate,
+  ArrowRight,
+  ShieldCheck,
+  Bike,
+  IndianRupee,
 } from "lucide-react";
 
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { useNavigate } from "react-router-dom";
+import { searchPlaces } from "./services/geoapify.service";
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -34,6 +40,46 @@ const itemVariants: Variants = {
     transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] },
   },
 };
+
+interface RideModeOption {
+  id: "bike" | "auto" | "car";
+  name: string;
+  description: string;
+  icon: React.ReactNode;
+  multiplier: number;
+  etaMinutes: number;
+}
+
+const RIDE_MODES: RideModeOption[] = [
+  {
+    id: "bike",
+    name: "Moto / Bike",
+    description: "Fastest through traffic",
+    icon: <Bike className="h-5 w-5" />,
+    multiplier: 0.7,
+    etaMinutes: 3,
+  },
+  {
+    id: "auto",
+    name: "Auto Rickshaw",
+    description: "Affordable local ride",
+    icon: <Sparkles className="h-5 w-5" />,
+    multiplier: 0.9,
+    etaMinutes: 5,
+  },
+  {
+    id: "car",
+    name: "Comfort Car",
+    description: "Spacious & air-conditioned",
+    icon: <Car className="h-5 w-5" />,
+    multiplier: 1.2,
+    etaMinutes: 7,
+  },
+];
+
+function formatRupee(amount: number): string {
+  return amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 // ---------- Animated city map background ----------
 function CityMapBackground() {
@@ -221,11 +267,173 @@ export default function LandingPage() {
   const [isFocused, setIsFocused] = useState(false);
   const navigate = useNavigate();
 
+  // Dynamic Current Location State
+  const [currentLocationName, setCurrentLocationName] = useState("Kolkata, IN");
+  const [isDetectingCity, setIsDetectingCity] = useState(false);
+
+  // Input & Pricing States
+  const [pickup, setPickup] = useState("");
+  const [destination, setDestination] = useState("");
+  const [pickupCoords, setPickupCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [destinationCoords, setDestinationCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+
+  const [pickupSuggestions, setPickupSuggestions] = useState<any[]>([]);
+  const [destinationSuggestions, setDestinationSuggestions] = useState<any[]>([]);
+  const [activeField, setActiveField] = useState<"pickup" | "destination" | null>(null);
+
+  const [isSearchingPickup, setIsSearchingPickup] = useState(false);
+  const [isSearchingDestination, setIsSearchingDestination] = useState(false);
+  const [isLocatingPickup, setIsLocatingPickup] = useState(false);
+
+  // Pricing display state
+  const [showPrices, setShowPrices] = useState(false);
+  const [isCalculatingPrices, setIsCalculatingPrices] = useState(false);
+  const [pricingError, setPricingError] = useState("");
+  const [calculatedDistanceMeters, setCalculatedDistanceMeters] = useState<number>(5000); // default 5km fallback
+
+  // Detect user's current city on mount
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      setIsDetectingCity(true);
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          try {
+            const apiKey = import.meta.env.VITE_GEOAPIFY_API_KEY || "";
+            const res = await fetch(`https://api.geoapify.com/v1/geocode/reverse?lat=${latitude}&lon=${longitude}&apiKey=${apiKey}`);
+            const data = await res.json();
+            if (data?.features?.[0]?.properties) {
+              const prop = data.features[0].properties;
+              const city = prop.city || prop.town || prop.county || "Kolkata";
+              const country = prop.country_code ? prop.country_code.toUpperCase() : "IN";
+              setCurrentLocationName(`${city}, ${country}`);
+            }
+          } catch {
+            // keep fallback
+          } finally {
+            setIsDetectingCity(false);
+          }
+        },
+        () => {
+          setIsDetectingCity(false);
+        },
+        { timeout: 8000 }
+      );
+    }
+  }, []);
+
+  // Place Autocomplete Effect for Pickup
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (activeField === "pickup" && pickup.trim().length > 2) {
+        setIsSearchingPickup(true);
+        try {
+          const features = await searchPlaces(pickup);
+          setPickupSuggestions(features || []);
+        } catch {
+          setPickupSuggestions([]);
+        } finally {
+          setIsSearchingPickup(false);
+        }
+      } else {
+        setIsSearchingPickup(false);
+        setPickupSuggestions([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [pickup, activeField]);
+
+  // Place Autocomplete Effect for Destination
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (activeField === "destination" && destination.trim().length > 2) {
+        setIsSearchingDestination(true);
+        try {
+          const features = await searchPlaces(destination);
+          setDestinationSuggestions(features || []);
+        } catch {
+          setDestinationSuggestions([]);
+        } finally {
+          setIsSearchingDestination(false);
+        }
+      } else {
+        setIsSearchingDestination(false);
+        setDestinationSuggestions([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [destination, activeField]);
+
+  const handleSelectPlace = (feature: any, type: "pickup" | "destination") => {
+    const address = feature.properties?.formatted || feature.properties?.name || "Selected Location";
+    const [longitude, latitude] = feature.geometry?.coordinates || [0, 0];
+    if (type === "pickup") {
+      setPickup(address);
+      setPickupCoords({ latitude, longitude });
+      setPickupSuggestions([]);
+    } else {
+      setDestination(address);
+      setDestinationCoords({ latitude, longitude });
+      setDestinationSuggestions([]);
+    }
+    setActiveField(null);
+  };
+
+  const handleUseCurrentLocationForPickup = () => {
+    setPricingError("");
+    if (!navigator.geolocation) {
+      setPricingError("Geolocation is not supported by your browser.");
+      return;
+    }
+    setIsLocatingPickup(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setPickupCoords({ latitude, longitude });
+        setPickup(`Current location (${latitude.toFixed(3)}, ${longitude.toFixed(3)})`);
+        setIsLocatingPickup(false);
+      },
+      (error) => {
+        setPricingError(`Unable to retrieve location: ${error.message}`);
+        setIsLocatingPickup(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const handleSeePricesClick = async () => {
+    if (!pickup.trim() || !destination.trim()) {
+      setPricingError("Please fill in both pickup and dropoff locations.");
+      return;
+    }
+    setPricingError("");
+    setShowPrices(true);
+    setIsCalculatingPrices(true);
+
+    try {
+      if (pickupCoords && destinationCoords) {
+        const apiKey = import.meta.env.VITE_GEOAPIFY_API_KEY || "";
+        const url = `https://api.geoapify.com/v1/routing?waypoints=${pickupCoords.latitude},${pickupCoords.longitude}|${destinationCoords.latitude},${destinationCoords.longitude}&mode=drive&apiKey=${apiKey}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data?.features?.[0]?.properties?.distance) {
+          setCalculatedDistanceMeters(data.features[0].properties.distance);
+        }
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    } catch {
+      // keep fallback distance
+    } finally {
+      setIsCalculatingPrices(false);
+    }
+  };
+
+  const baseFareValue = Math.round((calculatedDistanceMeters / 100) * 5);
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#f0ece2] font-sans text-black">
       <CityMapBackground />
 
-     
       <section className="relative z-10 mx-auto flex min-h-[calc(100vh-80px)] max-w-7xl flex-col items-center justify-between gap-16 px-8 py-10 lg:flex-row">
         {/* Left */}
         <motion.div className="flex-1" variants={containerVariants} initial="hidden" animate="visible">
@@ -239,7 +447,9 @@ export default function LandingPage() {
 
           <motion.div variants={itemVariants} className="mb-6 flex items-center gap-2 text-base text-gray-800">
             <MapPin size={18} className="text-black" />
-            <span className="font-medium">Kolkata, IN</span>
+            <span className="font-medium">
+              {isDetectingCity ? "Detecting location..." : currentLocationName}
+            </span>
             <button className="text-gray-500 underline underline-offset-4 transition-colors hover:text-black">
               Change city
             </button>
@@ -269,6 +479,7 @@ export default function LandingPage() {
 
           {/* Inputs */}
           <motion.div variants={itemVariants} className="mt-7 max-w-lg space-y-5">
+            {/* Pickup Input */}
             <div className="group relative">
               <motion.div
                 className="pointer-events-none absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-sky-400 via-emerald-400 to-amber-400 opacity-0 blur transition duration-500"
@@ -277,19 +488,65 @@ export default function LandingPage() {
               <div
                 className="relative"
                 onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
+                onBlur={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsFocused(false);
+                }}
               >
                 <Circle className="absolute left-5 top-1/2 z-10 -translate-y-1/2 text-gray-500 transition-colors group-focus-within:text-black" size={16} />
                 <Input
+                  value={pickup}
+                  onChange={(e) => {
+                    setPickup(e.target.value);
+                    setActiveField("pickup");
+                    setPickupCoords(null);
+                  }}
+                  onFocus={() => setActiveField("pickup")}
                   placeholder="Pickup location"
                   className="h-16 w-full rounded-2xl border-2 border-transparent bg-white/90 pl-14 pr-14 text-lg shadow-sm backdrop-blur transition-all focus-within:border-black focus-within:bg-white focus-within:shadow-xl focus:outline-none"
                 />
-                <button className="absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center justify-center rounded-full bg-black p-2.5 text-white transition-all hover:scale-110">
-                  <Send className="rotate-45" size={18} />
+                <button
+                  type="button"
+                  onClick={handleUseCurrentLocationForPickup}
+                  title="Use current location for pickup"
+                  className="absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center justify-center rounded-full bg-black p-2.5 text-white transition-all hover:scale-110"
+                >
+                  {isLocatingPickup ? <Loader2 className="animate-spin" size={18} /> : <Locate size={18} />}
                 </button>
+
+                {/* Pickup Dropdown */}
+                <AnimatePresence>
+                  {activeField === "pickup" && pickup.trim().length > 2 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      className="absolute left-0 right-0 top-full z-30 mt-2 max-h-60 overflow-y-auto rounded-2xl border border-black/10 bg-white p-2 shadow-xl backdrop-blur"
+                    >
+                      {isSearchingPickup ? (
+                        <div className="flex items-center justify-center gap-2 py-4 text-sm text-gray-500">
+                          <Loader2 className="h-4 w-4 animate-spin" /> Searching...
+                        </div>
+                      ) : pickupSuggestions.length > 0 ? (
+                        pickupSuggestions.map((item, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => handleSelectPlace(item, "pickup")}
+                            className="flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2.5 text-sm text-black transition hover:bg-gray-100"
+                          >
+                            <MapPin size={14} className="shrink-0 text-gray-400" />
+                            <span className="truncate">{item.properties?.formatted || item.properties?.name}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="py-3 text-center text-sm text-gray-400">No locations found</div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
 
+            {/* Dropoff Input */}
             <div className="relative">
               <div className="absolute left-[27px] -top-6 h-10 w-0.5 overflow-hidden">
                 <div className="h-full w-full bg-gray-300" />
@@ -305,16 +562,68 @@ export default function LandingPage() {
                 size={16}
               />
               <Input
+                value={destination}
+                onChange={(e) => {
+                  setDestination(e.target.value);
+                  setActiveField("destination");
+                  setDestinationCoords(null);
+                }}
+                onFocus={() => setActiveField("destination")}
                 placeholder="Dropoff location"
                 className="h-16 w-full rounded-2xl border-2 border-transparent bg-white/90 pl-14 text-lg shadow-sm backdrop-blur transition-all focus-within:border-black focus-within:bg-white focus-within:shadow-xl focus:outline-none"
               />
+
+              {/* Destination Dropdown */}
+              <AnimatePresence>
+                {activeField === "destination" && destination.trim().length > 2 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    className="absolute left-0 right-0 top-full z-30 mt-2 max-h-60 overflow-y-auto rounded-2xl border border-black/10 bg-white p-2 shadow-xl backdrop-blur"
+                  >
+                    {isSearchingDestination ? (
+                      <div className="flex items-center justify-center gap-2 py-4 text-sm text-gray-500">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Searching...
+                      </div>
+                    ) : destinationSuggestions.length > 0 ? (
+                      destinationSuggestions.map((item, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => handleSelectPlace(item, "destination")}
+                          className="flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2.5 text-sm text-black transition hover:bg-gray-100"
+                        >
+                          <MapPin size={14} className="shrink-0 text-gray-400" />
+                          <span className="truncate">{item.properties?.formatted || item.properties?.name}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-3 text-center text-sm text-gray-400">No locations found</div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </motion.div>
+
+          {/* Inline Pricing Error */}
+          <AnimatePresence>
+            {pricingError && (
+              <motion.p
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                className="mt-3 text-sm font-medium text-red-600"
+              >
+                {pricingError}
+              </motion.p>
+            )}
+          </AnimatePresence>
 
           <motion.div variants={itemVariants} className="mt-10 flex flex-wrap items-center gap-6">
             <Button
               className="group relative h-14 overflow-hidden rounded-2xl bg-black px-8 text-base text-white shadow-lg shadow-black/20 transition-transform hover:scale-105 active:scale-95"
-              onClick={() => navigate("/login")}
+              onClick={handleSeePricesClick}
             >
               <span className="relative z-10">See prices</span>
               <span className="absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-white/20 transition-transform duration-700 group-hover:translate-x-[420%]" />
@@ -328,6 +637,84 @@ export default function LandingPage() {
               <span className="absolute -bottom-1 left-0 h-[2px] w-0 bg-black transition-all duration-300 group-hover:w-full" />
             </button>
           </motion.div>
+
+          {/* Pricing Preview Showcase Panel matching ChooseMode styles */}
+          <AnimatePresence>
+            {showPrices && (
+              <motion.div
+                initial={{ opacity: 0, y: 16, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: "auto" }}
+                exit={{ opacity: 0, y: 16, height: 0 }}
+                className="mt-8 max-w-lg overflow-hidden rounded-3xl border border-black/10 bg-white/95 p-6 shadow-2xl backdrop-blur-md"
+              >
+                <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-black">Choose your ride mode</h3>
+                    <p className="text-xs text-gray-500 truncate max-w-[280px]">
+                      {pickup} → {destination}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowPrices(false)}
+                    className="text-xs font-semibold text-gray-400 hover:text-black"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                {isCalculatingPrices ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-gray-500">
+                    <Loader2 className="mb-2 h-6 w-6 animate-spin text-black" />
+                    <p className="text-sm">Calculating best fares & ETAs...</p>
+                  </div>
+                ) : (
+                  <div className="mt-4 space-y-3">
+                    {RIDE_MODES.map((mode) => {
+                      const calculatedFare = Math.round(baseFareValue * mode.multiplier);
+                      return (
+                        <div
+                          key={mode.id}
+                          onClick={() => navigate("/login")}
+                          className="group flex cursor-pointer items-center justify-between rounded-2xl border border-gray-100 bg-gray-50/60 p-4 transition-all hover:border-black hover:bg-white hover:shadow-md"
+                        >
+                          <div className="flex items-center gap-3.5">
+                            <div className="grid h-12 w-12 place-items-center rounded-xl bg-black text-white shadow-sm">
+                              {mode.icon}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-black">{mode.name}</span>
+                                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                                  {mode.etaMinutes} mins away
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500">{mode.description}</p>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <p className="text-base font-extrabold text-black flex items-center justify-end">
+                              <IndianRupee className="h-3.5 w-3.5 mr-0.5" />
+                              {formatRupee(calculatedFare)}
+                            </p>
+                            <div className="text-xs text-emerald-600 flex items-center gap-1 justify-end font-semibold">
+                              <span>Book</span> <ArrowRight size={12} />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    <div className="pt-2 text-center">
+                      <p className="text-[11px] text-gray-400 flex items-center justify-center gap-1">
+                        <ShieldCheck size={12} /> Sign in to confirm booking & lock in your fare
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Trust row */}
           <motion.div variants={itemVariants} className="mt-10 flex items-center gap-6 text-sm text-black/60">
@@ -372,7 +759,7 @@ export default function LandingPage() {
               </div>
               <div className="text-sm">
                 <div className="font-semibold">UberX · 2 min</div>
-                <div className="text-black/55">Arriving in Park Street</div>
+                <div className="text-black/55">Arriving nearby</div>
               </div>
             </motion.div>
 

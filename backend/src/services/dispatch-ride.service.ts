@@ -8,6 +8,7 @@ import { emitNewRideRequest } from "../sockets/emitters/driver.emitter.js";
 import { emitNoDriversAvailable } from "../sockets/emitters/rider.emitter.js";
 
 import { socketRegistry } from "../sockets/registry/socket.registry.js";
+import { DriverModel } from "../models/driver.model.js";
 
 // ======================================================
 // Constants
@@ -48,43 +49,90 @@ export async function dispatchRide(
 ): Promise<void> {
 
     // Resolve vehicle type from parameter, ride property, or default fallback
-    const resolvedVehicleType = vehicleType || (ride as any).vehicleType;
+    const resolvedVehicleType =
+        vehicleType || (ride as any).vehicleType;
 
     //--------------------------------------------------
-    // Find Eligible Drivers from Geohash/Redis
+    // Find Nearby Drivers
     //--------------------------------------------------
 
-    const drivers =
-        await findEligibleDrivers(
-            ride.pickup.coordinates.latitude,
-            ride.pickup.coordinates.longitude
-        );
+    const drivers = await findEligibleDrivers(
+        ride.pickup.coordinates.latitude,
+        ride.pickup.coordinates.longitude
+    );
+
     console.log("All nearby drivers found:", drivers);
 
     //--------------------------------------------------
-    // Handle Vehicle Type Matching in this file
+    // No Nearby Drivers
+    //--------------------------------------------------
+
+    if (drivers.length === 0) {
+
+        emitNoDriversAvailable(
+            ride.rider.toString(),
+            {
+                rideId: ride._id.toString(),
+            }
+        );
+
+        return;
+    }
+
+    //--------------------------------------------------
+    // Fetch Vehicle Types From MongoDB
+    //--------------------------------------------------
+
+    const driverIds = drivers.map(
+        driver => driver.driverId
+    );
+
+    const dbDrivers = await DriverModel.find({
+        _id: { $in: driverIds }
+    })
+        .select("_id vehicle.type")
+        .lean();
+
+    const vehicleMap = new Map(
+        dbDrivers.map(driver => [
+            driver._id.toString(),
+            driver.vehicle.type.toLowerCase()
+        ])
+    );
+
+    console.log("Vehicle Map:", vehicleMap);
+
+    //--------------------------------------------------
+    // Filter Drivers By Vehicle Type
     //--------------------------------------------------
 
     const filteredDrivers = drivers.filter(driver => {
-        if (!resolvedVehicleType) return true;
-        
-        // Extract vehicle type/category from the driver object across common schemas
-        const driverVehicleType = 
-            (driver as any).vehicleType || 
-            (driver as any).vehicle?.type || 
-            (driver as any).vehicleCategory ||
-            (driver as any).vehicle?.category;
 
-        // If driver has no specified vehicle type, include as fallback or strictly match if required
-        if (!driverVehicleType) return true;
+        if (!resolvedVehicleType) {
+            return true;
+        }
 
-        return driverVehicleType.toLowerCase() === resolvedVehicleType.toLowerCase();
+        const driverVehicleType =
+            vehicleMap.get(driver.driverId);
+
+        console.log(
+            `Driver ${driver.driverId}: ${driverVehicleType}`
+        );
+
+        return (
+            driverVehicleType ===
+            resolvedVehicleType.toLowerCase()
+        );
+
     });
 
-    console.log(`Filtered drivers matching vehicle type [${resolvedVehicleType || "any"}]:`, filteredDrivers);
+    console.log(
+        `Filtered drivers matching [${resolvedVehicleType}]:`,
+        filteredDrivers
+    );
 
     //--------------------------------------------------
-    // No Drivers Available
+    // No Matching Drivers
     //--------------------------------------------------
 
     if (filteredDrivers.length === 0) {
@@ -97,7 +145,6 @@ export async function dispatchRide(
         );
 
         return;
-
     }
 
     //--------------------------------------------------
@@ -129,7 +176,7 @@ export async function dispatchRide(
     );
 
     //--------------------------------------------------
-    // Start First Batch
+    // Start Dispatch
     //--------------------------------------------------
 
     await dispatchNextBatch(
