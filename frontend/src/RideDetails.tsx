@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
 import {
   ArrowLeft,
   Phone,
@@ -16,6 +16,9 @@ import {
   CheckCircle2,
   Navigation2,
   Sparkles,
+  TrendingUp,
+  Zap,
+  Radio,
 } from "lucide-react";
 import LoadingScreen from "./components/LoadingScreen";
 import MapView from "./components/MapView";
@@ -26,8 +29,9 @@ import { createPaymentOrder, loadRazorpayCheckout, verifyPaymentSignature } from
 import { useAuthContext } from "./context/authContext";
 
 /**
- * RideDetails — premium travel-ticket theme.
- * Same logic + API/socket contract; polished UI, layout & motion only.
+ * RideDetails — Premium instrument console theme with brass metallics,
+ * rising embers, advanced motion choreography, and next-level modern UI.
+ * Unified with DriverDashboard aesthetic but optimized for rider journey.
  */
 
 type RideStatus =
@@ -73,9 +77,6 @@ interface Ride {
   driver?: DriverInfo | null;
 }
 
-const DISPLAY_FONT = "'Fraunces', 'Iowan Old Style', Georgia, serif";
-const BODY_FONT = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
-
 const STATUS_STEPS: { key: RideStatus; label: string }[] = [
   { key: "SEARCHING", label: "Searching" },
   { key: "DRIVER_ASSIGNED", label: "Assigned" },
@@ -95,10 +96,313 @@ const STATUS_COPY: Record<RideStatus, { title: string; subtitle: string }> = {
   CANCELLED: { title: "Ride cancelled", subtitle: "This trip is no longer active" },
 };
 
+const RIDE_STATUS_CONFIG: Record<
+  RideStatus,
+  { label: string; badge: string; accent: string }
+> = {
+  SEARCHING: {
+    label: "Searching",
+    badge: "bg-[#3B2818]/70 text-[#F2CD7C] border border-[#7A5230]",
+    accent: "#D9A521",
+  },
+  DRIVER_ASSIGNED: {
+    label: "Assigned to you",
+    badge: "bg-[#3B2818]/70 text-[#F2CD7C] border border-[#7A5230]",
+    accent: "#E0B347",
+  },
+  DRIVER_ARRIVING: {
+    label: "Arriving",
+    badge: "bg-[#3B2818]/70 text-[#F2CD7C] border border-[#7A5230]",
+    accent: "#E8843A",
+  },
+  STARTED: {
+    label: "Trip in progress",
+    badge: "bg-[#3B2818]/80 text-[#FBEBC9] border border-[#A67C4E]",
+    accent: "#F2CD7C",
+  },
+  ARRIVED_AT_DESTINATION: {
+    label: "Arrived at destination",
+    badge: "bg-[#3B2818]/80 text-[#F6ECDA] border border-[#A67C4E]",
+    accent: "#D9A521",
+  },
+  COMPLETED: {
+    label: "Completed",
+    badge: "bg-[#3B2818]/60 text-[#C7D69E] border border-[#7A5230]",
+    accent: "#8FA34E",
+  },
+  CANCELLED: {
+    label: "Cancelled",
+    badge: "bg-[#3B2818]/60 text-[#E2A08E] border border-[#7A5230]",
+    accent: "#B54834",
+  },
+};
+
 function formatPaiseToRupee(amount: number | null | undefined): string {
   if (amount == null) return "0.00";
   const rupees = amount > 1000 ? amount / 100 : amount;
   return rupees.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// ---------- Animated Number Component ----------
+function AnimatedNumber({ value, format }: { value: number; format?: (n: number) => string }) {
+  const mv = useMotionValue(0);
+  const spring = useSpring(mv, { stiffness: 90, damping: 20, mass: 0.6 });
+  const display = useTransform(spring, (v) => (format ? format(v) : Math.round(v).toLocaleString()));
+  useEffect(() => {
+    mv.set(value);
+  }, [value, mv]);
+  return <motion.span className="font-mono digit-flicker">{display}</motion.span>;
+}
+
+// ---------- Rising Embers Animation ----------
+function EmberField({ count = 12 }: { count?: number }) {
+  const embers = useMemo(
+    () =>
+      Array.from({ length: count }, (_, i) => ({
+        id: i,
+        left: (i * 137.5) % 100,
+        delay: (i * 0.9) % 12,
+        duration: 8 + ((i * 5) % 9),
+        size: 2 + (i % 3),
+        drift: ((i % 5) - 2) * 8,
+      })),
+    [count],
+  );
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      {embers.map((e) => (
+        <span
+          key={e.id}
+          className="absolute bottom-0 rounded-full"
+          style={
+            {
+              left: `${e.left}%`,
+              width: e.size,
+              height: e.size,
+              backgroundColor: "#F2CD7C",
+              boxShadow: "0 0 6px 1px rgba(242,205,124,0.8)",
+              animation: `emberRise ${e.duration}s ease-in ${e.delay}s infinite`,
+              "--drift": `${e.drift}px`,
+            } as React.CSSProperties
+          }
+        />
+      ))}
+    </div>
+  );
+}
+
+// ---------- Ambient Atmosphere Orbs ----------
+function DashboardAtmosphere() {
+  return (
+    <>
+      <motion.div
+        className="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-[#7A5230]/30 blur-3xl"
+        animate={{ y: [0, 20, 0], x: [0, 10, 0], opacity: [0.5, 0.8, 0.5] }}
+        transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="pointer-events-none absolute top-60 -right-40 h-[28rem] w-[28rem] rounded-full bg-[#D9A521]/15 blur-3xl"
+        animate={{ y: [0, -25, 0], x: [0, -15, 0], opacity: [0.4, 0.7, 0.4] }}
+        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="pointer-events-none absolute bottom-0 left-1/2 h-[30rem] w-[30rem] -translate-x-1/2 rounded-full bg-[#E8843A]/10 blur-3xl"
+        animate={{ scale: [1, 1.08, 1], opacity: [0.35, 0.6, 0.35] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <EmberField count={12} />
+    </>
+  );
+}
+
+// ---------- Status Pulse Badge ----------
+function StatusPulse({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="relative inline-flex items-center gap-2 rounded-full border border-[#7A5230] bg-[#241a10]/80 px-3 py-1.5 text-xs font-semibold text-[#F6ECDA] backdrop-blur console-readout">
+      <span className="relative flex h-2.5 w-2.5">
+        <motion.span
+          className="absolute inline-flex h-full w-full rounded-full"
+          style={{ backgroundColor: color }}
+          animate={{ scale: [1, 2.4], opacity: [0.7, 0] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut" }}
+        />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+      </span>
+      {label}
+    </span>
+  );
+}
+
+// ---------- Ride Stepper ----------
+function RideStepper({ status }: { status: RideStatus }) {
+  const activeIdx = STATUS_STEPS.findIndex((s) => s.key === status);
+  const progress = Math.max(0, activeIdx) / (STATUS_STEPS.length - 1);
+  return (
+    <div className="w-full">
+      <div className="relative flex items-center justify-between">
+        <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-[#3B2818]" />
+        <motion.div
+          className="absolute left-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-gradient-to-r from-[#7A5230] via-[#D9A521] to-[#F2CD7C]"
+          initial={{ width: 0 }}
+          animate={{ width: `${progress * 100}%` }}
+          transition={{ type: "spring", stiffness: 90, damping: 20 }}
+        />
+        {STATUS_STEPS.map((s, i) => {
+          const done = i <= activeIdx && status !== "CANCELLED";
+          const current = i === activeIdx && status !== "CANCELLED";
+          return (
+            <div key={s.key} className="relative z-10 flex flex-col items-center gap-1.5">
+              <motion.div
+                animate={
+                  current
+                    ? { scale: [1, 1.15, 1], boxShadow: ["0 0 0 0 #D9A52166", "0 0 0 10px #D9A52100"] }
+                    : { scale: 1 }
+                }
+                transition={{ duration: 1.4, repeat: current ? Infinity : 0 }}
+                className={`h-6 w-6 rounded-full border-2 flex items-center justify-center font-semibold ${
+                  done
+                    ? "bg-[#D9A521] border-[#F2CD7C] text-[#1B130C]"
+                    : "bg-[#241a10] border-[#5A4128] text-[#C9AE86]"
+                }`}
+              >
+                {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <span className="text-[10px]">{i + 1}</span>}
+              </motion.div>
+              <span
+                className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wider ${
+                  current ? "text-[#F2CD7C]" : "text-[#8D7350]"
+                }`}
+              >
+                {s.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ---------- Premium Shine Button ----------
+function ShineButton({
+  children,
+  onClick,
+  disabled,
+  className = "",
+  variant = "primary",
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  className?: string;
+  variant?: "primary" | "success" | "danger" | "muted";
+}) {
+  const styles: Record<string, string> = {
+    primary: "bg-gradient-to-br from-[#D9A521] via-[#B8860B] to-[#7A5230] text-[#1B130C]",
+    success: "bg-gradient-to-br from-[#A9C171] via-[#8FA34E] to-[#5F7538] text-[#12190A]",
+    danger: "bg-gradient-to-br from-[#D0654E] via-[#B54834] to-[#7A2E20] text-[#FBEBC9]",
+    muted: "bg-gradient-to-br from-[#7A5230] to-[#5A3D24] text-[#F0E2CC]",
+  };
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const sx = useSpring(x, { stiffness: 220, damping: 18 });
+  const sy = useSpring(y, { stiffness: 220, damping: 18 });
+  const [ripples, setRipples] = useState<{ id: number; left: number; top: number }[]>([]);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (disabled) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    x.set((e.clientX - rect.left - rect.width / 2) * 0.18);
+    y.set((e.clientY - rect.top - rect.height / 2) * 0.3);
+  };
+  const handleMouseLeave = () => {
+    x.set(0);
+    y.set(0);
+  };
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!disabled) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const id = Date.now();
+      setRipples((prev) => [...prev, { id, left: e.clientX - rect.left, top: e.clientY - rect.top }]);
+      setTimeout(() => setRipples((prev) => prev.filter((r) => r.id !== id)), 650);
+    }
+    onClick?.();
+  };
+
+  return (
+    <motion.button
+      style={{ x: sx, y: sy }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      whileTap={{ scale: disabled ? 1 : 0.96 }}
+      onClick={handleClick}
+      disabled={disabled}
+      className={`relative overflow-hidden rounded-full px-6 py-3 text-sm sm:text-base font-bold shadow-[0_6px_20px_rgba(0,0,0,0.35)] border border-[#F2CD7C]/40 transition-shadow disabled:opacity-60 disabled:cursor-not-allowed ${styles[variant]} ${className}`}
+    >
+      <span className="relative z-10 inline-flex items-center gap-2">{children}</span>
+      {!disabled && (
+        <motion.span
+          aria-hidden
+          className="absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-[-20deg]"
+          animate={{ x: ["-50%", "450%"] }}
+          transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
+        />
+      )}
+      {ripples.map((r) => (
+        <motion.span
+          key={r.id}
+          className="pointer-events-none absolute rounded-full bg-white/40"
+          style={{ left: r.left, top: r.top, width: 12, height: 12, x: -6, y: -6 }}
+          animate={{ scale: [0, 4], opacity: [1, 0] }}
+          transition={{ duration: 0.65, ease: "easeOut" }}
+        />
+      ))}
+    </motion.button>
+  );
+}
+
+// ---------- Premium Stat Card ----------
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+  delay = 0,
+}: {
+  label: string;
+  value: string;
+  icon: React.ComponentType<{ className?: string }>;
+  delay?: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 18, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ delay, type: "spring", stiffness: 220, damping: 22 }}
+      whileHover={{ y: -4, scale: 1.02 }}
+      className="group relative overflow-hidden rounded-2xl border border-[#7A5230]/60 bg-[#241a10]/70 p-4 sm:p-5 backdrop-blur-xl"
+    >
+      <motion.div
+        className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100"
+        style={{
+          background:
+            "radial-gradient(600px circle at var(--x,50%) var(--y,50%), rgba(242,205,124,0.15), transparent 40%)",
+        }}
+        transition={{ duration: 0.4 }}
+      />
+      <div className="flex items-center justify-between">
+        <p className="text-xs uppercase tracking-widest text-[#C9AE86] font-medium">{label}</p>
+        <Icon className="h-4 w-4 text-[#D9A521]/80" />
+      </div>
+      <h2 className="mt-2 text-2xl sm:text-3xl font-bold truncate text-[#F6ECDA]">{value}</h2>
+      <div className="mt-3 h-[3px] w-full overflow-hidden rounded-full bg-[#3B2818]">
+        <motion.div
+          initial={{ x: "-100%" }}
+          animate={{ x: "100%" }}
+          transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay }}
+          className="h-full w-1/3 bg-gradient-to-r from-transparent via-[#F2CD7C]/80 to-transparent"
+        />
+      </div>
+    </motion.div>
+  );
 }
 
 export default function RideDetails() {
@@ -368,29 +672,29 @@ export default function RideDetails() {
   if (!ride || error) {
     return (
       <main
-        className="relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-10 text-[#3E2723]"
+        className="relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-10 text-[#1B130C]"
         style={{
-          fontFamily: BODY_FONT,
           background:
-            "radial-gradient(circle at top left, #fdfcf8 0%, #f6efe3 35%, #ebdcc9 100%)",
+            "linear-gradient(135deg, #2C2319 0%, #1B130C 50%, #2C2319 100%)",
         }}
       >
+        <DashboardAtmosphere />
         <motion.section
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative w-full max-w-md overflow-hidden rounded-3xl border border-[#D7CCC8] bg-[#FAF6F0]/95 p-8 text-center shadow-2xl backdrop-blur"
+          initial={{ opacity: 0, y: 16, scale: 0.94 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-[#7A5230]/60 bg-[#241a10]/90 p-8 text-center shadow-2xl backdrop-blur-xl"
         >
-          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-[#EFEBE9] text-[#5D4037]">
+          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-[#3B2818] border border-[#7A5230] text-[#F2CD7C]">
             <Car className="h-6 w-6" />
           </div>
-          <p className="text-lg font-semibold" style={{ fontFamily: DISPLAY_FONT }}>
+          <p className="text-lg font-semibold text-[#F6ECDA]">
             {error || "No active ride found"}
           </p>
-          <p className="mt-1 text-sm text-[#6D4C41]">
+          <p className="mt-1 text-sm text-[#C9AE86]">
             Head back to your dashboard to book a new ride.
           </p>
           <Button
-            className="mt-6 w-full rounded-full bg-[#3E2723] py-2.5 text-sm font-semibold text-[#FAF6F0] hover:bg-[#5D4037]"
+            className="mt-6 w-full rounded-full bg-gradient-to-r from-[#D9A521] to-[#B8860B] py-2.5 text-sm font-semibold text-[#1B130C] hover:shadow-lg"
             onClick={() => navigate("/dashboard")}
           >
             Back to dashboard
@@ -400,7 +704,7 @@ export default function RideDetails() {
     );
   }
 
-  const statusCopy = STATUS_COPY[ride.status];
+  const statusConfig = RIDE_STATUS_CONFIG[ride.status];
   const stepIndex = STATUS_STEPS.findIndex((s) => s.key === ride.status);
   const isTerminal = ride.status === "COMPLETED" || ride.status === "CANCELLED";
   const paymentPending = ride.paymentStatus === "PENDING" || ride.paymentStatus === undefined;
@@ -421,11 +725,22 @@ export default function RideDetails() {
 
   return (
     <main
-      className="relative min-h-screen w-full overflow-hidden text-[#3E2723]"
-      style={{ fontFamily: BODY_FONT }}
+      className="relative min-h-screen w-full overflow-hidden text-[#F6ECDA]"
+      style={{
+        background: "linear-gradient(135deg, #2C2319 0%, #1B130C 50%, #2C2319 100%)",
+      }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+        
+        .console-root { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
+        .console-display { font-family: 'Fraunces', ui-serif, Georgia, serif; letter-spacing: -0.01em; }
+        .console-readout {
+          font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+          font-variant-numeric: tabular-nums;
+          letter-spacing: 0.02em;
+        }
+        
         @keyframes shine-sweep {
           0% { transform: translateX(-120%); }
           100% { transform: translateX(120%); }
@@ -436,6 +751,21 @@ export default function RideDetails() {
         @keyframes soft-pulse {
           0%, 100% { transform: scale(1); opacity: 0.9; }
           50% { transform: scale(1.06); opacity: 1; }
+        }
+        @keyframes emberRise {
+          0% { transform: translateY(0) translateX(0) scale(0.6); opacity: 0; }
+          10% { opacity: 0.9; }
+          90% { opacity: 0.4; }
+          100% { transform: translateY(-140px) translateX(var(--drift, 12px)) scale(1); opacity: 0; }
+        }
+        @keyframes dialGlow {
+          0%, 100% { filter: drop-shadow(0 0 6px rgba(217,165,33,0.35)); }
+          50% { filter: drop-shadow(0 0 18px rgba(217,165,33,0.7)); }
+        }
+        .digit-flicker { animation: digitIn 0.5s ease-out; }
+        @keyframes digitIn {
+          0% { opacity: 0.2; filter: blur(2px); }
+          100% { opacity: 1; filter: blur(0); }
         }
       `}</style>
 
@@ -485,9 +815,10 @@ export default function RideDetails() {
           ]}
           path={mapPath}
         />
-        {/* map warm tint & vignettes for premium theme */}
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(62,39,35,0.18)_0%,transparent_18%,transparent_55%,rgba(62,39,35,0.28)_100%)]" />
-        <div className="pointer-events-none absolute inset-0 mix-blend-overlay bg-[radial-gradient(ellipse_at_top,rgba(255,236,201,0.25),transparent_60%)]" />
+        {/* dark premium overlay with ambient glow */}
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(28,19,12,0.32)_0%,transparent_20%,transparent_50%,rgba(28,19,12,0.42)_100%)]" />
+        <div className="pointer-events-none absolute inset-0 mix-blend-overlay bg-[radial-gradient(ellipse_at_top,rgba(242,205,124,0.12),transparent_60%)]" />
+        <DashboardAtmosphere />
       </div>
 
       {/* FLOATING TOP BAR */}
@@ -497,30 +828,39 @@ export default function RideDetails() {
         transition={{ type: "spring", stiffness: 260, damping: 26 }}
         className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-center justify-between px-4 pt-4 sm:px-6 sm:pt-6"
       >
-        <button
+        <motion.button
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.94 }}
           onClick={() => navigate("/dashboard")}
-          className="pointer-events-auto group grid h-11 w-11 place-items-center rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/95 text-[#5D4037] shadow-lg backdrop-blur-xl transition hover:-translate-x-0.5 hover:bg-[#FAF6F0]"
+          className="pointer-events-auto group grid h-11 w-11 place-items-center rounded-full border border-[#7A5230] bg-[#241a10]/80 text-[#F2CD7C] shadow-lg backdrop-blur-xl transition"
           aria-label="Back"
         >
           <ArrowLeft className="h-5 w-5 transition group-hover:-translate-x-0.5" />
-        </button>
+        </motion.button>
 
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="pointer-events-auto flex items-center gap-2 rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/95 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#5D4037] shadow-lg backdrop-blur-xl"
+          className="pointer-events-auto flex items-center gap-2 rounded-full border border-[#7A5230] bg-[#241a10]/80 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#F2CD7C] shadow-lg backdrop-blur-xl console-readout"
         >
           <span className="relative inline-flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-70" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-600" />
+            <motion.span
+              className="absolute inline-flex h-full w-full rounded-full bg-[#D9A521]"
+              animate={{ scale: [1, 2, 1], opacity: [1, 0.5, 1] }}
+              transition={{ duration: 1.6, repeat: Infinity }}
+            />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-[#D9A521]" />
           </span>
           Ride #{ride._id.slice(-6)}
         </motion.div>
 
-        <div className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/95 text-[#5D4037] shadow-lg backdrop-blur-xl">
+        <motion.div
+          whileHover={{ rotate: 15 }}
+          className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-[#7A5230] bg-[#241a10]/80 text-[#F2CD7C] shadow-lg backdrop-blur-xl"
+        >
           <Navigation2 className="h-5 w-5" />
-        </div>
+        </motion.div>
       </motion.header>
 
       {/* DRIVER SEARCHING PULSE OVERLAY */}
@@ -533,51 +873,54 @@ export default function RideDetails() {
             className="pointer-events-none absolute inset-0 z-10 grid place-items-center"
           >
             <div className="relative flex flex-col items-center">
-              <span className="absolute h-40 w-40 animate-ping rounded-full bg-[#8D6E63]/25" />
-              <span className="absolute h-28 w-28 animate-pulse rounded-full bg-[#A1887F]/40" />
-              <div className="relative grid h-20 w-20 place-items-center rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/95 text-[#3E2723] shadow-2xl backdrop-blur-xl">
-                <Car className="h-8 w-8" />
+              <span className="absolute h-40 w-40 animate-ping rounded-full bg-[#D9A521]/25" />
+              <span className="absolute h-28 w-28 animate-pulse rounded-full bg-[#F2CD7C]/30" />
+              <div className="relative grid h-20 w-20 place-items-center rounded-full border border-[#7A5230] bg-[#241a10]/95 text-[#F2CD7C] shadow-2xl backdrop-blur-xl">
+                <Car className="h-8 w-8 animate-bounce" />
               </div>
-              <p
-                className="mt-4 rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/95 px-4 py-1.5 text-xs font-semibold text-[#5D4037] shadow-lg backdrop-blur-xl"
-                style={{ fontFamily: DISPLAY_FONT }}
+              <motion.p
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="mt-6 rounded-full border border-[#7A5230] bg-[#241a10]/80 px-4 py-2 text-xs font-semibold text-[#F2CD7C] shadow-lg backdrop-blur-xl console-display"
               >
                 Locating nearby drivers…
-              </p>
+              </motion.p>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* FLOATING BOTTOM TICKET SHEET */}
+      {/* FLOATING PREMIUM TICKET SHEET */}
       <motion.section
         initial={{ y: 80, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: "spring", stiffness: 220, damping: 28, delay: 0.05 }}
         className="absolute inset-x-0 bottom-0 z-20 mx-auto w-full max-w-2xl px-3 pb-3 sm:px-4 sm:pb-4"
       >
-        <div className="relative overflow-hidden rounded-[28px] border border-[#D7CCC8] bg-[#FAF6F0]/98 shadow-[0_-20px_60px_-20px_rgba(62,39,35,0.35)] backdrop-blur-2xl">
+        <div className="relative overflow-hidden rounded-[28px] border border-[#7A5230]/60 bg-gradient-to-b from-[#3B2818]/95 to-[#241a10]/95 shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
           {/* ticket perforation strip */}
-          <div className="pointer-events-none absolute inset-x-6 top-0 h-3 flex justify-between">
+          <div className="pointer-events-none absolute inset-x-6 top-0 h-3 flex justify-between opacity-40">
             {Array.from({ length: 22 }).map((_, i) => (
-              <span key={i} className="h-3 w-3 -translate-y-1/2 rounded-full bg-[#f6efe3] shadow-inner" />
+              <span key={i} className="h-3 w-3 -translate-y-1/2 rounded-full bg-[#7A5230]" />
             ))}
           </div>
-          {/* soft brass shine */}
-          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          
+          {/* brass shine sweep */}
+          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[28px]">
             <div
-              className="absolute top-0 h-full w-1/3 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+              className="absolute top-0 h-full w-1/3 bg-gradient-to-r from-transparent via-[#F2CD7C]/15 to-transparent"
               style={{ animation: "shine-sweep 6s ease-in-out infinite" }}
             />
           </div>
 
           {/* drag handle */}
           <div className="pt-4">
-            <div className="mx-auto h-1.5 w-12 rounded-full bg-[#D7CCC8]" />
+            <div className="mx-auto h-1.5 w-12 rounded-full bg-[#7A5230]" />
           </div>
 
           <div className="relative space-y-5 px-5 pb-5 pt-4 sm:px-7 sm:pb-7">
-            {/* Headline */}
+            {/* Status Header */}
             <motion.div
               key={ride.status}
               initial={{ opacity: 0, y: 8 }}
@@ -585,109 +928,74 @@ export default function RideDetails() {
               className="flex items-start justify-between gap-3"
             >
               <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#8D6E63]">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#C9AE86]">
                   {ride.status.replace(/_/g, " ")}
                 </p>
-                <h1
-                  className="mt-1 truncate text-2xl font-semibold text-[#3E2723] sm:text-[26px]"
-                  style={{ fontFamily: DISPLAY_FONT }}
-                >
-                  {statusCopy.title}
+                <h1 className="mt-1 truncate text-2xl font-bold text-[#F6ECDA] sm:text-[26px] console-display">
+                  {STATUS_COPY[ride.status].title}
                 </h1>
-                <p className="mt-1 text-sm text-[#6D4C41]">{statusCopy.subtitle}</p>
+                <p className="mt-1 text-sm text-[#C9AE86]">{STATUS_COPY[ride.status].subtitle}</p>
               </div>
               {isTerminal ? (
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 shadow-inner">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#8FA34E]/30 border border-[#8FA34E] text-[#C7D69E]">
                   <CheckCircle2 className="h-5 w-5" />
                 </div>
               ) : (
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#EFEBE9] text-[#5D4037] shadow-inner">
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
-                  >
-                    <Sparkles className="h-5 w-5" />
+                <motion.div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#D9A521]/20 border border-[#D9A521]/40 text-[#F2CD7C]">
+                  <motion.div animate={{ rotate: 360 }} transition={{ duration: 6, repeat: Infinity, ease: "linear" }}>
+                    <Zap className="h-5 w-5" />
                   </motion.div>
-                </div>
+                </motion.div>
               )}
             </motion.div>
 
-            {/* Stepper */}
+            {/* Enhanced Stepper with Console Theme */}
             {!isTerminal || ride.status === "COMPLETED" ? (
-              <div className="relative flex items-center justify-between rounded-2xl border border-[#EFEBE9] bg-[#FBF7F1] px-3 py-3">
-                <div className="absolute left-6 right-6 top-1/2 h-[2px] -translate-y-1/2 bg-[#EFEBE9]" />
-                <motion.div
-                  initial={{ scaleX: 0 }}
-                  animate={{
-                    scaleX:
-                      stepIndex <= 0
-                        ? 0
-                        : stepIndex / (STATUS_STEPS.length - 1),
-                  }}
-                  transition={{ type: "spring", stiffness: 120, damping: 22 }}
-                  style={{ transformOrigin: "left" }}
-                  className="absolute left-6 right-6 top-1/2 h-[2px] -translate-y-1/2 bg-gradient-to-r from-[#8D6E63] via-[#A1887F] to-[#5D4037]"
-                />
-                {STATUS_STEPS.map((s, i) => {
-                  const active = i <= (stepIndex === -1 ? 0 : stepIndex);
-                  return (
-                    <div key={s.key} className="relative z-10 flex flex-col items-center gap-1.5">
-                      <motion.span
-                        animate={
-                          active && i === stepIndex && !isTerminal
-                            ? { scale: [1, 1.15, 1] }
-                            : { scale: 1 }
-                        }
-                        transition={{ duration: 1.6, repeat: Infinity }}
-                        className={`grid h-4 w-4 place-items-center rounded-full border-2 ${active
-                            ? "border-[#3E2723] bg-[#3E2723]"
-                            : "border-[#D7CCC8] bg-[#FAF6F0]"
-                          }`}
-                      />
-                      <span
-                        className={`text-[9px] font-semibold uppercase tracking-wider ${active ? "text-[#3E2723]" : "text-[#A1887F]"
-                          }`}
-                      >
-                        {s.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+              >
+                <RideStepper status={ride.status} />
+              </motion.div>
             ) : null}
 
-            {/* Driver card */}
+            {/* Driver Card - Premium Enhanced */}
             <AnimatePresence>
               {ride.driver && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
-                  className="relative overflow-hidden rounded-2xl border border-[#EFE0CC] bg-gradient-to-br from-[#FBF3E4] via-[#F6E7CE] to-[#EFDCBB] p-4 shadow-inner"
+                  transition={{ delay: 0.15 }}
+                  className="relative overflow-hidden rounded-2xl border border-[#7A5230]/80 bg-gradient-to-br from-[#3B2818]/70 via-[#241a10]/70 to-[#1B130C]/70 p-4 shadow-inner backdrop-blur"
                 >
-                  <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-[#D7B37A]/30 blur-2xl" />
+                  <motion.div
+                    className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-[#D9A521]/15 blur-2xl"
+                    animate={{ scale: [1, 1.1, 1] }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                  />
                   <div className="relative flex items-center gap-3">
                     <div className="relative">
-                      <div
-                        className="grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-[#8D6E63] to-[#3E2723] text-lg font-semibold text-[#FAF6F0] shadow-lg"
-                        style={{ fontFamily: DISPLAY_FONT }}
-                      >
+                      <div className="grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-[#D9A521] via-[#B8860B] to-[#7A5230] text-lg font-bold text-[#1B130C] shadow-lg console-display">
                         {driverFirstName?.[0]?.toUpperCase() || "D"}
                       </div>
-                      <span className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full border-2 border-[#FAF6F0] bg-emerald-500 text-white shadow">
+                      <motion.span
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 300, delay: 0.2 }}
+                        className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full border-2 border-[#241a10] bg-[#8FA34E] text-white shadow"
+                      >
                         <Shield className="h-3 w-3" />
-                      </span>
+                      </motion.span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p
-                        className="truncate text-base font-semibold text-[#3E2723]"
-                        style={{ fontFamily: DISPLAY_FONT }}
-                      >
+                      <p className="truncate text-base font-bold text-[#F6ECDA] console-display">
                         {driverFirstName} {driverLastName}
                       </p>
-                      <div className="mt-0.5 flex items-center gap-1.5 text-xs text-[#6D4C41]">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[#FAF6F0]/70 px-1.5 py-0.5 font-semibold text-[#3E2723]">
-                          <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
+                      <div className="mt-0.5 flex items-center gap-1.5 text-xs text-[#C9AE86]">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#D9A521]/20 border border-[#D9A521]/40 px-1.5 py-0.5 font-semibold text-[#F2CD7C]">
+                          <Star className="h-3 w-3 fill-[#F2CD7C] text-[#F2CD7C]" />
                           4.9
                         </span>
                         <span>•</span>
@@ -695,24 +1003,30 @@ export default function RideDetails() {
                       </div>
                     </div>
                     {driverPhone && (
-                      <a
+                      <motion.a
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}
                         href={`tel:${driverPhone}`}
-                        className="group grid h-11 w-11 place-items-center rounded-full bg-[#3E2723] text-[#FAF6F0] shadow-lg transition hover:scale-105 active:scale-95"
+                        className="group grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-[#D9A521] to-[#B8860B] text-[#1B130C] shadow-lg"
                         aria-label="Call driver"
                       >
                         <Phone className="h-4 w-4 transition group-hover:rotate-12" />
-                      </a>
+                      </motion.a>
                     )}
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Trip stops */}
-            <div className="relative overflow-hidden rounded-2xl border border-[#EFEBE9] bg-[#FBF7F1] p-4">
+            {/* Trip Stops - Enhanced */}
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="relative overflow-hidden rounded-2xl border border-[#7A5230]/60 bg-[#241a10]/50 p-4 backdrop-blur"
+            >
               <div className="relative flex flex-col gap-3">
-                <Stop color="saddle" label="Pickup" value={ride.pickup.address} />
-                {/* connector */}
+                <Stop color="brass" label="Pickup" value={ride.pickup.address} />
                 <div className="absolute left-[13px] top-[26px] bottom-[26px] w-[2px] overflow-hidden">
                   <svg className="h-full w-full">
                     <line
@@ -720,140 +1034,147 @@ export default function RideDetails() {
                       y1="0"
                       x2="1"
                       y2="100%"
-                      stroke="#8D6E63"
+                      stroke="#D9A521"
                       strokeWidth="2"
                       strokeDasharray="4 4"
                       style={{ animation: "route-dash 1.2s linear infinite" }}
                     />
                   </svg>
                 </div>
-                <Stop color="brass" square label="Drop-off" value={ride.destination.address} />
+                <Stop color="gold" square label="Drop-off" value={ride.destination.address} />
               </div>
-            </div>
+            </motion.div>
 
-            {/* Stats grid */}
-            <div className="grid grid-cols-3 gap-2.5">
-              <Stat icon={<IndianRupee className="h-4 w-4" />} label="Fare" value={`₹${formattedFare}`} />
-              <Stat icon={<Clock className="h-4 w-4" />} label="ETA" value={`${activeDuration}m`} />
-              <Stat icon={<RouteIcon className="h-4 w-4" />} label="Distance" value={`${activeDistance}km`} />
-            </div>
+            {/* Stats Grid - Premium Cards */}
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+              className="grid grid-cols-3 gap-3"
+            >
+              <StatCard icon={IndianRupee} label="Fare" value={`₹${formattedFare}`} delay={0.3} />
+              <StatCard icon={Clock} label="Duration" value={`${activeDuration}m`} delay={0.35} />
+              <StatCard icon={RouteIcon} label="Distance" value={`${activeDistance}km`} delay={0.4} />
+            </motion.div>
 
-            {/* Fare breakdown */}
+            {/* Fare Breakdown */}
             <AnimatePresence>
               {ride.status === "COMPLETED" && ride.fare.breakdown && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden rounded-2xl border border-[#EFEBE9] bg-[#FBF7F1] p-4"
+                  className="overflow-hidden rounded-2xl border border-[#7A5230]/60 bg-[#241a10]/50 p-4 backdrop-blur"
                 >
-                  <p
-                    className="mb-2 text-sm font-semibold text-[#3E2723]"
-                    style={{ fontFamily: DISPLAY_FONT }}
-                  >
+                  <p className="mb-3 text-sm font-bold text-[#F2CD7C] console-display">
                     Fare Breakdown
                   </p>
-                  <div className="space-y-1.5 text-xs text-[#6D4C41]">
+                  <div className="space-y-2 text-xs text-[#C9AE86] console-readout">
                     {ride.fare.breakdown.baseFarePaise != null && (
-                      <Row label="Base Fare" value={`₹${formatPaiseToRupee(ride.fare.breakdown.baseFarePaise)}`} />
+                      <FareRow label="Base Fare" value={`₹${formatPaiseToRupee(ride.fare.breakdown.baseFarePaise)}`} />
                     )}
                     {ride.fare.breakdown.distanceFarePaise != null && (
-                      <Row label="Distance Fare" value={`₹${formatPaiseToRupee(ride.fare.breakdown.distanceFarePaise)}`} />
+                      <FareRow label="Distance" value={`₹${formatPaiseToRupee(ride.fare.breakdown.distanceFarePaise)}`} />
                     )}
                     {ride.fare.breakdown.timeFarePaise != null && (
-                      <Row label="Time Fare" value={`₹${formatPaiseToRupee(ride.fare.breakdown.timeFarePaise)}`} />
+                      <FareRow label="Time" value={`₹${formatPaiseToRupee(ride.fare.breakdown.timeFarePaise)}`} />
                     )}
                     {ride.fare.breakdown.surgePaise != null && ride.fare.breakdown.surgePaise > 0 && (
-                      <Row label="Surge Charge" value={`₹${formatPaiseToRupee(ride.fare.breakdown.surgePaise)}`} />
+                      <FareRow label="Surge" value={`₹${formatPaiseToRupee(ride.fare.breakdown.surgePaise)}`} />
                     )}
+                    <div className="border-t border-[#7A5230]/40 pt-2 mt-2 flex justify-between font-bold text-[#F2CD7C]">
+                      <span>Total</span>
+                      <span>₹{formatPaiseToRupee(ride.fare.breakdown.totalPaise)}</span>
+                    </div>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
+            {/* Payment Alert */}
             {ride.status === "ARRIVED_AT_DESTINATION" && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-2xl border border-amber-300/60 bg-amber-50/80 p-3 text-xs text-amber-900"
+                className="rounded-2xl border border-[#E8843A]/50 bg-[#E8843A]/10 p-3 text-xs text-[#FBEBC9]"
               >
-                <p className="font-semibold">Payment is required before the trip can be finalized.</p>
-                <p className="mt-0.5 text-amber-800/80">
+                <p className="font-bold">Payment Required</p>
+                <p className="mt-0.5 text-[#F0E2CC]">
                   {paymentPending
-                    ? "Your payment remains pending until it is completed."
-                    : "Payment has been captured."}
+                    ? "Complete payment to finalize your trip."
+                    : "Payment has been captured successfully."}
                 </p>
               </motion.div>
             )}
 
+            {/* Driver Location Debug */}
             {driverLocation && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex items-center gap-1.5 text-[11px] text-[#8D6E63]"
+                className="flex items-center gap-1.5 text-[11px] text-[#8D7350] console-readout"
               >
                 <MapPin className="h-3 w-3" />
-                Driver at {driverLocation.latitude.toFixed(4)}, {driverLocation.longitude.toFixed(4)}
+                Driver position synced
               </motion.div>
             )}
 
             {/* Actions */}
-            <div className="flex flex-col gap-2 pt-1">
+            <div className="flex flex-col gap-2.5 pt-1">
               {ride.status === "ARRIVED_AT_DESTINATION" && (
-                <Button
+                <ShineButton
                   onClick={handlePayNow}
                   disabled={isPaying}
-                  className="relative w-full overflow-hidden rounded-full bg-gradient-to-r from-[#5D4037] via-[#3E2723] to-[#5D4037] py-3 text-sm font-semibold text-[#FAF6F0] shadow-lg transition hover:shadow-2xl disabled:opacity-70"
+                  variant="primary"
+                  className="w-full"
                 >
-                  <span
-                    className="pointer-events-none absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent"
-                    style={{ animation: "shine-sweep 2.4s ease-in-out infinite" }}
-                  />
-                  <span className="relative inline-flex items-center justify-center gap-2">
-                    {isPaying && <Loader2 className="h-4 w-4 animate-spin" />}
-                    {isPaying ? "Preparing payment…" : "Pay now"}
-                  </span>
-                </Button>
+                  {isPaying && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {isPaying ? "Preparing payment…" : "Pay now"}
+                </ShineButton>
               )}
               {isTerminal ? (
-                <Button
+                <ShineButton
                   onClick={() => navigate("/dashboard")}
-                  className="w-full rounded-full bg-[#3E2723] py-2.5 text-sm font-semibold text-[#FAF6F0] hover:bg-[#5D4037]"
+                  variant="success"
+                  className="w-full"
                 >
                   Back to dashboard
-                </Button>
+                </ShineButton>
               ) : (
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => setShowCancelConfirm(true)}
-                  className="w-full rounded-full border border-rose-500/30 bg-rose-500/10 py-2.5 text-xs font-semibold text-rose-700 shadow-sm transition hover:bg-rose-500/20 active:scale-[0.99]"
+                  className="w-full rounded-full border border-[#B54834]/50 bg-[#B54834]/10 py-3 text-xs font-bold text-[#E2A08E] shadow-sm transition hover:bg-[#B54834]/20"
                 >
                   Cancel ride
-                </button>
+                </motion.button>
               )}
             </div>
           </div>
         </div>
       </motion.section>
 
-      {/* Toast */}
+      {/* Toast Notification */}
       <AnimatePresence>
         {toast && (
           <motion.div
             initial={{ y: -30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -30, opacity: 0 }}
-            className="pointer-events-none absolute left-1/2 top-20 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/95 px-4 py-2 text-xs font-semibold text-[#3E2723] shadow-xl backdrop-blur-xl"
+            className="pointer-events-none absolute left-1/2 top-24 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[#7A5230] bg-[#241a10]/90 px-4 py-2.5 text-xs font-semibold text-[#F2CD7C] shadow-xl backdrop-blur-xl console-readout"
           >
-            <span className="relative inline-flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-70" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-600" />
-            </span>
+            <motion.span
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 1, repeat: Infinity }}
+              className="relative inline-flex h-2 w-2 rounded-full bg-[#D9A521]"
+            />
             {toast}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Cancel modal */}
+      {/* Cancel Confirmation Modal */}
       <AnimatePresence>
         {showCancelConfirm && (
           <motion.div
@@ -861,7 +1182,7 @@ export default function RideDetails() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setShowCancelConfirm(false)}
-            className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 backdrop-blur-sm"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -869,42 +1190,43 @@ export default function RideDetails() {
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               transition={{ type: "spring", stiffness: 260, damping: 24 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm overflow-hidden rounded-3xl border border-[#D7CCC8] bg-[#FAF6F0] p-6 shadow-2xl"
+              className="w-full max-w-sm overflow-hidden rounded-3xl border border-[#7A5230]/60 bg-[#241a10]/95 p-6 shadow-2xl backdrop-blur"
             >
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
-                  <p
-                    className="text-lg font-semibold text-[#3E2723]"
-                    style={{ fontFamily: DISPLAY_FONT }}
-                  >
+                  <p className="text-lg font-bold text-[#F6ECDA] console-display">
                     Cancel this ride?
                   </p>
-                  <p className="mt-1 text-xs text-[#6D4C41]">
-                    Frequent cancellations may affect your account.
+                  <p className="mt-1 text-xs text-[#C9AE86]">
+                    Cancellations may affect your account standing.
                   </p>
                 </div>
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
                   onClick={() => setShowCancelConfirm(false)}
-                  className="grid h-7 w-7 place-items-center rounded-full bg-[#EFEBE9] text-[#5D4037] transition hover:bg-[#D7CCC8]/60"
+                  className="grid h-7 w-7 place-items-center rounded-full bg-[#3B2818] text-[#F2CD7C] transition"
                   aria-label="Close"
                 >
                   <X className="h-4 w-4" />
-                </button>
+                </motion.button>
               </div>
-              <div className="flex items-center gap-2">
-                <button
+              <div className="flex items-center gap-2.5">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => setShowCancelConfirm(false)}
-                  className="flex-1 rounded-full border border-[#D7CCC8] bg-[#EFEBE9] py-2.5 text-xs font-semibold text-[#3E2723] transition hover:bg-[#D7CCC8]/60"
+                  className="flex-1 rounded-full border border-[#7A5230] bg-[#3B2818]/70 py-2.5 text-xs font-bold text-[#F2CD7C] transition hover:bg-[#3B2818]/90"
                 >
                   Keep ride
-                </button>
-                <button
+                </motion.button>
+                <ShineButton
                   onClick={handleCancel}
                   disabled={isCancelling}
-                  className="flex-1 rounded-full bg-rose-600 py-2.5 text-xs font-semibold text-white shadow-lg transition hover:bg-rose-700 disabled:opacity-70"
+                  variant="danger"
+                  className="flex-1"
                 >
                   {isCancelling ? "Cancelling…" : "Yes, cancel"}
-                </button>
+                </ShineButton>
               </div>
             </motion.div>
           </motion.div>
@@ -914,7 +1236,7 @@ export default function RideDetails() {
   );
 }
 
-/* ---------- helpers ---------- */
+/* ---------- helper components ---------- */
 
 function Stop({
   color,
@@ -922,79 +1244,49 @@ function Stop({
   label,
   value,
 }: {
-  color: "saddle" | "brass";
+  color: "brass" | "gold";
   square?: boolean;
   label: string;
   value: string;
 }) {
   const dotBase =
-    color === "saddle"
-      ? "bg-[#5D4037] shadow-[0_0_10px_rgba(93,64,55,0.45)]"
-      : "bg-[#8D6E63] shadow-[0_0_10px_rgba(121,85,72,0.45)]";
+    color === "brass"
+      ? "bg-[#D9A521] shadow-[0_0_10px_rgba(217,165,33,0.6)]"
+      : "bg-[#F2CD7C] shadow-[0_0_10px_rgba(242,205,124,0.5)]";
 
   return (
-    <div className="relative z-10 flex items-start gap-3">
-      <div className="relative mt-1 grid h-6 w-6 place-items-center">
-        {color === "saddle" && (
-          <span className="absolute h-6 w-6 animate-ping rounded-full bg-[#5D4037]/25" />
+    <motion.div
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
+      className="relative z-10 flex items-start gap-3"
+    >
+      <div className="relative mt-1 grid h-6 w-6 place-items-center shrink-0">
+        {color === "brass" && (
+          <span className="absolute h-6 w-6 animate-ping rounded-full bg-[#D9A521]/25" />
         )}
-        <span
-          className={`relative h-3 w-3 ${dotBase} ${square ? "rotate-45 rounded-[2px]" : "rounded-full"
-            }`}
+        <motion.span
+          animate={{ scale: [1, 1.1, 1] }}
+          transition={{ duration: 2, repeat: Infinity, delay: Math.random() }}
+          className={`relative h-3 w-3 ${dotBase} ${square ? "rotate-45 rounded-[2px]" : "rounded-full"}`}
         />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8D6E63]">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C9AE86]">
           {label}
         </p>
-        <p
-          className="mt-0.5 truncate text-sm font-medium text-[#3E2723]"
-          style={{ fontFamily: "'Fraunces', Georgia, serif" }}
-          title={value}
-        >
+        <p className="mt-0.5 truncate text-sm font-medium text-[#F6ECDA] console-display" title={value}>
           {value}
         </p>
       </div>
-    </div>
-  );
-}
-
-function Stat({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <motion.div
-      whileHover={{ y: -2 }}
-      className="group relative overflow-hidden rounded-2xl border border-[#EFEBE9] bg-[#FBF7F1] p-3 text-center shadow-sm transition"
-    >
-      <div className="pointer-events-none absolute inset-x-0 -top-8 h-16 bg-gradient-to-b from-white/50 to-transparent opacity-0 transition group-hover:opacity-100" />
-      <div className="mx-auto grid h-8 w-8 place-items-center rounded-full bg-[#EFEBE9] text-[#5D4037]">
-        {icon}
-      </div>
-      <p
-        className="mt-1.5 text-sm font-semibold text-[#3E2723]"
-        style={{ fontFamily: "'Fraunces', Georgia, serif" }}
-      >
-        {value}
-      </p>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8D6E63]">
-        {label}
-      </p>
     </motion.div>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function FareRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between">
-      <span>{label}</span>
-      <span className="font-semibold text-[#3E2723]">{value}</span>
-    </div>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-between items-center">
+      <span className="text-[#C9AE86]">{label}</span>
+      <span className="font-semibold text-[#F2CD7C]">{value}</span>
+    </motion.div>
   );
 }
