@@ -353,11 +353,11 @@ export default function RideDetails() {
       routePolyline.length > 0
         ? routePolyline.map(([lat, lng]) => ({ lat, lng }))
         : ride
-        ? [
+          ? [
             { lat: ride.pickup.coordinates.latitude, lng: ride.pickup.coordinates.longitude },
             { lat: ride.destination.coordinates.latitude, lng: ride.destination.coordinates.longitude },
           ]
-        : [],
+          : [],
     [routePolyline, ride]
   );
 
@@ -442,19 +442,47 @@ export default function RideDetails() {
       {/* MAP BACKGROUND */}
       <div className="absolute inset-0">
         <MapView
-          pickup={{
-            lat: ride.pickup.coordinates.latitude,
-            lng: ride.pickup.coordinates.longitude,
-          }}
-          destination={{
-            lat: ride.destination.coordinates.latitude,
-            lng: ride.destination.coordinates.longitude,
-          }}
-          driverLocation={
+          center={
             driverLocation
-              ? { lat: driverLocation.latitude, lng: driverLocation.longitude }
-              : undefined
+              ? {
+                lat: driverLocation.latitude,
+                lng: driverLocation.longitude,
+              }
+              : {
+                lat: ride.pickup.coordinates.latitude,
+                lng: ride.pickup.coordinates.longitude,
+              }
           }
+          markers={[
+            {
+              position: {
+                lat: ride.pickup.coordinates.latitude,
+                lng: ride.pickup.coordinates.longitude,
+              },
+              label: "P",
+              title: "Pickup",
+            },
+            {
+              position: {
+                lat: ride.destination.coordinates.latitude,
+                lng: ride.destination.coordinates.longitude,
+              },
+              label: "D",
+              title: "Destination",
+            },
+            ...(driverLocation
+              ? [
+                {
+                  position: {
+                    lat: driverLocation.latitude,
+                    lng: driverLocation.longitude,
+                  },
+                  label: "🚗",
+                  title: "Driver",
+                },
+              ]
+              : []),
+          ]}
           path={mapPath}
         />
         {/* map warm tint & vignettes for premium theme */}
@@ -611,16 +639,14 @@ export default function RideDetails() {
                             : { scale: 1 }
                         }
                         transition={{ duration: 1.6, repeat: Infinity }}
-                        className={`grid h-4 w-4 place-items-center rounded-full border-2 ${
-                          active
+                        className={`grid h-4 w-4 place-items-center rounded-full border-2 ${active
                             ? "border-[#3E2723] bg-[#3E2723]"
                             : "border-[#D7CCC8] bg-[#FAF6F0]"
-                        }`}
+                          }`}
                       />
                       <span
-                        className={`text-[9px] font-semibold uppercase tracking-wider ${
-                          active ? "text-[#3E2723]" : "text-[#A1887F]"
-                        }`}
+                        className={`text-[9px] font-semibold uppercase tracking-wider ${active ? "text-[#3E2723]" : "text-[#A1887F]"
+                          }`}
                       >
                         {s.label}
                       </span>
@@ -913,9 +939,8 @@ function Stop({
           <span className="absolute h-6 w-6 animate-ping rounded-full bg-[#5D4037]/25" />
         )}
         <span
-          className={`relative h-3 w-3 ${dotBase} ${
-            square ? "rotate-45 rounded-[2px]" : "rounded-full"
-          }`}
+          className={`relative h-3 w-3 ${dotBase} ${square ? "rotate-45 rounded-[2px]" : "rounded-full"
+            }`}
         />
       </div>
       <div className="min-w-0 flex-1">
