@@ -9,6 +9,7 @@ import { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 import { generateAccessToken, revokeRefreshToken, rotateRefreshToken, verifyRefreshToken } from "../utils/generateToken.js";
 import { generateCSRFToken, refreshCSRFToken, revokeCSRFToken } from "../middlewares/csrfMiddleware.js";
 import UserModel from "../models/user.model.js";
+import { getCookieOptions, getCsrfCookieOptions } from "../utils/cookie.js";
 
 export const userRegistrationController = asyncTryCatchHandler(
     async (request: Request, response: Response) => {
@@ -279,7 +280,6 @@ export const resendOtpController = asyncTryCatchHandler(
         }
 
         const { email,password } = validatedData.data;
-        console.log(password)
         const rateLimitKey = `resend-otp-rate-limit:${request.ip}:${email}`;
 
         if (await redisClient.get(rateLimitKey)) {
@@ -319,13 +319,29 @@ export const resendOtpController = asyncTryCatchHandler(
 );
 
 export const myProfile = asyncTryCatchHandler(async (request: AuthenticatedRequest, response: Response) => {
-    const userId = request.userId
-    const user = await redisClient.get(`user:${userId}`) as string
-    const parsedUser = JSON.parse(user)
+    const userId = request.userId;
 
-    return response.json(parsedUser)
-}
-)
+    if (!userId) {
+        return response.status(401).json({ message: "Unauthorized" });
+    }
+
+    const cachedUser = await redisClient.get(`user:${userId}`);
+    if (cachedUser) {
+        try {
+            return response.json(JSON.parse(cachedUser));
+        } catch {
+            await redisClient.del(`user:${userId}`);
+        }
+    }
+
+    const user = await UserModel.findById(userId).select("-password");
+    if (!user) {
+        return response.status(404).json({ message: "User not found" });
+    }
+
+    await redisClient.setEx(`user:${userId}`, 15 * 60, JSON.stringify(user));
+    return response.json(user);
+})
 
 export const refreshToken = asyncTryCatchHandler(async (request: Request, response: Response) => {
     const authRequest = request as AuthenticatedRequest;
@@ -353,6 +369,10 @@ export const refreshToken = asyncTryCatchHandler(async (request: Request, respon
 
     const user = await UserModel.findById(userId).select("-password")
 
+    if (!user) {
+        return response.status(404).json({ message: "User not found" });
+    }
+
     response.status(200).json(
         {
             message: "Token Refreshed",
@@ -364,7 +384,6 @@ export const refreshToken = asyncTryCatchHandler(async (request: Request, respon
 
 export const userLogoutController = asyncTryCatchHandler(
     async (request: AuthenticatedRequest, response: Response) => {
-        console.log(request)
         const userId = request.userId;
 
         if (!userId) {
@@ -375,28 +394,12 @@ export const userLogoutController = asyncTryCatchHandler(
 
         await revokeRefreshToken(userId, response, request.sessionID);
         await redisClient.del(`user:${userId}`);
-        response.clearCookie("sessionId", {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-        })
+        response.clearCookie("sessionId", getCookieOptions())
 
-        response.clearCookie("accessToken", {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-        });
+        response.clearCookie("accessToken", getCookieOptions());
 
-        response.clearCookie("refreshToken", {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-        });
-        response.clearCookie("csrfToken", {
-            httpOnly: false,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "none",
-        });
+        response.clearCookie("refreshToken", getCookieOptions());
+        response.clearCookie("csrfToken", getCsrfCookieOptions());
 
 
         // Destroy Redis Session + sessionId cookie

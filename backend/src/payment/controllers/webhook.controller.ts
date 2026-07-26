@@ -29,6 +29,9 @@ export const handleRazorpayWebhook =
         res: Response
     ) => {
 
+        console.log("Webhook received");
+console.log(req.body.event);
+
         const signature =
             req.headers[
                 RAZORPAY_SIGNATURE_HEADER
@@ -89,10 +92,19 @@ export const handleRazorpayWebhook =
 
         }
 
-        const payload =
-            JSON.parse(
+        let payload: RazorpayWebhookPayload;
+
+        try {
+            payload = JSON.parse(
                 rawBody.toString("utf8")
             ) as RazorpayWebhookPayload;
+        } catch {
+            throw new AppError(
+                "Invalid webhook payload JSON.",
+                400,
+                "INVALID_WEBHOOK_PAYLOAD"
+            );
+        }
 
         // Ack fast: Razorpay times out and retries slow responders. We process
         // inline here for simplicity — move this to a queue consumer (RabbitMQ,

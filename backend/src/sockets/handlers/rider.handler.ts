@@ -1,57 +1,27 @@
 import { AuthenticatedSocket } from "../types.js";
-import { SocketMessageSchema } from "../validators/socket.validator.js";
 import { sendSocketError } from "../utils/send-error.js";
-import { socketRegistry } from "../registry/socket.registry.js";
 
+export type RiderEventHandler = (
+    socket: AuthenticatedSocket,
+    data: unknown
+) => Promise<void>;
 
-export function registerRiderHandlers(
-    socket: AuthenticatedSocket
-): void {
+const handlers: Record<string, RiderEventHandler> = {
+    // Add rider events here later
+};
 
-    socket.on("message", async (buffer) => {
+export async function handleRiderEvent(
+    socket: AuthenticatedSocket,
+    event: string,
+    data: unknown
+): Promise<void> {
 
-        try {
+    const handler = handlers[event];
 
-            const parsed = JSON.parse(
-                buffer.toString()
-            );
+    if (!handler) {
+        sendSocketError(socket, "Unknown rider event.");
+        return;
+    }
 
-            const messageResult =
-                SocketMessageSchema.safeParse(parsed);
-
-            if (!messageResult.success) {
-
-                sendSocketError(
-                    socket,
-                    "Invalid WebSocket message."
-                );
-
-                return;
-            }
-
-            const message =
-                messageResult.data;
-
-            switch (message.event) {
-
-                default:
-
-                    sendSocketError(
-                        socket,
-                        "Unknown event."
-                    );
-
-            }
-
-        } catch (err) {
-
-            sendSocketError(
-                socket,
-                "Invalid WebSocket message."
-            );
-
-        }
-
-    });
-
+    await handler(socket, data);
 }

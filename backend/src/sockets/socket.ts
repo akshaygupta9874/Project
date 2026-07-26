@@ -21,6 +21,7 @@ let wss: WebSocketServer;
 export function initializeWebSocketServer(
     httpServer: HttpServer
 ): WebSocketServer {
+    
 
     wss = new WebSocketServer({
         noServer: true,
@@ -29,7 +30,7 @@ export function initializeWebSocketServer(
     httpServer.on(
         "upgrade",
         (request, socket, head) => {
-
+             console.log("🔥 Upgrade request received");
             wss.handleUpgrade(
                 request,
                 socket,
@@ -53,10 +54,12 @@ export function initializeWebSocketServer(
                         //--------------------------------------------------
                         // Register Socket
                         //--------------------------------------------------
-
+                
                         socketRegistry.register(
                             authenticatedSocket
                         );
+
+                        console.log(socketRegistry)
 
                         //--------------------------------------------------
                         // Driver Connected
@@ -78,10 +81,8 @@ export function initializeWebSocketServer(
                         //--------------------------------------------------
                         // Register Socket Handlers
                         //--------------------------------------------------
+registerSocketHandlers(authenticatedSocket);
 
-                        registerSocketHandlers(
-                            authenticatedSocket
-                        );
 
                         //--------------------------------------------------
                         // Socket Closed

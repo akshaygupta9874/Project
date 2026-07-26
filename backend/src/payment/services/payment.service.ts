@@ -49,6 +49,8 @@ import {
 } from "../constants/payment.constants.js";
 
 import { RideModel, RidePaymentStatus, RideStatus } from "../../models/ride.model.js";
+import { emitPaymentCaptured } from "../../sockets/emitters/driver.emitter.js";
+import { socketRegistry } from "../../sockets/registry/socket.registry.js";
 
 const RAZORPAY_METHOD_MAP: Record<
   string,
@@ -130,6 +132,7 @@ function validateFareBreakdown(
     fare.totalPaise
   ) {
 
+
     throw new AppError(
       `Fare components (${fareTotal}) do not equal total (${fare.totalPaise})`,
       422,
@@ -168,6 +171,15 @@ function validateFareBreakdown(
 
 }
 
+export function canCreatePaymentOrder(
+  ride: Pick<import("../../models/ride.model.js").IRide, "status" | "paymentStatus">
+): boolean {
+  return (
+    ride.status === RideStatus.ARRIVED_AT_DESTINATION &&
+    ride.paymentStatus === RidePaymentStatus.PENDING
+  );
+}
+
 class PaymentService {
   /**
    * Creates a Razorpay order for a ride.
@@ -198,18 +210,15 @@ class PaymentService {
     }
 
     //--------------------------------------------------
-    // Ride must be completed
+    // Ride must be in the payment-eligible state
     //--------------------------------------------------
 
-    if (
-      ride.status !==
-      RideStatus.COMPLETED
-    ) {
+    if (!canCreatePaymentOrder(ride)) {
 
       throw new AppError(
-        "Ride is not completed.",
+        "Ride is not ready for payment.",
         400,
-        "RIDE_NOT_COMPLETED"
+        "RIDE_NOT_READY_FOR_PAYMENT"
       );
 
     }
@@ -468,7 +477,6 @@ class PaymentService {
       //--------------------------------------------------
       // Create Razorpay Order
       //--------------------------------------------------
-      console.log(lockedRide)
       const order =
         await razorpayClient.orders.create(
           {
@@ -693,6 +701,8 @@ class PaymentService {
         }
       );
 
+
+
     // CHANGED:
     // If transition fails it usually means another request
     // or the webhook already updated the payment.
@@ -710,165 +720,158 @@ class PaymentService {
    * This is the source of truth for successful payments.
    * Ledger entries are posted only from here.
    */
-  async handlePaymentCaptured(
-    entity: RazorpayPaymentEntity
-  ): Promise<void> {
+async handlePaymentCaptured(
+  entity: RazorpayPaymentEntity
+): Promise<void> {
 
-    const payment =
-      await paymentRepository.findByGatewayOrderId(
-        entity.order_id
-      );
+  console.log("hello from here")
 
-    if (!payment) {
+  if (!entity.order_id || !entity.id) {
+    throw new AppError(
+      "Invalid Razorpay payment capture payload.",
+      400,
+      "INVALID_CAPTURE_PAYLOAD"
+    );
+  }
 
-      throw new AppError(
-        "Payment not found.",
-        404,
-        "PAYMENT_NOT_FOUND"
-      );
+  const payment =
+    await paymentRepository.findByGatewayOrderId(
+      entity.order_id
+    );
 
-    }
+  if (!payment) {
+    throw new AppError(
+      "Payment not found.",
+      404,
+      "PAYMENT_NOT_FOUND"
+    );
+  }
 
-    // Already processed.
-    if (
-      payment.status ===
-      PaymentStatus.CAPTURED
-    ) {
-      return;
-    }
+  // Already processed
+  if (payment.status === PaymentStatus.CAPTURED) {
+    return;
+  }
 
-    if (
-      payment.amountPaise !==
-      entity.amount
-    ) {
+  if (
+    payment.status === PaymentStatus.FAILED ||
+    payment.status === PaymentStatus.CANCELLED
+  ) {
+    throw new AppError(
+      "Cannot capture a payment that is already failed or cancelled.",
+      409,
+      "INVALID_PAYMENT_STATE"
+    );
+  }
 
-      throw new AppError(
-        "Captured amount mismatch.",
-        409,
-        "PAYMENT_AMOUNT_MISMATCH"
-      );
+  if (payment.amountPaise !== entity.amount) {
+    throw new AppError(
+      "Captured amount mismatch.",
+      409,
+      "PAYMENT_AMOUNT_MISMATCH"
+    );
+  }
 
-    }
+  const session = await mongoose.startSession();
 
-    const session =
-      await mongoose.startSession();
+  let updatedRide: typeof RideModel.prototype | null = null;
 
-    try {
+  try {
 
-      await session.withTransaction(
-        async () => {
+    await session.withTransaction(async () => {
 
-          // CHANGED:
-          // Simplified ledger accounts.
-          // Removed GST posting.
-
-          const transactionId = await ledgerService.recordTransaction(
-            {
-              entries: [
-                {
-                  account:
-                    LedgerAccount.RIDER,
-
-                  entryType:
-                    LedgerEntryType.DEBIT,
-
-                  amountPaise:
-                    payment.amountPaise,
-
-                  description:
-                    `Payment received for ride ${payment.ride.toString()}`,
-                },
-
-                {
-                  account:
-                    LedgerAccount.PLATFORM,
-
-                  entryType:
-                    LedgerEntryType.CREDIT,
-
-                  amountPaise:
-                    payment.fareBreakdown.platformCommissionPaise,
-
-                  description:
-                    `Platform commission`,
-                },
-
-                {
-                  account:
-                    LedgerAccount.DRIVER,
-
-                  entryType:
-                    LedgerEntryType.CREDIT,
-
-                  amountPaise:
-                    payment.fareBreakdown.driverEarningPaise,
-
-                  description:
-                    `Driver earning`,
-                },
-              ],
-
-              referenceType:
-                LedgerReferenceType.PAYMENT,
-
-              // CHANGED:
-              // referenceId is now ObjectId.
-
-              referenceId:
-                payment._id,
-            },
-            session
-          );
-
-          await paymentRepository.transitionStatus(
-            payment._id.toString(),
-
-            payment.status,
-
-            {
-              ledgerTransactionId: transactionId,
-              status:
-                PaymentStatus.CAPTURED,
-
-              gatewayPaymentId:
-                entity.id,
-
-              method:
-                RAZORPAY_METHOD_MAP[
-                entity.method
-                ] ??
-                PaymentMethod.UNKNOWN,
-
-              capturedAt:
-                new Date(
-                  entity.created_at *
-                  1000
-                ),
-            },
-
-            session
-          );
-          // ADDED: Mark ride as paid.
-
-          await RideModel.findByIdAndUpdate(
-            payment.ride,
-            {
-              $set: {
-                paymentStatus: PaymentStatus.CAPTURED,
+      const transactionId =
+        await ledgerService.recordTransaction(
+          {
+            entries: [
+              {
+                account: LedgerAccount.RIDER,
+                entryType: LedgerEntryType.DEBIT,
+                amountPaise: payment.amountPaise,
+                description: `Payment received for ride ${payment.ride.toString()}`,
               },
-            },
-            {
-              session,
-            }
-          );
+              {
+                account: LedgerAccount.PLATFORM,
+                entryType: LedgerEntryType.CREDIT,
+                amountPaise: payment.fareBreakdown.platformCommissionPaise,
+                description: "Platform commission",
+              },
+              {
+                account: LedgerAccount.DRIVER,
+                entryType: LedgerEntryType.CREDIT,
+                amountPaise: payment.fareBreakdown.driverEarningPaise,
+                description: "Driver earning",
+              },
+            ],
+            referenceType: LedgerReferenceType.PAYMENT,
+            referenceId: payment._id,
+          },
+          session
+        );
 
+      const transitioned =
+        await paymentRepository.transitionStatus(
+          payment._id.toString(),
+          payment.status,
+          {
+            ledgerTransactionId: transactionId,
+            status: PaymentStatus.CAPTURED,
+            gatewayPaymentId: entity.id,
+            method:
+              RAZORPAY_METHOD_MAP[entity.method] ??
+              PaymentMethod.UNKNOWN,
+            capturedAt: new Date(entity.created_at * 1000),
+          },
+          session
+        );
+
+      if (!transitioned) {
+        return;
+      }
+
+      updatedRide =
+        await RideModel.findByIdAndUpdate(
+          payment.ride,
+          {
+            $set: {
+              paymentStatus: RidePaymentStatus.CAPTURED,
+            },
+          },
+          {
+            session,
+            new: true,
+          }
+        );
+
+      if (!updatedRide) {
+        throw new AppError(
+          "Ride not found.",
+          404,
+          "RIDE_NOT_FOUND"
+        );
+      }
+
+    });
+
+    console.log(updatedRide)
+
+    // ✅ Emit only after transaction commits
+    if (updatedRide) {
+      console.log("Ride driver:", updatedRide.driver.toString());
+console.log("Registry:");
+console.dir(socketRegistry, { depth: null });
+      emitPaymentCaptured(
+        updatedRide.driver.toString(),
+        {
+          ride: updatedRide
         }
       );
-
-    } finally {
-      await session.endSession();
     }
+
+  } finally {
+    await session.endSession();
   }
+
+}
 
   async handlePaymentFailed(
     entity: RazorpayPaymentEntity

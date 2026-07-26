@@ -68,7 +68,6 @@ const userSchema = new Schema<IUser>(
 userSchema.methods.comparePassword = async function (
   candidatePassword: string
 ) {
-  console.log(this.password)
   return bcrypt.compare(candidatePassword, this.password);
 };
 

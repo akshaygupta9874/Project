@@ -27,8 +27,6 @@ export async function authMiddleware(
     const authRequest = request as AuthenticatedRequest;
     const token =  authRequest.headers.authorization?.replace(/^Bearer\s+/i, "");
 
-    console.log(token)
-
     if (!token) {
         return response.status(401).json({
             message: "You are not authorized to access this resource."
@@ -48,8 +46,6 @@ export async function authMiddleware(
         }
 
         const activeSessionId = decodedData.sessionId;
-
-        console.log("activeSessionId", activeSessionId, "authRequest.sessionID", authRequest.sessionID);
 
         if (activeSessionId && authRequest.sessionID && authRequest.sessionID !== activeSessionId) {
             response.clearCookie("refreshToken");
@@ -92,8 +88,6 @@ export async function authMiddleware(
         } else {
             authRequest.userId = JSON.parse(cachedUser)._id;
         }
-        console.log(authRequest.userId+"hello")
-
         authRequest.session.userId = decodedData.id;
         authRequest.session.createdAt = Date.now();
         authRequest.sessionID = decodedData.sessionId;

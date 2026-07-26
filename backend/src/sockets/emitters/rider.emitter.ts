@@ -31,6 +31,9 @@ export interface DriverArrivedPayload {
 export interface RideStartedPayload {
     rideId: string;
 }
+export interface ArrivedAtDestinationPayload {
+    rideId: string;
+}
 export interface RideCancelledPayload {
     rideId: string;
     cancelledBy: "RIDER" | "DRIVER";
@@ -52,7 +55,6 @@ function emitToRider<T>(
 
     const sockets =
         socketRegistry.getRiderSockets(riderId);
-    console.log(sockets)
 
     if (!sockets) {
         return;
@@ -78,7 +80,6 @@ export function emitRideAccepted(
     riderId: string,
     payload: RideAcceptedPayload
 ): void {
-    console.log("Socket Registry",socketRegistry)
     emitToRider(
         riderId,
         ServerEvents.RIDE_ACCEPTED,
@@ -120,6 +121,19 @@ export function emitRideStarted(
     emitToRider(
         riderId,
         ServerEvents.RIDE_STARTED,
+        payload
+    );
+
+}
+
+export function emitArrivedAtDestination(
+    riderId: string,
+    payload: ArrivedAtDestinationPayload
+): void {
+
+    emitToRider(
+        riderId,
+        ServerEvents.ARRIVED_AT_DESTINATION,
         payload
     );
 

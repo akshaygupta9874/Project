@@ -241,7 +241,7 @@ function notifyDrivers(
         //--------------------------------------------------
         // Driver Online?
         //--------------------------------------------------
-
+        console.log("Socket Registry : ",socketRegistry)
         if (
             !socketRegistry.isDriverOnline(
                 driver.driverId

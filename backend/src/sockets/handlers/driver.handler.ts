@@ -7,26 +7,28 @@ import { sendSocketError } from "../utils/send-error.js";
 import { getDriverCurrentRide } from "../../services/ride.service.js";
 import { emitDriverLocation } from "../emitters/rider.emitter.js";
 import { RideStatus } from "../../models/ride.model.js";
-import { setDriverAvailable,setDriverBusy, updateDriverHeartbeat, setDriverOffline } from "../../redis/services/driver-presence.service.js";
+import { setDriverAvailable, setDriverBusy, updateDriverHeartbeat, setDriverOffline } from "../../redis/services/driver-presence.service.js";
+import { DriverModel } from "../../models/driver.model.js";
 import * as RideService from "../../services/ride.service.js"
 export type DriverEventHandler = (
     socket: AuthenticatedSocket,
     data: unknown
 ) => Promise<void>;
 
-const handlers: Record<
-    string,
-    DriverEventHandler
-> = {
+const handlers: Record<string, DriverEventHandler> = {
     [DriverEvents.UPDATE_LOCATION]: handleUpdateLocation,
 
     [DriverEvents.HEARTBEAT]: handleHeartbeat,
 
     [DriverEvents.SET_AVAILABLE]: handleSetAvailability,
 
+    [DriverEvents.SET_BUSY]: handleSetBusy,
+
     [DriverEvents.ACCEPT_RIDE]: handleAcceptRide,
 
     [DriverEvents.ARRIVED_AT_PICKUP]: handleArrived,
+
+    [DriverEvents.ARRIVED_AT_DESTINATION]: handleArrivedAtDestination,
 
     [DriverEvents.START_RIDE]: handleStartRide,
 
@@ -69,7 +71,6 @@ async function handleUpdateLocation(
         return;
     }
 
-    console.log(result,ride._id,ride.rider)
 
     emitDriverLocation(
         ride.rider._id.toString(),
@@ -79,6 +80,20 @@ async function handleUpdateLocation(
             longitude: result.data.longitude,
         }
     );
+}
+
+async function handleSetBusy(
+    socket: AuthenticatedSocket,
+    data: unknown
+) {
+    const driverId = socket.user.driverId;
+
+    if (!driverId) {
+        sendSocketError(socket, "Driver profile not found.");
+        return;
+    }
+
+    await setDriverBusy(driverId);
 }
 
 async function handleHeartbeat(
@@ -107,20 +122,20 @@ async function handleSetAvailability(
 
     const driverId = socket.user.driverId;
 
-if (!driverId) {
-    sendSocketError(socket, "Driver profile not found.");
-    return;
-}
+    if (!driverId) {
+        sendSocketError(socket, "Driver profile not found.");
+        return;
+    }
 
-if (result.data.available) {
+    if (result.data.available) {
 
-    await setDriverAvailable(driverId);
+        await setDriverAvailable(driverId);
 
-} else {
+    } else {
 
-    await setDriverBusy(driverId);
+        await setDriverBusy(driverId);
 
-}
+    }
 
 }
 
@@ -156,6 +171,25 @@ async function handleArrived(
 
     if (socket.user.driverId) {
         await RideService.arriveAtPickup({
+            rideId: result.data.rideId,
+            driverId: socket.user.driverId,
+        });
+    }
+}
+
+async function handleArrivedAtDestination(
+    socket: AuthenticatedSocket,
+    data: unknown
+) {
+    const result = RideActionSchema.safeParse(data);
+
+    if (!result.success) {
+        sendSocketError(socket, "Invalid ride payload.");
+        return;
+    }
+
+    if (socket.user.driverId) {
+        await RideService.arriveAtDestination({
             rideId: result.data.rideId,
             driverId: socket.user.driverId,
         });
@@ -218,49 +252,18 @@ async function handleCancelRideByDriver(
     }
 }
 
-export function registerDriverHandlers(
-    socket: AuthenticatedSocket
-): void {
+export async function handleDriverEvent(
+    socket: AuthenticatedSocket,
+    event: string,
+    data: unknown
+) {
 
-    socket.on("message", async (buffer) => {
+    const handler = handlers[event];
 
-        try {
+    if (!handler) {
+        sendSocketError(socket, "Unknown driver event.");
+        return;
+    }
 
-            const parsed = JSON.parse(buffer.toString());
-
-            const result = SocketMessageSchema.safeParse(parsed);
-
-            if (!result.success) {
-                
-                sendSocketError(socket, "Invalid WebSocket message.");
-                return;
-            }
-
-            const handler = handlers[result.data.event];
-
-            if (!handler) {
-                sendSocketError(socket, "Unknown event.");
-                return;
-            }
-
-            await handler(socket, result.data.data);
-        } catch (err){
-
-            console.log(err)
-
-            socket.send(
-                JSON.stringify({
-                    event: "server:error",
-                    data: {
-                        message: "Invalid WebSocket message."
-                    }
-                })
-            );
-
-            return;
-        }
-
-
-    });
-
+    await handler(socket, data);
 }

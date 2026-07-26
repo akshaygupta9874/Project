@@ -33,7 +33,7 @@ import { PaymentStatus } from "../payment/types/payment.types.js";
 import { fareService } from "./fare.service.js";
 
 import { DriverModel } from "../models/driver.model.js";
-import { emitRideAccepted, emitDriverArrived, emitRideStarted, emitRideCancelled, emitRideCompleted } from "../sockets/emitters/rider.emitter.js";
+import { emitRideAccepted, emitDriverArrived, emitRideStarted, emitRideCancelled, emitRideCompleted, emitArrivedAtDestination } from "../sockets/emitters/rider.emitter.js";
 import { stopDispatch, dispatchRide } from "./dispatch-ride.service.js";
 import { AppError } from "../utils/AppError.js";
 
@@ -67,6 +67,11 @@ export interface AcceptRideInput {
 }
 
 export interface ArriveAtPickupInput {
+    rideId: string;
+    driverId: string;
+}
+
+export interface ArriveAtDestinationInput {
     rideId: string;
     driverId: string;
 }
@@ -248,8 +253,6 @@ export async function acceptRide(
         // Driver already on another ride?
         //--------------------------------------------------
 
-        console.log(driver.currentRide)
-
         if (driver.currentRide!==null) {
             throw new Error(
                 "Driver already has an active ride."
@@ -383,6 +386,18 @@ export async function arriveAtPickup(
     return ride;
 }
 
+export function canCompleteRide(
+    ride: Pick<IRide, "status" | "paymentStatus">
+): boolean {
+    return (
+        ride.status === RideStatus.ARRIVED_AT_DESTINATION &&
+        (
+            ride.paymentStatus === RidePaymentStatus.CAPTURED ||
+            ride.paymentStatus === RidePaymentStatus.PAID
+        )
+    );
+}
+
 export async function startRide(
     input: StartRideInput
 ): Promise<IRide> {
@@ -415,6 +430,42 @@ export async function startRide(
     //--------------------------------------------------
 
     emitRideStarted(
+        ride.rider.toString(),
+        {
+            rideId: ride.id,
+        }
+    );
+
+    return ride;
+}
+
+export async function arriveAtDestination(
+    input: ArriveAtDestinationInput
+): Promise<IRide> {
+
+    const ride = await RideModel.findOneAndUpdate(
+        {
+            _id: input.rideId,
+            driver: input.driverId,
+            status: RideStatus.STARTED,
+        },
+        {
+            $set: {
+                status: RideStatus.ARRIVED_AT_DESTINATION,
+            },
+        },
+        {
+            new: true,
+        }
+    );
+
+    if (!ride) {
+        throw new AppError(
+            "Ride not found or cannot be marked as arrived at destination."
+        );
+    }
+
+    emitArrivedAtDestination(
         ride.rider.toString(),
         {
             rideId: ride.id,
@@ -583,12 +634,20 @@ export async function completeRide(
         const ride = await RideModel.findOne({
             _id: input.rideId,
             driver: driver._id,
-            status: RideStatus.STARTED,
+            status: RideStatus.ARRIVED_AT_DESTINATION,
         }).session(session);
 
         if (!ride) {
-            throw new Error(
-                "Ride not found or cannot be completed."
+            throw new AppError(
+                "Ride not found or cannot be completed yet."
+            );
+        }
+
+        if (!canCompleteRide(ride)) {
+            throw new AppError(
+                "Payment must be completed before the ride can be finalized.",
+                409,
+                "PAYMENT_REQUIRED"
             );
         }
 
@@ -599,7 +658,6 @@ export async function completeRide(
         ride.status = RideStatus.COMPLETED;
         ride.completedAt = new Date();
 
-        ride.paymentStatus = RidePaymentStatus.PENDING;
         const finalFare = fareService.calculateFinalFare(ride,driver.vehicle.toString())
 
         ride.fare.final = finalFare.totalPaise;
@@ -728,6 +786,77 @@ export async function getRiderCurrentRide(
     })
         .populate("rider")
         .populate("driver");
+
+    return ride;
+}
+
+export async function previewRideFare(
+    input: { rideId: string; userId: string }
+): Promise<IRide> {
+   
+    const ride = await RideModel.findById(
+        input.rideId
+    )
+        .populate("rider")
+        .populate("driver");
+
+    if (!ride) {
+        throw new AppError(
+            "Ride not found.",
+            404,
+            "RIDE_NOT_FOUND"
+        );
+    }
+    
+
+    const riderId =
+        (ride.rider as any)?._id?.toString?.() ||
+        ride.rider.toString();
+
+    if (riderId !== input.userId) {
+        throw new AppError(
+            "Unauthorized.",
+            403,
+            "FORBIDDEN"
+        );
+    }
+
+    if (
+        ![
+            RideStatus.ARRIVED_AT_DESTINATION,
+            RideStatus.COMPLETED,
+        ].includes(ride.status)
+    ) {
+        throw new AppError(
+            "Fare preview is only available after the ride reaches the destination.",
+            409,
+            "INVALID_RIDE_STATUS"
+        );
+    }
+
+    if (!ride.driver) {
+        throw new AppError(
+            "Driver is not assigned.",
+            400,
+            "DRIVER_NOT_ASSIGNED"
+        );
+    }
+
+    
+        const driver = ride.driver as any;
+        const vehicleType =
+            driver.vehicle?.type?.toString?.() ||
+            undefined;
+        const finalFare = fareService.calculateFinalFare(
+            ride,
+            vehicleType
+        );
+
+        ride.fare.final = finalFare.totalPaise;
+        ride.fare.breakdown = finalFare;
+
+        await ride.save();
+    
 
     return ride;
 }

@@ -3,6 +3,7 @@ import jwt, { JwtPayload, SignOptions } from "jsonwebtoken";
 import { redisClient } from "../redis/client.js";
 import { Response } from "express";
 import { revokeCSRFToken } from "../middlewares/csrfMiddleware.js";
+import { getCookieOptions } from "./cookie.js";
 
 export interface TokenPayload extends JwtPayload {
   firstName: string;
@@ -113,12 +114,9 @@ export const rotateRefreshToken = async (userId: string, response: Response, ses
 
   await redisClient.setEx(getRefreshTokenRedisKey(userId, sessionId), REFRESH_TOKEN_TTL_SECONDS, newRefreshToken);
 
-  response.cookie("refreshToken", newRefreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+  response.cookie("refreshToken", newRefreshToken, getCookieOptions({
     maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
+  }));
 
   return newRefreshToken;
 };

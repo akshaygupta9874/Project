@@ -108,6 +108,41 @@ export const getRideById = asyncTryCatchHandler(
     }
 );
 
+export const previewRideFare = asyncTryCatchHandler(
+    async (
+        request: AuthenticatedRequest,
+        response: Response
+    ) => {
+
+        const userId = request.userId;
+
+        if (!userId) {
+            return response.status(401).json({
+                message: "Unauthorized",
+            });
+        }
+
+        const { rideId } = request.params;
+
+        if (!rideId) {
+            return response.status(400).json({
+                message: "Ride ID is required.",
+            });
+        }
+
+        const ride = await RideService.previewRideFare({
+            rideId,
+            userId,
+        });
+
+        return response.status(200).json({
+            message: "Ride fare preview generated successfully.",
+            ride,
+        });
+
+    }
+);
+
 export const getCurrentRide = asyncTryCatchHandler(
     async (
         request: AuthenticatedRequest,

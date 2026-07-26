@@ -48,10 +48,11 @@ type RideStatus =
   | "DRIVER_ASSIGNED"
   | "DRIVER_ARRIVING"
   | "STARTED"
+  | "ARRIVED_AT_DESTINATION"
   | "COMPLETED"
   | "CANCELLED";
 
-type RidePaymentStatus = "PENDING" | "PAID" | "FAILED" | "REFUNDED";
+type RidePaymentStatus = "PENDING" | "PAID" | "CAPTURED" | "FAILED" | "REFUNDED";
 
 interface RidePoint {
   address: string;
@@ -130,6 +131,7 @@ const DriverEvents = {
   ACCEPT_RIDE: "driver:accept-ride",
   REJECT_RIDE: "driver:reject-ride",
   ARRIVED_AT_PICKUP: "driver:arrived-at-pickup",
+  ARRIVED_AT_DESTINATION: "driver:arrived-at-destination",
   START_RIDE: "driver:start-ride",
   COMPLETE_RIDE: "driver:complete-ride",
   CANCEL_RIDE_BY_DRIVER: "driver:cancel-ride",
@@ -141,6 +143,8 @@ const ServerEvents = {
   RIDE_NO_DRIVERS_AVAILABLE: "server:ride-no-drivers-available",
   DRIVER_LOCATION: "server:driver-location",
   DRIVER_ARRIVED: "server:driver-arrived",
+  ARRIVED_AT_DESTINATION: "server:ride-arrived-at-destination",
+  PAYMENT_CAPTURED: "server:payment-captured",
   RIDE_STARTED: "server:ride-started",
   RIDE_COMPLETED: "server:ride-completed",
   RIDE_CANCELLED: "server:ride-cancelled",
@@ -197,11 +201,18 @@ const RIDE_STATUS_CONFIG: Record<
     step: 3,
     accent: "#3E2723",
   },
+  ARRIVED_AT_DESTINATION: {
+    label: "Arrived at destination",
+    badge: "bg-[#E8D8C3] text-[#5D4037] border border-[#D7CCC8]",
+    description: "Payment is required before completion.",
+    step: 4,
+    accent: "#6D4C41",
+  },
   COMPLETED: {
     label: "Completed",
     badge: "bg-[#EFEBE9] text-[#5D4037] border border-[#D7CCC8]",
     description: "This trip has been completed.",
-    step: 4,
+    step: 5,
     accent: "#2E7D32",
   },
   CANCELLED: {
@@ -216,6 +227,7 @@ const RIDE_STATUS_CONFIG: Record<
 const PAYMENT_STATUS_CONFIG: Record<RidePaymentStatus, { label: string; badge: string; dot: string }> = {
   PENDING: { label: "Payment pending", badge: "text-[#6D4C41]", dot: "bg-[#8D6E63]" },
   PAID: { label: "Paid", badge: "text-[#3E2723]", dot: "bg-[#5D4037]" },
+  CAPTURED: { label: "Payment captured", badge: "text-[#3E2723]", dot: "bg-[#5D4037]" },
   FAILED: { label: "Payment failed", badge: "text-[#795548]", dot: "bg-[#A1887F]" },
   REFUNDED: { label: "Refunded", badge: "text-[#6D4C41]", dot: "bg-[#BCAAA4]" },
 };
@@ -233,12 +245,12 @@ function formatPaise(paise: number): string {
 }
 
 function formatDistanceMeters(meters: number): string {
-  if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`;
+  if (meters >= 1000) return `${(meters).toFixed(1)} km`;
   return `${Math.round(meters)} m`;
 }
 
 function formatDurationSeconds(seconds: number): string {
-  const minutes = Math.round(seconds / 60);
+  const minutes = Math.round(seconds);
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
   return `${hours}h ${minutes % 60}m`;
@@ -342,18 +354,16 @@ function RideStepper({ status }: { status: RideStatus }) {
                     : { scale: 1 }
                 }
                 transition={{ duration: 1.4, repeat: current ? Infinity : 0 }}
-                className={`h-6 w-6 rounded-full border-2 flex items-center justify-center ${
-                  done
+                className={`h-6 w-6 rounded-full border-2 flex items-center justify-center ${done
                     ? "bg-[#3E2723] border-[#3E2723] text-white"
                     : "bg-[#FAF6F0] border-[#D7CCC8] text-[#795548]"
-                }`}
+                  }`}
               >
                 {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <span className="text-[10px] font-bold">{i + 1}</span>}
               </motion.div>
               <span
-                className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wider ${
-                  current ? "text-[#3E2723]" : "text-[#8D6E63]"
-                }`}
+                className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wider ${current ? "text-[#3E2723]" : "text-[#8D6E63]"
+                  }`}
               >
                 {s.label}
               </span>
@@ -542,6 +552,19 @@ export default function DriverDashboard() {
           case ServerEvents.DRIVER_ARRIVED:
             setCurrentRide((prev) => (prev ? { ...prev, status: "DRIVER_ARRIVING" } : prev));
             break;
+          case ServerEvents.ARRIVED_AT_DESTINATION:
+            setCurrentRide((prev) => (prev ? { ...prev, status: "ARRIVED_AT_DESTINATION" } : prev));
+            break;
+          case ServerEvents.PAYMENT_CAPTURED:
+            setCurrentRide((prev) =>
+              prev
+                ? {
+                  ...prev,
+                  ...data.ride,
+                }
+                : prev
+            );
+            break;
           case ServerEvents.RIDE_STARTED:
             setCurrentRide((prev) => (prev ? { ...prev, status: "STARTED" } : prev));
             break;
@@ -558,13 +581,13 @@ export default function DriverDashboard() {
                 setProfile((prevProf) =>
                   prevProf
                     ? {
-                        ...prevProf,
-                        statistics: {
-                          ...prevProf.statistics,
-                          completedTrips: prevProf.statistics.completedTrips + 1,
-                          totalEarnings: prevProf.statistics.totalEarnings + earnedPaise,
-                        },
-                      }
+                      ...prevProf,
+                      statistics: {
+                        ...prevProf.statistics,
+                        completedTrips: prevProf.statistics.completedTrips + 1,
+                        totalEarnings: prevProf.statistics.totalEarnings + earnedPaise,
+                      },
+                    }
                     : prevProf,
                 );
               }
@@ -698,6 +721,8 @@ export default function DriverDashboard() {
     socketRef.current.send(JSON.stringify({ event, data: { rideId, ...extraData } }));
     if (event === DriverEvents.ARRIVED_AT_PICKUP) {
       setCurrentRide((prev) => (prev ? { ...prev, status: "DRIVER_ARRIVING" } : prev));
+    } else if (event === DriverEvents.ARRIVED_AT_DESTINATION) {
+      setCurrentRide((prev) => (prev ? { ...prev, status: "ARRIVED_AT_DESTINATION" } : prev));
     } else if (event === DriverEvents.START_RIDE) {
       setCurrentRide((prev) => (prev ? { ...prev, status: "STARTED" } : prev));
     } else if (event === DriverEvents.COMPLETE_RIDE) {
@@ -772,25 +797,26 @@ export default function DriverDashboard() {
       : []),
     ...(currentRide
       ? [
-          {
-            position: { lat: currentRide.pickup.coordinates.latitude, lng: currentRide.pickup.coordinates.longitude },
-            label: "P",
-            title: "Pickup",
+        {
+          position: { lat: currentRide.pickup.coordinates.latitude, lng: currentRide.pickup.coordinates.longitude },
+          label: "P",
+          title: "Pickup",
+        },
+        {
+          position: {
+            lat: currentRide.destination.coordinates.latitude,
+            lng: currentRide.destination.coordinates.longitude,
           },
-          {
-            position: {
-              lat: currentRide.destination.coordinates.latitude,
-              lng: currentRide.destination.coordinates.longitude,
-            },
-            label: "D",
-            title: "Destination",
-          },
-        ]
+          label: "D",
+          title: "Destination",
+        },
+      ]
       : []),
   ];
 
   const statusConfig = currentRide ? RIDE_STATUS_CONFIG[currentRide.status] : null;
   const paymentConfig = currentRide ? PAYMENT_STATUS_CONFIG[currentRide.paymentStatus] : null;
+  const canCompleteCurrentRide = currentRide?.status === "ARRIVED_AT_DESTINATION" && currentRide.paymentStatus === "CAPTURED";
   const distance = currentRide ? currentRide.distance.actual ?? currentRide.distance.estimated : null;
   const duration = currentRide ? currentRide.duration.actual ?? currentRide.duration.estimated : null;
   const fare = currentRide
@@ -1202,8 +1228,17 @@ export default function DriverDashboard() {
                       )}
                       {currentRide.status === "STARTED" && (
                         <ShineButton
+                          onClick={() => sendRideAction(DriverEvents.ARRIVED_AT_DESTINATION, currentRide._id)}
+                          variant="primary"
+                        >
+                          <MapPin className="h-4 w-4" /> Arrived at Destination
+                        </ShineButton>
+                      )}
+                      {currentRide.status === "ARRIVED_AT_DESTINATION" && (
+                        <ShineButton
                           onClick={() => sendRideAction(DriverEvents.COMPLETE_RIDE, currentRide._id)}
                           variant="success"
+                          disabled={!canCompleteCurrentRide}
                         >
                           <CheckCircle2 className="h-4 w-4" /> Complete Ride
                         </ShineButton>
@@ -1256,9 +1291,8 @@ export default function DriverDashboard() {
                           <tile.icon className="h-4 w-4 text-[#8D6E63]" />
                         </div>
                         <h3
-                          className={`mt-2 text-lg sm:text-xl font-bold ${
-                            tile.isPayment ? paymentConfig?.badge : "text-[#3E2723]"
-                          }`}
+                          className={`mt-2 text-lg sm:text-xl font-bold ${tile.isPayment ? paymentConfig?.badge : "text-[#3E2723]"
+                            }`}
                         >
                           {tile.value}
                         </h3>
@@ -1496,11 +1530,10 @@ export default function DriverDashboard() {
                       {doc.title}
                     </h3>
                     <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                        doc.verified
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${doc.verified
                           ? "bg-emerald-100 text-emerald-800"
                           : "bg-amber-100 text-amber-800"
-                      }`}
+                        }`}
                     >
                       <Shield className="h-3 w-3" />
                       {doc.verified ? "Verified" : "Pending"}
@@ -1508,9 +1541,8 @@ export default function DriverDashboard() {
                   </div>
                   <p className="mt-3 text-sm font-medium text-[#3E2723]">{doc.number}</p>
                   <p
-                    className={`mt-1 text-xs ${
-                      expiringSoon ? "text-rose-700 font-semibold" : "text-[#795548]"
-                    }`}
+                    className={`mt-1 text-xs ${expiringSoon ? "text-rose-700 font-semibold" : "text-[#795548]"
+                      }`}
                   >
                     Expires {expiryDate.toLocaleDateString()}
                     {expiringSoon && daysLeft >= 0 ? ` • ${daysLeft}d left` : ""}

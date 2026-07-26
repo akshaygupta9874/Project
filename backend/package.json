@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node --dns-result-order=ipv4first dist/index.js",
-    "dev": "NODE_OPTIONS='--dns-result-order=ipv4first' tsx watch src/index.ts"
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts"
   },
   "keywords": [],
   "author": "",
@@ -14,7 +14,6 @@
   "type": "module",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1086.0",
-    "@getbrevo/brevo": "^6.0.2",
     "axios": "^1.18.1",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",

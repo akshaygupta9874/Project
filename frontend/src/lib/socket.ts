@@ -4,6 +4,7 @@ const ServerEvents = {
   RIDE_ACCEPTED: "server:ride-accepted",
   DRIVER_LOCATION: "server:driver-location",
   DRIVER_ARRIVED: "server:driver-arrived",
+  ARRIVED_AT_DESTINATION: "server:ride-arrived-at-destination",
   RIDE_STARTED: "server:ride-started",
   RIDE_COMPLETED: "server:ride-completed",
   RIDE_CANCELLED: "server:ride-cancelled",
@@ -44,6 +45,7 @@ interface RiderSocketOptions {
   onDriverLocation: (payload: DriverLocationPayload) => void;
   onDriverArrived: () => void;
   onRideStarted: () => void;
+  onRideArrivedAtDestination: () => void;
   onRideCompleted: () => void;
   onRideCancelled: (payload: RideCancelledPayload) => void;
   onNoDriversAvailable: () => void;
@@ -79,6 +81,9 @@ export function connectRiderSocket(options: RiderSocketOptions): WebSocket {
           break;
         case ServerEvents.RIDE_STARTED:
           options.onRideStarted();
+          break;
+        case ServerEvents.ARRIVED_AT_DESTINATION:
+          options.onRideArrivedAtDestination();
           break;
         case ServerEvents.RIDE_COMPLETED:
           options.onRideCompleted();

@@ -20,6 +20,8 @@ import MapView from "./components/MapView";
 import { Button } from "./components/ui/button";
 import { appApi } from "./lib/api";
 import { connectRiderSocket } from "./lib/socket";
+import { createPaymentOrder, loadRazorpayCheckout, verifyPaymentSignature } from "./lib/payment";
+import { useAuthContext } from "./context/authContext";
 
 /**
  * Ride Details page - Full Map View with Floating Ticket Overlay
@@ -32,6 +34,7 @@ type RideStatus =
   | "DRIVER_ASSIGNED"
   | "DRIVER_ARRIVING"
   | "STARTED"
+  | "ARRIVED_AT_DESTINATION"
   | "COMPLETED"
   | "CANCELLED";
 
@@ -80,6 +83,7 @@ interface Ride {
   distance: { estimated: number | null; actual?: number | null };
   duration: { estimated: number | null; actual?: number | null };
   status: RideStatus;
+  paymentStatus?: "PENDING" | "PAID" | "CAPTURED" | "FAILED" | "REFUNDED";
   driver?: DriverInfo | null;
 }
 
@@ -92,6 +96,7 @@ const STATUS_STEPS: { key: RideStatus; label: string }[] = [
   { key: "DRIVER_ASSIGNED", label: "Assigned" },
   { key: "DRIVER_ARRIVING", label: "Arriving" },
   { key: "STARTED", label: "On trip" },
+  { key: "ARRIVED_AT_DESTINATION", label: "Arrived" },
   { key: "COMPLETED", label: "Complete" },
 ];
 
@@ -100,6 +105,7 @@ const STATUS_COPY: Record<RideStatus, { title: string; subtitle: string }> = {
   DRIVER_ASSIGNED: { title: "Driver assigned", subtitle: "Your driver is preparing to head over" },
   DRIVER_ARRIVING: { title: "Driver is arriving", subtitle: "Head to your pickup spot" },
   STARTED: { title: "You're on your way", subtitle: "Sit back and enjoy the ride" },
+  ARRIVED_AT_DESTINATION: { title: "Arrived at destination", subtitle: "Payment is now required before trip completion" },
   COMPLETED: { title: "Trip complete", subtitle: "Thanks for riding with us" },
   CANCELLED: { title: "Ride cancelled", subtitle: "This trip is no longer active" },
 };
@@ -123,8 +129,10 @@ export default function RideDetails() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState<string>("");
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
 
   const socketRef = useRef<WebSocket | null>(null);
+  const { user } = useAuthContext();
 
   // Helper function to fetch full ride details including driver info
   const fetchRideDetails = async (id?: string) => {
@@ -209,6 +217,10 @@ export default function RideDetails() {
         setRide((p) => (p ? { ...p, status: "STARTED" } : p));
         setToast("Ride started");
       },
+      onRideArrivedAtDestination: () => {
+        setRide((p) => (p ? { ...p, status: "ARRIVED_AT_DESTINATION" } : p));
+        setToast("Driver has arrived at your destination");
+      },
       onRideCompleted: () => {
         setRide((p) => (p ? { ...p, status: "COMPLETED" } : p));
         setToast("Ride complete");
@@ -269,6 +281,99 @@ export default function RideDetails() {
     }
   }
 
+  async function handlePayNow() {
+    if (!ride || !user?._id) {
+      setError("Unable to start payment from this ride right now.");
+      return;
+    }
+
+    if (ride.status !== "ARRIVED_AT_DESTINATION") {
+      setError("Payment is only available after your driver arrives at the destination.");
+      return;
+    }
+
+    if (ride.paymentStatus && ride.paymentStatus !== "PENDING") {
+      setError("This ride payment has already been processed.");
+      return;
+    }
+    
+    let currentRide = ride;
+
+  
+      try {
+        const response = await appApi.get<{ message: string; ride: Ride }>(
+          `/ride/${currentRide._id}/fare-preview`
+        );
+
+        currentRide = response.data.ride;
+        setRide(currentRide);
+      } catch {
+        setError("Unable to calculate the final fare. Please try again.");
+        return;
+      }
+    
+
+    if (!currentRide.fare.breakdown) {
+      setError("Ride fare breakdown is not available for payment.");
+      return;
+    }
+
+    setIsPaying(true);
+    setError("");
+    setToast("");
+
+    try {
+      const paymentOrder = await createPaymentOrder({
+        rideId: currentRide._id,
+        driverId: currentRide.driver?._id ?? "",
+        fareBreakdown: {
+          baseFarePaise: currentRide.fare.breakdown?.baseFarePaise ?? 0,
+          distanceFarePaise: currentRide.fare.breakdown?.distanceFarePaise ?? 0,
+          timeFarePaise: currentRide.fare.breakdown?.timeFarePaise ?? 0,
+          surgePaise: currentRide.fare.breakdown?.surgePaise ?? 0,
+          platformCommissionPaise: currentRide.fare.breakdown?.platformCommissionPaise ?? 0,
+          driverEarningPaise: currentRide.fare.breakdown?.driverEarningPaise ?? 0,
+          totalPaise: currentRide.fare.breakdown?.totalPaise ?? 0,
+        },
+        idempotencyKey: `${currentRide._id}-${user._id}`,
+      });
+
+      const Razorpay = await loadRazorpayCheckout();
+      const options = {
+        key: paymentOrder.razorpayKeyId,
+        amount: paymentOrder.amountPaise,
+        currency: paymentOrder.currency,
+        order_id: paymentOrder.gatewayOrderId,
+        name: "Ride payment",
+        description: "Complete your ride payment",
+        handler: async (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => {
+          try {
+            const verifyResult = await verifyPaymentSignature(response);
+            setRide((current) => current ? { ...current, paymentStatus: verifyResult.status as Ride["paymentStatus"] } : current);
+            setToast("Payment verified successfully.");
+          } catch {
+            setError("Payment succeeded, but verification failed. Please contact support.");
+          }
+        },
+        prefill: {
+          name: `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim(),
+          email: user?.email,
+        },
+        theme: { color: "#78350f" },
+        modal: {
+          ondismiss: () => setToast("Payment window closed. You can retry this ride payment anytime."),
+        },
+      };
+
+      const razorpayInstance = new Razorpay(options);
+      razorpayInstance.open();
+    } catch {
+      setError("Unable to launch payment checkout. Please try again later.");
+    } finally {
+      setIsPaying(false);
+    }
+  }
+
   if (isLoading) {
     return <LoadingScreen label="Loading your ride" sublabel="Fetching the latest details" />;
   }
@@ -295,6 +400,7 @@ export default function RideDetails() {
   const statusCopy = STATUS_COPY[ride.status];
   const stepIndex = STATUS_STEPS.findIndex((s) => s.key === ride.status);
   const isTerminal = ride.status === "COMPLETED" || ride.status === "CANCELLED";
+  const paymentPending = ride.paymentStatus === "PENDING" || ride.paymentStatus === undefined;
 
   const driverFirstName = ride.driver?.firstName || ride.driver?.user?.firstName || "Assigned Driver";
   const driverLastName = ride.driver?.lastName || ride.driver?.user?.lastName || "";
@@ -575,6 +681,15 @@ export default function RideDetails() {
             </div>
           )}
 
+          {ride.status === "ARRIVED_AT_DESTINATION" && (
+            <div className="rounded-2xl border border-[#D7CCC8] bg-[#F5EBE6] p-3 text-sm text-[#5D4037]">
+              <p className="font-semibold">Payment is required before the trip can be finalized.</p>
+              <p className="mt-1 text-xs text-[#795548]">
+                {paymentPending ? "Your payment remains pending until it is completed." : "Payment has been captured."}
+              </p>
+            </div>
+          )}
+
           {/* Live driver coords (subtle) */}
           {driverLocation && (
             <p className="flex items-center gap-1.5 text-[10px] text-[#795548]">
@@ -583,8 +698,17 @@ export default function RideDetails() {
             </p>
           )}
 
-          {/* Cancel / Done */}
-          <div className="pt-1">
+          {/* Payment / Cancel / Done */}
+          <div className="pt-1 space-y-2">
+            {ride.status === "ARRIVED_AT_DESTINATION" && (
+              <Button
+                className="w-full rounded-full bg-[#5D4037] text-[#FAF6F0] hover:bg-[#4E342E]"
+                onClick={handlePayNow}
+                disabled={isPaying}
+              >
+                {isPaying ? "Preparing payment…" : "Pay now"}
+              </Button>
+            )}
             {isTerminal ? (
               <Button className="w-full rounded-full bg-[#5D4037] text-[#FAF6F0] hover:bg-[#4E342E]" onClick={() => navigate("/dashboard")}>
                 Back to dashboard

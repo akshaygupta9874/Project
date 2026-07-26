@@ -41,8 +41,6 @@ export const createOrder =
     res: Response
   ) => {
 
-    console.log(req.body+"hi")
-
     if (!req.userId) {
       throw new AppError(
         "Unaauthenticated",
@@ -69,7 +67,7 @@ export const createOrder =
         rider: new Types.ObjectId(req.userId!),
         idempotencyKey:
           idempotencyKey ??
-          deriveIdempotencyKey(rideId,req.body.rider),
+          deriveIdempotencyKey(rideId, req.userId),
       });
 
     res.status(201).json({

@@ -46,6 +46,7 @@ const RIDE_STATUS_STYLES: Record<string, string> = {
 
 const PAYMENT_STATUS_STYLES: Record<string, string> = {
   PAID: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  CAPTURED: "bg-emerald-50 text-emerald-800 border-emerald-200",
   COMPLETED: "bg-emerald-50 text-emerald-800 border-emerald-200",
   PENDING: "bg-amber-50 text-amber-800 border-amber-200",
   FAILED: "bg-rose-50 text-rose-700 border-rose-200",
@@ -109,27 +110,42 @@ export default function RideHistory() {
       return;
     }
 
-    if (!ride.fare.breakdown) {
+    let currentRide = ride;
+
+    if (!currentRide.fare.breakdown || currentRide.fare.final == null) {
+      try {
+        const response = await appApi.get<{ message: string; ride: RideHistoryRide }>(
+          `/ride/${currentRide._id}/fare-preview`
+        );
+
+        currentRide = response.data.ride;
+      } catch {
+        setError("Unable to calculate the final fare. Please try again.");
+        return;
+      }
+    }
+
+    if (!currentRide.fare.breakdown) {
       setError("Ride fare breakdown is not available for payment.");
       return;
     }
 
-    const driverId = typeof ride.driver === "string" ? ride.driver : ride.driver?._id;
+    const driverId = typeof currentRide.driver === "string" ? currentRide.driver : currentRide.driver?._id;
     if (!driverId) {
       setError("Unable to determine the assigned driver for this ride.");
       return;
     }
 
-    setProcessingRideId(ride._id);
+    setProcessingRideId(currentRide._id);
     setError("");
     setMessage("");
 
     try {
       const paymentOrder = await createPaymentOrder({
-        rideId: ride._id,
+        rideId: currentRide._id,
         driverId,
-        fareBreakdown: ride.fare.breakdown,
-        idempotencyKey: `${ride._id}-${user._id}`,
+        fareBreakdown: currentRide.fare.breakdown,
+        idempotencyKey: `${currentRide._id}-${user._id}`,
       });
 
       const Razorpay = await loadRazorpayCheckout();

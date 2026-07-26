@@ -9,6 +9,7 @@ export const DriverEvents = {
     ACCEPT_RIDE: "driver:accept-ride",   // requires ack
     REJECT_RIDE: "driver:reject-ride",
     ARRIVED_AT_PICKUP: "driver:arrived-at-pickup",
+    ARRIVED_AT_DESTINATION: "driver:arrived-at-destination",
     START_RIDE: "driver:start-ride",
     COMPLETE_RIDE: "driver:complete-ride",
     CANCEL_RIDE_BY_DRIVER: "driver:cancel-ride",   // requires ack
@@ -26,6 +27,8 @@ export const ServerEvents = {
     RIDE_NO_DRIVERS_AVAILABLE: "server:ride-no-drivers-available",
     DRIVER_LOCATION: "server:driver-location",
     DRIVER_ARRIVED: "server:driver-arrived",
+    ARRIVED_AT_DESTINATION: "server:ride-arrived-at-destination",
+     PAYMENT_CAPTURED: "server:payment-captured",
     RIDE_STARTED: "server:ride-started",
     RIDE_COMPLETED: "server:ride-completed",
     RIDE_CANCELLED: "server:ride-cancelled", // payload carries cancelledBy + reason

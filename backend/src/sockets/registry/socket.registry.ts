@@ -1,6 +1,5 @@
 // src/sockets/registry/socket.registry.ts
 
-import { UserRole } from "../../models/user.model.js";
 import {
     AuthenticatedSocket,
     AuthenticatedSocketUser,
@@ -23,11 +22,11 @@ class SocketRegistry {
     >();
 
     register(socket: AuthenticatedSocket): void {
-        const { userId, role, driverId } = socket.user;
+        const { userId, driverId } = socket.user;
 
         this.socketUsers.set(socket, socket.user);
 
-        if (role.includes(UserRole.DRIVER) && driverId) {
+        if (driverId) {
             let sockets = this.driverSockets.get(driverId);
 
             if (!sockets) {
@@ -36,20 +35,20 @@ class SocketRegistry {
             }
 
             sockets.add(socket);
-
             return;
         }
 
-        if (role.includes(UserRole.RIDER)) {
-            let sockets = this.riderSockets.get(userId);
+        let sockets = this.riderSockets.get(userId);
 
-            if (!sockets) {
-                sockets = new Set();
-                this.riderSockets.set(userId, sockets);
-            }
-
-            sockets.add(socket);
+        if (!sockets) {
+            sockets = new Set();
+            this.riderSockets.set(userId, sockets);
         }
+
+        sockets.add(socket);
+        console.log("Driver Sockets : ",this.driverSockets);
+        console.log("Rider Sockets : ", this.riderSockets);
+        console.log("User Sockets : ",this.socketUsers)
     }
 
     unregister(socket: AuthenticatedSocket): void {
@@ -59,7 +58,7 @@ class SocketRegistry {
 
         this.socketUsers.delete(socket);
 
-        if (user.role.includes(UserRole.DRIVER) && user.driverId) {
+        if (user.driverId) {
             const sockets = this.driverSockets.get(user.driverId);
 
             if (!sockets) return;
@@ -73,16 +72,14 @@ class SocketRegistry {
             return;
         }
 
-        if (user.role.includes(UserRole.RIDER)) {
-            const sockets = this.riderSockets.get(user.userId);
+        const sockets = this.riderSockets.get(user.userId);
 
-            if (!sockets) return;
+        if (!sockets) return;
 
-            sockets.delete(socket);
+        sockets.delete(socket);
 
-            if (sockets.size === 0) {
-                this.riderSockets.delete(user.userId);
-            }
+        if (sockets.size === 0) {
+            this.riderSockets.delete(user.userId);
         }
     }
 
@@ -131,34 +128,25 @@ class SocketRegistry {
             }
         }
     }
+
     disconnectDriver(driverId: string): void {
+        const sockets = this.driverSockets.get(driverId);
 
-        const sockets =
-            this.driverSockets.get(driverId);
-
-        if (!sockets) {
-            return;
-        }
+        if (!sockets) return;
 
         for (const socket of sockets) {
             socket.close();
         }
-
     }
 
     disconnectRider(riderId: string): void {
+        const sockets = this.riderSockets.get(riderId);
 
-        const sockets =
-            this.riderSockets.get(riderId);
-
-        if (!sockets) {
-            return;
-        }
+        if (!sockets) return;
 
         for (const socket of sockets) {
             socket.close();
         }
-
     }
 }
 

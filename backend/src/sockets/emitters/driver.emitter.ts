@@ -86,3 +86,21 @@ export function emitRideCancelled(
     );
 
 }
+
+
+export interface PaymentCapturedPayload {
+    ride: IRide;
+}
+
+export function emitPaymentCaptured(
+    driverId: string,
+    payload: PaymentCapturedPayload
+): void {
+
+    emitToDriver(
+        driverId,
+        ServerEvents.PAYMENT_CAPTURED,
+        payload
+    );
+
+}

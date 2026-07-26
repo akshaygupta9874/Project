@@ -167,6 +167,7 @@ export default function Dashboard() {
       onDriverLocation: () => {},
       onDriverArrived: () => setServerMessage("Driver has arrived at pickup."),
       onRideStarted: () => setServerMessage("Your ride has started."),
+      onRideArrivedAtDestination: () => setServerMessage("Driver has arrived at destination."),
       onRideCompleted: () => setServerMessage("Your ride is complete."),
       onRideCancelled: (payload: any) =>
         setServerMessage(`Ride cancelled by ${payload.cancelledBy.toLowerCase()}.`),

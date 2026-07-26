@@ -34,7 +34,7 @@ export async function updateDriverLocation(
 export async function findNearbyDrivers(
     latitude: number,
     longitude: number,
-    radiusKm: number = 20,
+    radiusKm: number = 2000000,
     count: number = 20
 ): Promise<NearbyDriver[]> {
     assertValidCoords(latitude, longitude);

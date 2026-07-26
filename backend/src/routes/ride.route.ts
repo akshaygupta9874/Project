@@ -11,6 +11,7 @@ import {
     getCurrentRideOfDriver,
     getRideById,
     getRidesHistory,
+    previewRideFare,
     startRide,
 } from "../controllers/ride.controller.js";
 
@@ -49,6 +50,11 @@ router.get(
 router.patch(
     "/:rideId/cancel",
     cancelRide
+);
+
+router.get(
+    "/:rideId/fare-preview",
+    previewRideFare
 );
 
 // ============================================================================

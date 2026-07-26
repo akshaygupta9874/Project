@@ -19,23 +19,23 @@ class FareService {
         const multiplier = VEHICLE_MULTIPLIERS[resolvedVehicleType.toLowerCase()] ?? 1.0;
 
         const baseFarePaise = Math.round(
-            (ride.fare.breakdown?.baseFarePaise ?? 0) * multiplier
+            (ride.distance.estimated*5) * multiplier
         );
 
         const distanceFarePaise = Math.round(
-            (ride.fare.breakdown?.distanceFarePaise ?? 0) * multiplier
+            ( ride.distance.estimated*5) * multiplier
         );
 
         const timeFarePaise = Math.round(
-            (ride.fare.breakdown?.timeFarePaise ?? 0) * multiplier
+            (ride.distance.estimated*5) * multiplier
         );
 
         const surgePaise = Math.round(
-            (ride.fare.breakdown?.surgePaise ?? 0) * multiplier
+            ( ride.distance.estimated*5) * multiplier
         );
 
         const rawTotal =
-            ride.fare.breakdown?.totalPaise ?? ride.fare.final ?? ride.fare.estimated ?? 0;
+            ride.fare.breakdown?.totalPaise ?? ride.fare.final ?? ride.fare.estimated ?? ride.distance.estimated*5;
 
         // Calculate total based on components if available, otherwise apply multiplier to estimated total
         const totalPaise = (baseFarePaise || distanceFarePaise || timeFarePaise)

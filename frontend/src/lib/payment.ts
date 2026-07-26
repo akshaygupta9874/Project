@@ -1,6 +1,6 @@
 import { appApi } from "./api";
 
-export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "REFUNDED";
+export type PaymentStatus = "PENDING" | "PAID" | "CAPTURED" | "FAILED" | "REFUNDED";
 
 export interface FareBreakdownPayload {
   baseFarePaise: number;

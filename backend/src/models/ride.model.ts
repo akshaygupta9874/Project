@@ -6,6 +6,7 @@ export enum RideStatus {
     DRIVER_ASSIGNED = "DRIVER_ASSIGNED",
     DRIVER_ARRIVING = "DRIVER_ARRIVING",
     STARTED = "STARTED",
+    ARRIVED_AT_DESTINATION = "ARRIVED_AT_DESTINATION",
     COMPLETED = "COMPLETED",
     CANCELLED = "CANCELLED",
 }
@@ -14,6 +15,8 @@ export enum RidePaymentStatus {
     PENDING = "PENDING",
 
     PAID = "PAID",
+
+    CAPTURED = "CAPTURED",
 
     FAILED = "FAILED",
 

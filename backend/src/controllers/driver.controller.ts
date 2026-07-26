@@ -38,9 +38,6 @@ const body = {
         ? JSON.parse(request.body.documents)
         : undefined,
 };
-
-console.log(body);
-
 const validationResult =
     driverRegistrationSchema.safeParse(body);
 
@@ -333,9 +330,7 @@ export const driverProfileController = asyncTryCatchHandler(
     async (request: Request, response: Response) => {
         const authRequest = request as AuthenticatedRequest;
         const userId = authRequest.userId;
-        console.log(userId+"hi")
         const driverProfile = await DriverModel.findOne({ user : userId });
-        console.log(driverProfile)
         if (!driverProfile) {
             return response.status(404).json(
                 {

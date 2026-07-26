@@ -2,6 +2,7 @@
 
 import { findNearbyDrivers } from "../redis/services/geo.service.js";
 import { isDriverAvailable } from "../redis/services/driver-presence.service.js";
+import { DriverModel } from "../models/driver.model.js";
 import type { NearbyDriver } from "../redis/types.js";
 
 export async function findEligibleDrivers(
@@ -27,6 +28,14 @@ export async function findEligibleDrivers(
         );
 
         if (!available) {
+            continue;
+        }
+
+        const currentDriver = await DriverModel.findById(
+            driver.driverId
+        ).select("currentRide").lean();
+
+        if (currentDriver?.currentRide) {
             continue;
         }
 
