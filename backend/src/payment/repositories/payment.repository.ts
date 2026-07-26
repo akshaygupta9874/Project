@@ -144,7 +144,7 @@ class PaymentRepository {
                 $set: update,
             },
             {
-                new: true,
+                 returnDocument: "after",
                 session,
             }
         ).exec();

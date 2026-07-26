@@ -40,17 +40,19 @@ class LedgerRepository {
         session: ClientSession
     ): Promise<ILedgerEntry[]> {
 
-        // ADDED: Prevent accidental empty transaction inserts.
         if (entries.length === 0) {
             return [];
         }
 
-        const docs = await LedgerEntryModel.create(
+        const docs = await LedgerEntryModel.insertMany(
             entries,
-            { session }
+            {
+                session,
+                ordered: true,
+            }
         );
 
-        return docs;
+        return docs as ILedgerEntry[];
     }
 
     async findByTransactionId(
@@ -63,7 +65,7 @@ class LedgerRepository {
             .sort({
                 createdAt: 1,
             })
-            .lean(false) // ADDED: Explicitly return mongoose documents.
+            .lean(false)
             .exec();
     }
 
@@ -79,14 +81,10 @@ class LedgerRepository {
             .sort({
                 createdAt: 1,
             })
-            .lean(false) // ADDED: Explicitly return mongoose documents.
+            .lean(false)
             .exec();
     }
 
-    /**
-     * Sum of debits and credits for an account, as of now (or within an
-     * optional [from, to) window). This method returns raw totals only.
-     */
     async sumByAccount(
         account: LedgerAccount,
         range?: {
@@ -110,7 +108,6 @@ class LedgerRepository {
                         $gte: range.from,
                     }
                     : {}),
-
                 ...(range.to
                     ? {
                         $lt: range.to,
@@ -158,7 +155,6 @@ class LedgerRepository {
         };
     }
 
-    // ADDED: Useful for audit screens and debugging.
     async listAll(
         limit = 100
     ): Promise<ILedgerEntry[]> {

@@ -275,7 +275,7 @@ export async function acceptRide(
                 },
             },
             {
-                new: true,
+                 returnDocument: "after",
                 session,
             }
         );
@@ -363,7 +363,7 @@ export async function arriveAtPickup(
             },
         },
         {
-            new: true,
+            returnDocument: "after",
         }
     );
 
@@ -415,7 +415,7 @@ export async function startRide(
             },
         },
         {
-            new: true,
+             returnDocument: "after",
         }
     );
 
@@ -455,7 +455,7 @@ export async function arriveAtDestination(
             },
         },
         {
-            new: true,
+             returnDocument: "after",
         }
     );
 
@@ -511,7 +511,7 @@ export async function cancelRide(
                 },
             },
             {
-                new: true,
+                 returnDocument: "after",
                 session,
             }
         );
@@ -919,7 +919,7 @@ export async function cancelRideByDriver(
                 },
             },
             {
-                new: true,
+                 returnDocument: "after",
                 session,
             }
         );
