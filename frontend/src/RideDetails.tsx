@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -14,6 +14,8 @@ import {
   X,
   Loader2,
   CheckCircle2,
+  Navigation2,
+  Sparkles,
 } from "lucide-react";
 import LoadingScreen from "./components/LoadingScreen";
 import MapView from "./components/MapView";
@@ -24,9 +26,8 @@ import { createPaymentOrder, loadRazorpayCheckout, verifyPaymentSignature } from
 import { useAuthContext } from "./context/authContext";
 
 /**
- * Ride Details page - Full Map View with Floating Ticket Overlay
- * - Light-brown "travel ticket" theme: parchment surfaces, saddle-leather
- *   and brass accents, seamless responsive layout across all displays.
+ * RideDetails — premium travel-ticket theme.
+ * Same logic + API/socket contract; polished UI, layout & motion only.
  */
 
 type RideStatus =
@@ -42,7 +43,6 @@ interface RidePoint {
   address: string;
   coordinates: { latitude: number; longitude: number };
 }
-
 interface FareBreakdown {
   baseFarePaise?: number;
   distanceFarePaise?: number;
@@ -52,34 +52,20 @@ interface FareBreakdown {
   driverEarningPaise?: number;
   totalPaise?: number;
 }
-
 interface DriverInfo {
   _id: string;
   firstName?: string;
   lastName?: string;
   vehicleNumber?: string | null;
   phone?: string;
-  user?: {
-    firstName?: string;
-    lastName?: string;
-    phone?: string;
-  };
-  vehicle?: {
-    registrationNumber?: string;
-    model?: string;
-    color?: string;
-  };
+  user?: { firstName?: string; lastName?: string; phone?: string };
+  vehicle?: { registrationNumber?: string; model?: string; color?: string };
 }
-
 interface Ride {
   _id: string;
   pickup: RidePoint;
   destination: RidePoint;
-  fare: {
-    estimated: number;
-    final?: number | null;
-    breakdown?: FareBreakdown | null;
-  };
+  fare: { estimated: number; final?: number | null; breakdown?: FareBreakdown | null };
   distance: { estimated: number | null; actual?: number | null };
   duration: { estimated: number | null; actual?: number | null };
   status: RideStatus;
@@ -88,8 +74,7 @@ interface Ride {
 }
 
 const DISPLAY_FONT = "'Fraunces', 'Iowan Old Style', Georgia, serif";
-const BODY_FONT =
-  "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
+const BODY_FONT = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
 
 const STATUS_STEPS: { key: RideStatus; label: string }[] = [
   { key: "SEARCHING", label: "Searching" },
@@ -112,7 +97,7 @@ const STATUS_COPY: Record<RideStatus, { title: string; subtitle: string }> = {
 
 function formatPaiseToRupee(amount: number | null | undefined): string {
   if (amount == null) return "0.00";
-  const rupees = amount > 1000 ? amount / 100 : amount; 
+  const rupees = amount > 1000 ? amount / 100 : amount;
   return rupees.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
@@ -121,20 +106,18 @@ export default function RideDetails() {
   const navigate = useNavigate();
 
   const [ride, setRide] = useState<Ride | null>(null);
-  const [driverLocation, setDriverLocation] =
-    useState<{ latitude: number; longitude: number } | null>(null);
+  const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [routePolyline, setRoutePolyline] = useState<[number, number][]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState<string>("");
+  const [toast, setToast] = useState("");
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
 
   const socketRef = useRef<WebSocket | null>(null);
   const { user } = useAuthContext();
 
-  // Helper function to fetch full ride details including driver info
   const fetchRideDetails = async (id?: string) => {
     try {
       const endpoint = id ? `/ride/${id}` : "/ride/current";
@@ -145,12 +128,11 @@ export default function RideDetails() {
         return currentRide;
       }
     } catch {
-      // ignore individual fetch errors if fallback handles it
+      /* ignore */
     }
     return null;
   };
 
-  // Load ride & fetch Geoapify routing polyline with dynamic waypoints
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -160,25 +142,20 @@ export default function RideDetails() {
           if (!cancelled && !currentRide) setError("Unable to load ride details.");
           return;
         }
-
         if (currentRide?.pickup && currentRide?.destination) {
           const pLat = currentRide.pickup.coordinates.latitude;
           const pLon = currentRide.pickup.coordinates.longitude;
           const dLat = currentRide.destination.coordinates.latitude;
           const dLon = currentRide.destination.coordinates.longitude;
           const apiKey = import.meta.env.VITE_GEOAPIFY_API_KEY || "";
-
           const url = `https://api.geoapify.com/v1/routing?waypoints=${pLat},${pLon}|${dLat},${dLon}&mode=drive&apiKey=${apiKey}`;
           const routeRes = await fetch(url);
           const routeData = await routeRes.json();
-
           if (!cancelled && routeData?.features?.[0]?.geometry?.coordinates) {
             const coords = routeData.features[0].geometry.coordinates;
             const flatCoords: [number, number][] = [];
             coords.forEach((line: [number, number][]) => {
-              line.forEach(([lon, lat]) => {
-                flatCoords.push([lat, lon]);
-              });
+              line.forEach(([lon, lat]) => flatCoords.push([lat, lon]));
             });
             setRoutePolyline(flatCoords);
           }
@@ -194,14 +171,12 @@ export default function RideDetails() {
     };
   }, [rideId]);
 
-  // Live updates via WebSocket matching incoming frame structure
   useEffect(() => {
     const s = connectRiderSocket({
       onReady: () => setToast("Connected to live updates"),
       onError: (m: string) => setToast(m),
       onRideAccepted: async () => {
         setToast("Driver has accepted your ride");
-        // Immediately fetch full ride state to populate driver info right away
         await fetchRideDetails(rideId);
       },
       onDriverLocation: (payload: any) => {
@@ -244,12 +219,11 @@ export default function RideDetails() {
               setDriverLocation({ latitude, longitude });
             }
           }
-          // Also listen for general backend status update broadcasts containing driver allocation
           if (parsed?.event === "server:ride-accepted" || parsed?.event === "server:driver-assigned") {
             await fetchRideDetails(rideId);
           }
         } catch {
-          // silent fallback parsing ignore
+          /* ignore */
         }
       };
     }
@@ -258,7 +232,6 @@ export default function RideDetails() {
     return () => s?.close();
   }, [rideId]);
 
-  // Auto-dismiss toast
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(""), 3500);
@@ -286,32 +259,26 @@ export default function RideDetails() {
       setError("Unable to start payment from this ride right now.");
       return;
     }
-
     if (ride.status !== "ARRIVED_AT_DESTINATION") {
       setError("Payment is only available after your driver arrives at the destination.");
       return;
     }
-
     if (ride.paymentStatus && ride.paymentStatus !== "PENDING") {
       setError("This ride payment has already been processed.");
       return;
     }
-    
+
     let currentRide = ride;
-
-  
-      try {
-        const response = await appApi.get<{ message: string; ride: Ride }>(
-          `/ride/${currentRide._id}/fare-preview`
-        );
-
-        currentRide = response.data.ride;
-        setRide(currentRide);
-      } catch {
-        setError("Unable to calculate the final fare. Please try again.");
-        return;
-      }
-    
+    try {
+      const response = await appApi.get<{ message: string; ride: Ride }>(
+        `/ride/${currentRide._id}/fare-preview`
+      );
+      currentRide = response.data.ride;
+      setRide(currentRide);
+    } catch {
+      setError("Unable to calculate the final fare. Please try again.");
+      return;
+    }
 
     if (!currentRide.fare.breakdown) {
       setError("Ride fare breakdown is not available for payment.");
@@ -346,10 +313,16 @@ export default function RideDetails() {
         order_id: paymentOrder.gatewayOrderId,
         name: "Ride payment",
         description: "Complete your ride payment",
-        handler: async (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => {
+        handler: async (response: {
+          razorpay_payment_id: string;
+          razorpay_order_id: string;
+          razorpay_signature: string;
+        }) => {
           try {
             const verifyResult = await verifyPaymentSignature(response);
-            setRide((current) => current ? { ...current, paymentStatus: verifyResult.status as Ride["paymentStatus"] } : current);
+            setRide((current) =>
+              current ? { ...current, paymentStatus: verifyResult.status as Ride["paymentStatus"] } : current
+            );
             setToast("Payment verified successfully.");
           } catch {
             setError("Payment succeeded, but verification failed. Please contact support.");
@@ -361,7 +334,8 @@ export default function RideDetails() {
         },
         theme: { color: "#78350f" },
         modal: {
-          ondismiss: () => setToast("Payment window closed. You can retry this ride payment anytime."),
+          ondismiss: () =>
+            setToast("Payment window closed. You can retry this ride payment anytime."),
         },
       };
 
@@ -374,26 +348,55 @@ export default function RideDetails() {
     }
   }
 
+  const mapPath = useMemo(
+    () =>
+      routePolyline.length > 0
+        ? routePolyline.map(([lat, lng]) => ({ lat, lng }))
+        : ride
+        ? [
+            { lat: ride.pickup.coordinates.latitude, lng: ride.pickup.coordinates.longitude },
+            { lat: ride.destination.coordinates.latitude, lng: ride.destination.coordinates.longitude },
+          ]
+        : [],
+    [routePolyline, ride]
+  );
+
   if (isLoading) {
-    return <LoadingScreen label="Loading your ride" sublabel="Fetching the latest details" />;
+    return <LoadingScreen label="Loading ride" sublabel="Fetching your trip details" />;
   }
 
   if (!ride || error) {
     return (
-      <div 
-        className="grid min-h-screen place-items-center bg-[#EFEBE9] px-6 text-center text-[#3E2723]"
-        style={{ fontFamily: BODY_FONT }}
+      <main
+        className="relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-10 text-[#3E2723]"
+        style={{
+          fontFamily: BODY_FONT,
+          background:
+            "radial-gradient(circle at top left, #fdfcf8 0%, #f6efe3 35%, #ebdcc9 100%)",
+        }}
       >
-        <div>
-          <p className="text-lg font-semibold">{error || "No active ride found"}</p>
-          <Button 
-            className="mt-6 rounded-full bg-[#5D4037] text-[#FAF6F0] hover:bg-[#4E342E]" 
+        <motion.section
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative w-full max-w-md overflow-hidden rounded-3xl border border-[#D7CCC8] bg-[#FAF6F0]/95 p-8 text-center shadow-2xl backdrop-blur"
+        >
+          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-[#EFEBE9] text-[#5D4037]">
+            <Car className="h-6 w-6" />
+          </div>
+          <p className="text-lg font-semibold" style={{ fontFamily: DISPLAY_FONT }}>
+            {error || "No active ride found"}
+          </p>
+          <p className="mt-1 text-sm text-[#6D4C41]">
+            Head back to your dashboard to book a new ride.
+          </p>
+          <Button
+            className="mt-6 w-full rounded-full bg-[#3E2723] py-2.5 text-sm font-semibold text-[#FAF6F0] hover:bg-[#5D4037]"
             onClick={() => navigate("/dashboard")}
           >
             Back to dashboard
           </Button>
-        </div>
-      </div>
+        </motion.section>
+      </main>
     );
   }
 
@@ -404,7 +407,11 @@ export default function RideDetails() {
 
   const driverFirstName = ride.driver?.firstName || ride.driver?.user?.firstName || "Assigned Driver";
   const driverLastName = ride.driver?.lastName || ride.driver?.user?.lastName || "";
-  const vehicleNo = ride.driver?.vehicleNumber || ride.driver?.vehicle?.registrationNumber || ride.driver?.vehicle?.model || "Vehicle Details Pending";
+  const vehicleNo =
+    ride.driver?.vehicleNumber ||
+    ride.driver?.vehicle?.registrationNumber ||
+    ride.driver?.vehicle?.model ||
+    "Vehicle Details Pending";
   const driverPhone = ride.driver?.phone || ride.driver?.user?.phone;
 
   const activeFareValue = ride.fare.final ?? ride.fare.estimated ?? 0;
@@ -413,87 +420,80 @@ export default function RideDetails() {
   const activeDuration = ride.duration.actual ?? ride.duration.estimated ?? 0;
 
   return (
-    <div
-      className="relative h-screen w-screen overflow-hidden bg-[#EFEBE9] text-[#3E2723]"
+    <main
+      className="relative min-h-screen w-full overflow-hidden text-[#3E2723]"
       style={{ fontFamily: BODY_FONT }}
     >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap');
+        @keyframes shine-sweep {
+          0% { transform: translateX(-120%); }
+          100% { transform: translateX(120%); }
+        }
+        @keyframes route-dash {
+          to { stroke-dashoffset: -32; }
+        }
+        @keyframes soft-pulse {
+          0%, 100% { transform: scale(1); opacity: 0.9; }
+          50% { transform: scale(1.06); opacity: 1; }
+        }
       `}</style>
 
-      {/* FULL SCREEN MAP BACKGROUND */}
-      <div className="absolute inset-0 z-0 h-full w-full">
+      {/* MAP BACKGROUND */}
+      <div className="absolute inset-0">
         <MapView
-          center={
+          pickup={{
+            lat: ride.pickup.coordinates.latitude,
+            lng: ride.pickup.coordinates.longitude,
+          }}
+          destination={{
+            lat: ride.destination.coordinates.latitude,
+            lng: ride.destination.coordinates.longitude,
+          }}
+          driverLocation={
             driverLocation
               ? { lat: driverLocation.latitude, lng: driverLocation.longitude }
-              : {
-                  lat: ride.pickup.coordinates.latitude,
-                  lng: ride.pickup.coordinates.longitude,
-                }
+              : undefined
           }
-          zoom={14}
-          markers={[
-            {
-              position: {
-                lat: ride.pickup.coordinates.latitude,
-                lng: ride.pickup.coordinates.longitude,
-              },
-              label: "P",
-              title: "Pickup",
-            },
-            {
-              position: {
-                lat: ride.destination.coordinates.latitude,
-                lng: ride.destination.coordinates.longitude,
-              },
-              label: "D",
-              title: "Destination",
-            },
-            ...(driverLocation
-              ? [
-                  {
-                    position: {
-                      lat: driverLocation.latitude,
-                      lng: driverLocation.longitude,
-                    },
-                    label: "DR",
-                    title: "Driver",
-                  },
-                ]
-              : []),
-          ]}
-          path={
-            routePolyline.length > 0
-              ? routePolyline.map(([lat, lng]) => ({ lat, lng }))
-              : [
-                  {
-                    lat: ride.pickup.coordinates.latitude,
-                    lng: ride.pickup.coordinates.longitude,
-                  },
-                  {
-                    lat: ride.destination.coordinates.latitude,
-                    lng: ride.destination.coordinates.longitude,
-                  },
-                ]
-          }
+          path={mapPath}
         />
+        {/* map warm tint & vignettes for premium theme */}
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(62,39,35,0.18)_0%,transparent_18%,transparent_55%,rgba(62,39,35,0.28)_100%)]" />
+        <div className="pointer-events-none absolute inset-0 mix-blend-overlay bg-[radial-gradient(ellipse_at_top,rgba(255,236,201,0.25),transparent_60%)]" />
       </div>
 
       {/* FLOATING TOP BAR */}
-      <div className="absolute inset-x-0 top-4 z-30 flex items-center justify-between px-6 pointer-events-none">
+      <motion.header
+        initial={{ y: -30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 260, damping: 26 }}
+        className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-center justify-between px-4 pt-4 sm:px-6 sm:pt-6"
+      >
         <button
           onClick={() => navigate("/dashboard")}
-          className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/95 text-[#5D4037] shadow-lg backdrop-blur-xl transition hover:bg-[#FAF6F0]"
+          className="pointer-events-auto group grid h-11 w-11 place-items-center rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/95 text-[#5D4037] shadow-lg backdrop-blur-xl transition hover:-translate-x-0.5 hover:bg-[#FAF6F0]"
           aria-label="Back"
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-5 w-5 transition group-hover:-translate-x-0.5" />
         </button>
-        <div className="rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/95 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-[#795548] shadow-lg backdrop-blur-xl">
+
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="pointer-events-auto flex items-center gap-2 rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/95 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#5D4037] shadow-lg backdrop-blur-xl"
+        >
+          <span className="relative inline-flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-70" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-600" />
+          </span>
           Ride #{ride._id.slice(-6)}
+        </motion.div>
+
+        <div className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/95 text-[#5D4037] shadow-lg backdrop-blur-xl">
+          <Navigation2 className="h-5 w-5" />
         </div>
-        <span className="h-11 w-11" />
-      </div>
+      </motion.header>
 
       {/* DRIVER SEARCHING PULSE OVERLAY */}
       <AnimatePresence>
@@ -502,17 +502,20 @@ export default function RideDetails() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 pointer-events-none grid place-items-center z-10"
+            className="pointer-events-none absolute inset-0 z-10 grid place-items-center"
           >
-            <div className="relative">
-              <span className="absolute inset-0 -m-8 animate-ping rounded-full bg-[#5D4037]/25" />
-              <span
-                className="absolute inset-0 -m-8 animate-ping rounded-full bg-[#5D4037]/25"
-                style={{ animationDelay: "0.6s" }}
-              />
-              <div className="relative grid h-20 w-20 place-items-center rounded-full border-4 border-[#EFEBE9] bg-gradient-to-br from-[#5D4037] to-[#3E2723] shadow-2xl text-[#FAF6F0]">
-                <Car className="h-8 w-8 text-[#FAF6F0]" />
+            <div className="relative flex flex-col items-center">
+              <span className="absolute h-40 w-40 animate-ping rounded-full bg-[#8D6E63]/25" />
+              <span className="absolute h-28 w-28 animate-pulse rounded-full bg-[#A1887F]/40" />
+              <div className="relative grid h-20 w-20 place-items-center rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/95 text-[#3E2723] shadow-2xl backdrop-blur-xl">
+                <Car className="h-8 w-8" />
               </div>
+              <p
+                className="mt-4 rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/95 px-4 py-1.5 text-xs font-semibold text-[#5D4037] shadow-lg backdrop-blur-xl"
+                style={{ fontFamily: DISPLAY_FONT }}
+              >
+                Locating nearby drivers…
+              </p>
             </div>
           </motion.div>
         )}
@@ -522,205 +525,286 @@ export default function RideDetails() {
       <motion.section
         initial={{ y: 80, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 220, damping: 26 }}
-        className="absolute inset-x-4 bottom-6 z-30 mx-auto max-w-xl rounded-[32px] border border-[#D7CCC8] bg-[#FAF6F0]/95 p-6 shadow-2xl backdrop-blur-xl max-h-[82vh] flex flex-col"
+        transition={{ type: "spring", stiffness: 220, damping: 28, delay: 0.05 }}
+        className="absolute inset-x-0 bottom-0 z-20 mx-auto w-full max-w-2xl px-3 pb-3 sm:px-4 sm:pb-4"
       >
-        <div className="mx-auto mb-3 h-1.5 w-12 flex-shrink-0 rounded-full bg-[#D7CCC8]" />
+        <div className="relative overflow-hidden rounded-[28px] border border-[#D7CCC8] bg-[#FAF6F0]/98 shadow-[0_-20px_60px_-20px_rgba(62,39,35,0.35)] backdrop-blur-2xl">
+          {/* ticket perforation strip */}
+          <div className="pointer-events-none absolute inset-x-6 top-0 h-3 flex justify-between">
+            {Array.from({ length: 22 }).map((_, i) => (
+              <span key={i} className="h-3 w-3 -translate-y-1/2 rounded-full bg-[#f6efe3] shadow-inner" />
+            ))}
+          </div>
+          {/* soft brass shine */}
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div
+              className="absolute top-0 h-full w-1/3 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+              style={{ animation: "shine-sweep 6s ease-in-out infinite" }}
+            />
+          </div>
 
-        <div className="overflow-y-auto pr-1 space-y-4">
-          {/* Status headline */}
-          <AnimatePresence mode="wait">
+          {/* drag handle */}
+          <div className="pt-4">
+            <div className="mx-auto h-1.5 w-12 rounded-full bg-[#D7CCC8]" />
+          </div>
+
+          <div className="relative space-y-5 px-5 pb-5 pt-4 sm:px-7 sm:pb-7">
+            {/* Headline */}
             <motion.div
               key={ride.status}
-              initial={{ opacity: 0, y: 6 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.25 }}
-              className="flex items-start justify-between gap-4"
+              className="flex items-start justify-between gap-3"
             >
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-widest text-[#795548]">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#8D6E63]">
                   {ride.status.replace(/_/g, " ")}
                 </p>
-                <h1 
-                  className="mt-0.5 text-xl sm:text-2xl font-bold text-[#3E2723]"
+                <h1
+                  className="mt-1 truncate text-2xl font-semibold text-[#3E2723] sm:text-[26px]"
                   style={{ fontFamily: DISPLAY_FONT }}
                 >
                   {statusCopy.title}
                 </h1>
-                <p className="mt-0.5 text-xs sm:text-sm text-[#795548]">{statusCopy.subtitle}</p>
+                <p className="mt-1 text-sm text-[#6D4C41]">{statusCopy.subtitle}</p>
               </div>
               {isTerminal ? (
-                <div className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-full bg-[#5D4037]/10 text-[#5D4037]">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 shadow-inner">
                   <CheckCircle2 className="h-5 w-5" />
                 </div>
               ) : (
-                <Loader2 className="mt-1 h-5 w-5 flex-shrink-0 animate-spin text-[#795548]" />
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#EFEBE9] text-[#5D4037] shadow-inner">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+                  >
+                    <Sparkles className="h-5 w-5" />
+                  </motion.div>
+                </div>
               )}
             </motion.div>
-          </AnimatePresence>
 
-          {/* Stepper */}
-          {!isTerminal || ride.status === "COMPLETED" ? (
-            <div className="flex items-center gap-1.5">
-              {STATUS_STEPS.map((s, i) => {
-                const active = i <= (stepIndex === -1 ? 0 : stepIndex);
-                return (
-                  <div key={s.key} className="flex-1">
-                    <motion.div
-                      initial={{ scaleX: 0.4, opacity: 0.4 }}
-                      animate={{ scaleX: 1, opacity: active ? 1 : 0.25 }}
-                      transition={{ duration: 0.4, delay: i * 0.04 }}
-                      className={`h-1.5 origin-left rounded-full ${
-                        active
-                          ? "bg-gradient-to-r from-[#5D4037] to-[#795548]"
-                          : "bg-[#D7CCC8]"
-                      }`}
-                    />
-                    <p
-                      className={`mt-1 text-[9px] font-bold uppercase tracking-wider ${
-                        active ? "text-[#3E2723]" : "text-[#A1887F]"
-                      }`}
-                    >
-                      {s.label}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-
-          {/* Driver card */}
-          <AnimatePresence>
-            {ride.driver && (
-              <motion.div
-                initial={{ opacity: 0, y: 15, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10 }}
-                transition={{ type: "spring", stiffness: 240, damping: 24 }}
-                className="overflow-hidden rounded-2xl border border-[#D7CCC8] bg-[#EFEBE9]/70 p-4 shadow-sm"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="relative flex-shrink-0">
-                    <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-[#5D4037] to-[#3E2723] text-base font-bold text-[#FAF6F0] shadow-md">
-                      {driverFirstName?.[0]?.toUpperCase() || "D"}
-                    </div>
-                    <span className="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full border border-[#FAF6F0] bg-[#5D4037]">
-                      <Shield className="h-2 w-2 text-[#FAF6F0]" />
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[#3E2723] truncate">
-                      {driverFirstName} {driverLastName}
-                    </p>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-[#795548]">
-                      <span className="inline-flex items-center gap-1 font-medium text-[#3E2723]">
-                        <Star className="h-3 w-3 fill-[#795548] text-[#795548]" />
-                        4.9
+            {/* Stepper */}
+            {!isTerminal || ride.status === "COMPLETED" ? (
+              <div className="relative flex items-center justify-between rounded-2xl border border-[#EFEBE9] bg-[#FBF7F1] px-3 py-3">
+                <div className="absolute left-6 right-6 top-1/2 h-[2px] -translate-y-1/2 bg-[#EFEBE9]" />
+                <motion.div
+                  initial={{ scaleX: 0 }}
+                  animate={{
+                    scaleX:
+                      stepIndex <= 0
+                        ? 0
+                        : stepIndex / (STATUS_STEPS.length - 1),
+                  }}
+                  transition={{ type: "spring", stiffness: 120, damping: 22 }}
+                  style={{ transformOrigin: "left" }}
+                  className="absolute left-6 right-6 top-1/2 h-[2px] -translate-y-1/2 bg-gradient-to-r from-[#8D6E63] via-[#A1887F] to-[#5D4037]"
+                />
+                {STATUS_STEPS.map((s, i) => {
+                  const active = i <= (stepIndex === -1 ? 0 : stepIndex);
+                  return (
+                    <div key={s.key} className="relative z-10 flex flex-col items-center gap-1.5">
+                      <motion.span
+                        animate={
+                          active && i === stepIndex && !isTerminal
+                            ? { scale: [1, 1.15, 1] }
+                            : { scale: 1 }
+                        }
+                        transition={{ duration: 1.6, repeat: Infinity }}
+                        className={`grid h-4 w-4 place-items-center rounded-full border-2 ${
+                          active
+                            ? "border-[#3E2723] bg-[#3E2723]"
+                            : "border-[#D7CCC8] bg-[#FAF6F0]"
+                        }`}
+                      />
+                      <span
+                        className={`text-[9px] font-semibold uppercase tracking-wider ${
+                          active ? "text-[#3E2723]" : "text-[#A1887F]"
+                        }`}
+                      >
+                        {s.label}
                       </span>
-                      <span>•</span>
-                      <span className="truncate font-medium text-[#3E2723]">{vehicleNo}</span>
                     </div>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            {/* Driver card */}
+            <AnimatePresence>
+              {ride.driver && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="relative overflow-hidden rounded-2xl border border-[#EFE0CC] bg-gradient-to-br from-[#FBF3E4] via-[#F6E7CE] to-[#EFDCBB] p-4 shadow-inner"
+                >
+                  <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-[#D7B37A]/30 blur-2xl" />
+                  <div className="relative flex items-center gap-3">
+                    <div className="relative">
+                      <div
+                        className="grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-[#8D6E63] to-[#3E2723] text-lg font-semibold text-[#FAF6F0] shadow-lg"
+                        style={{ fontFamily: DISPLAY_FONT }}
+                      >
+                        {driverFirstName?.[0]?.toUpperCase() || "D"}
+                      </div>
+                      <span className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full border-2 border-[#FAF6F0] bg-emerald-500 text-white shadow">
+                        <Shield className="h-3 w-3" />
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className="truncate text-base font-semibold text-[#3E2723]"
+                        style={{ fontFamily: DISPLAY_FONT }}
+                      >
+                        {driverFirstName} {driverLastName}
+                      </p>
+                      <div className="mt-0.5 flex items-center gap-1.5 text-xs text-[#6D4C41]">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#FAF6F0]/70 px-1.5 py-0.5 font-semibold text-[#3E2723]">
+                          <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
+                          4.9
+                        </span>
+                        <span>•</span>
+                        <span className="truncate font-medium">{vehicleNo}</span>
+                      </div>
+                    </div>
+                    {driverPhone && (
+                      <a
+                        href={`tel:${driverPhone}`}
+                        className="group grid h-11 w-11 place-items-center rounded-full bg-[#3E2723] text-[#FAF6F0] shadow-lg transition hover:scale-105 active:scale-95"
+                        aria-label="Call driver"
+                      >
+                        <Phone className="h-4 w-4 transition group-hover:rotate-12" />
+                      </a>
+                    )}
                   </div>
-                  <a
-                    href={driverPhone ? `tel:${driverPhone}` : "tel:0000000000"}
-                    className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-[#5D4037] text-[#FAF6F0] shadow-md transition hover:scale-105"
-                    aria-label="Call driver"
-                  >
-                    <Phone className="h-4 w-4" />
-                  </a>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Trip stops */}
+            <div className="relative overflow-hidden rounded-2xl border border-[#EFEBE9] bg-[#FBF7F1] p-4">
+              <div className="relative flex flex-col gap-3">
+                <Stop color="saddle" label="Pickup" value={ride.pickup.address} />
+                {/* connector */}
+                <div className="absolute left-[13px] top-[26px] bottom-[26px] w-[2px] overflow-hidden">
+                  <svg className="h-full w-full">
+                    <line
+                      x1="1"
+                      y1="0"
+                      x2="1"
+                      y2="100%"
+                      stroke="#8D6E63"
+                      strokeWidth="2"
+                      strokeDasharray="4 4"
+                      style={{ animation: "route-dash 1.2s linear infinite" }}
+                    />
+                  </svg>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Trip stops */}
-          <div className="rounded-2xl border border-[#D7CCC8] bg-[#EFEBE9]/70 p-3.5 shadow-sm">
-            <div className="relative">
-              <div className="pointer-events-none absolute left-[9px] top-3.5 bottom-3.5 w-px bg-gradient-to-b from-[#5D4037]/60 via-[#D7CCC8] to-[#795548]/60" />
-              <Stop
-                color="saddle"
-                label="Pickup"
-                value={ride.pickup.address || "Pickup point"}
-              />
-              <div className="h-2.5" />
-              <Stop
-                color="brass"
-                square
-                label="Destination"
-                value={ride.destination.address || "Destination"}
-              />
-            </div>
-          </div>
-
-          {/* Stats grid */}
-          <div className="grid grid-cols-3 gap-2.5">
-            <Stat icon={<IndianRupee className="h-3.5 w-3.5 text-[#795548]" />} label="Fare" value={`₹${formattedFare}`} />
-            <Stat icon={<Clock className="h-3.5 w-3.5 text-[#795548]" />} label="ETA" value={`${activeDuration}m`} />
-            <Stat icon={<RouteIcon className="h-3.5 w-3.5 text-[#795548]" />} label="Distance" value={`${activeDistance}km`} />
-          </div>
-
-          {/* Breakdown details if completed and available */}
-          {ride.status === "COMPLETED" && ride.fare.breakdown && (
-            <div className="rounded-2xl border border-[#D7CCC8] bg-[#EFEBE9] p-3 text-xs text-[#5D4037]">
-              <p className="font-bold uppercase tracking-wider text-[#795548] mb-1.5">Fare Breakdown</p>
-              <div className="space-y-1">
-                {ride.fare.breakdown.baseFarePaise != null && (
-                  <div className="flex justify-between"><span>Base Fare</span><span>₹{formatPaiseToRupee(ride.fare.breakdown.baseFarePaise)}</span></div>
-                )}
-                {ride.fare.breakdown.distanceFarePaise != null && (
-                  <div className="flex justify-between"><span>Distance Fare</span><span>₹{formatPaiseToRupee(ride.fare.breakdown.distanceFarePaise)}</span></div>
-                )}
-                {ride.fare.breakdown.timeFarePaise != null && (
-                  <div className="flex justify-between"><span>Time Fare</span><span>₹{formatPaiseToRupee(ride.fare.breakdown.timeFarePaise)}</span></div>
-                )}
-                {ride.fare.breakdown.surgePaise != null && ride.fare.breakdown.surgePaise > 0 && (
-                  <div className="flex justify-between"><span>Surge Charge</span><span>₹{formatPaiseToRupee(ride.fare.breakdown.surgePaise)}</span></div>
-                )}
+                <Stop color="brass" square label="Drop-off" value={ride.destination.address} />
               </div>
             </div>
-          )}
 
-          {ride.status === "ARRIVED_AT_DESTINATION" && (
-            <div className="rounded-2xl border border-[#D7CCC8] bg-[#F5EBE6] p-3 text-sm text-[#5D4037]">
-              <p className="font-semibold">Payment is required before the trip can be finalized.</p>
-              <p className="mt-1 text-xs text-[#795548]">
-                {paymentPending ? "Your payment remains pending until it is completed." : "Payment has been captured."}
-              </p>
+            {/* Stats grid */}
+            <div className="grid grid-cols-3 gap-2.5">
+              <Stat icon={<IndianRupee className="h-4 w-4" />} label="Fare" value={`₹${formattedFare}`} />
+              <Stat icon={<Clock className="h-4 w-4" />} label="ETA" value={`${activeDuration}m`} />
+              <Stat icon={<RouteIcon className="h-4 w-4" />} label="Distance" value={`${activeDistance}km`} />
             </div>
-          )}
 
-          {/* Live driver coords (subtle) */}
-          {driverLocation && (
-            <p className="flex items-center gap-1.5 text-[10px] text-[#795548]">
-              <MapPin className="h-3 w-3" />
-              Driver at {driverLocation.latitude.toFixed(4)}, {driverLocation.longitude.toFixed(4)}
-            </p>
-          )}
+            {/* Fare breakdown */}
+            <AnimatePresence>
+              {ride.status === "COMPLETED" && ride.fare.breakdown && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden rounded-2xl border border-[#EFEBE9] bg-[#FBF7F1] p-4"
+                >
+                  <p
+                    className="mb-2 text-sm font-semibold text-[#3E2723]"
+                    style={{ fontFamily: DISPLAY_FONT }}
+                  >
+                    Fare Breakdown
+                  </p>
+                  <div className="space-y-1.5 text-xs text-[#6D4C41]">
+                    {ride.fare.breakdown.baseFarePaise != null && (
+                      <Row label="Base Fare" value={`₹${formatPaiseToRupee(ride.fare.breakdown.baseFarePaise)}`} />
+                    )}
+                    {ride.fare.breakdown.distanceFarePaise != null && (
+                      <Row label="Distance Fare" value={`₹${formatPaiseToRupee(ride.fare.breakdown.distanceFarePaise)}`} />
+                    )}
+                    {ride.fare.breakdown.timeFarePaise != null && (
+                      <Row label="Time Fare" value={`₹${formatPaiseToRupee(ride.fare.breakdown.timeFarePaise)}`} />
+                    )}
+                    {ride.fare.breakdown.surgePaise != null && ride.fare.breakdown.surgePaise > 0 && (
+                      <Row label="Surge Charge" value={`₹${formatPaiseToRupee(ride.fare.breakdown.surgePaise)}`} />
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-          {/* Payment / Cancel / Done */}
-          <div className="pt-1 space-y-2">
             {ride.status === "ARRIVED_AT_DESTINATION" && (
-              <Button
-                className="w-full rounded-full bg-[#5D4037] text-[#FAF6F0] hover:bg-[#4E342E]"
-                onClick={handlePayNow}
-                disabled={isPaying}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-2xl border border-amber-300/60 bg-amber-50/80 p-3 text-xs text-amber-900"
               >
-                {isPaying ? "Preparing payment…" : "Pay now"}
-              </Button>
+                <p className="font-semibold">Payment is required before the trip can be finalized.</p>
+                <p className="mt-0.5 text-amber-800/80">
+                  {paymentPending
+                    ? "Your payment remains pending until it is completed."
+                    : "Payment has been captured."}
+                </p>
+              </motion.div>
             )}
-            {isTerminal ? (
-              <Button className="w-full rounded-full bg-[#5D4037] text-[#FAF6F0] hover:bg-[#4E342E]" onClick={() => navigate("/dashboard")}>
-                Back to dashboard
-              </Button>
-            ) : (
-              <button
-                onClick={() => setShowCancelConfirm(true)}
-                className="w-full rounded-full border border-rose-500/30 bg-rose-500/10 py-2.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-500/20 shadow-sm"
+
+            {driverLocation && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center gap-1.5 text-[11px] text-[#8D6E63]"
               >
-                Cancel ride
-              </button>
+                <MapPin className="h-3 w-3" />
+                Driver at {driverLocation.latitude.toFixed(4)}, {driverLocation.longitude.toFixed(4)}
+              </motion.div>
             )}
+
+            {/* Actions */}
+            <div className="flex flex-col gap-2 pt-1">
+              {ride.status === "ARRIVED_AT_DESTINATION" && (
+                <Button
+                  onClick={handlePayNow}
+                  disabled={isPaying}
+                  className="relative w-full overflow-hidden rounded-full bg-gradient-to-r from-[#5D4037] via-[#3E2723] to-[#5D4037] py-3 text-sm font-semibold text-[#FAF6F0] shadow-lg transition hover:shadow-2xl disabled:opacity-70"
+                >
+                  <span
+                    className="pointer-events-none absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent"
+                    style={{ animation: "shine-sweep 2.4s ease-in-out infinite" }}
+                  />
+                  <span className="relative inline-flex items-center justify-center gap-2">
+                    {isPaying && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {isPaying ? "Preparing payment…" : "Pay now"}
+                  </span>
+                </Button>
+              )}
+              {isTerminal ? (
+                <Button
+                  onClick={() => navigate("/dashboard")}
+                  className="w-full rounded-full bg-[#3E2723] py-2.5 text-sm font-semibold text-[#FAF6F0] hover:bg-[#5D4037]"
+                >
+                  Back to dashboard
+                </Button>
+              ) : (
+                <button
+                  onClick={() => setShowCancelConfirm(true)}
+                  className="w-full rounded-full border border-rose-500/30 bg-rose-500/10 py-2.5 text-xs font-semibold text-rose-700 shadow-sm transition hover:bg-rose-500/20 active:scale-[0.99]"
+                >
+                  Cancel ride
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </motion.section>
@@ -729,21 +813,21 @@ export default function RideDetails() {
       <AnimatePresence>
         {toast && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="fixed inset-x-0 bottom-24 z-40 mx-auto flex max-w-sm items-center gap-2 rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/95 px-4 py-2 text-xs text-[#3E2723] shadow-xl backdrop-blur-xl"
+            initial={{ y: -30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -30, opacity: 0 }}
+            className="pointer-events-none absolute left-1/2 top-20 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/95 px-4 py-2 text-xs font-semibold text-[#3E2723] shadow-xl backdrop-blur-xl"
           >
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#5D4037] opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#5D4037]" />
+            <span className="relative inline-flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-70" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-600" />
             </span>
             {toast}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Cancel confirm modal */}
+      {/* Cancel modal */}
       <AnimatePresence>
         {showCancelConfirm && (
           <motion.div
@@ -751,47 +835,47 @@ export default function RideDetails() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setShowCancelConfirm(false)}
-            className="fixed inset-0 z-50 grid place-items-center bg-black/40 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-sm"
           >
             <motion.div
-              initial={{ y: 30, opacity: 0, scale: 0.98 }}
-              animate={{ y: 0, opacity: 1, scale: 1 }}
-              exit={{ y: 20, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 260, damping: 26 }}
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ type: "spring", stiffness: 260, damping: 24 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm rounded-3xl border border-[#D7CCC8] bg-[#FAF6F0] p-6 shadow-2xl"
+              className="w-full max-w-sm overflow-hidden rounded-3xl border border-[#D7CCC8] bg-[#FAF6F0] p-6 shadow-2xl"
             >
-              <div className="flex items-start justify-between">
+              <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
-                  <h3 
+                  <p
                     className="text-lg font-semibold text-[#3E2723]"
                     style={{ fontFamily: DISPLAY_FONT }}
                   >
                     Cancel this ride?
-                  </h3>
-                  <p className="mt-1 text-xs text-[#795548]">
+                  </p>
+                  <p className="mt-1 text-xs text-[#6D4C41]">
                     Frequent cancellations may affect your account.
                   </p>
                 </div>
                 <button
                   onClick={() => setShowCancelConfirm(false)}
-                  className="grid h-7 w-7 place-items-center rounded-full bg-[#EFEBE9] text-[#5D4037]"
+                  className="grid h-7 w-7 place-items-center rounded-full bg-[#EFEBE9] text-[#5D4037] transition hover:bg-[#D7CCC8]/60"
                   aria-label="Close"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
-              <div className="mt-5 flex gap-2">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowCancelConfirm(false)}
-                  className="flex-1 rounded-full border border-[#D7CCC8] bg-[#EFEBE9] py-2.5 text-xs font-semibold text-[#3E2723] hover:bg-[#D7CCC8]/60 transition"
+                  className="flex-1 rounded-full border border-[#D7CCC8] bg-[#EFEBE9] py-2.5 text-xs font-semibold text-[#3E2723] transition hover:bg-[#D7CCC8]/60"
                 >
                   Keep ride
                 </button>
                 <button
                   onClick={handleCancel}
                   disabled={isCancelling}
-                  className="flex-1 rounded-full bg-rose-600 py-2.5 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:opacity-60 shadow-md"
+                  className="flex-1 rounded-full bg-rose-600 py-2.5 text-xs font-semibold text-white shadow-lg transition hover:bg-rose-700 disabled:opacity-70"
                 >
                   {isCancelling ? "Cancelling…" : "Yes, cancel"}
                 </button>
@@ -800,7 +884,7 @@ export default function RideDetails() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </main>
   );
 }
 
@@ -817,23 +901,34 @@ function Stop({
   label: string;
   value: string;
 }) {
-  const dotStyle =
+  const dotBase =
     color === "saddle"
-      ? "bg-[#5D4037] shadow-[0_0_8px_rgba(93,64,55,0.4)]"
-      : "rotate-45 bg-[#795548] shadow-[0_0_8px_rgba(121,85,72,0.4)]";
+      ? "bg-[#5D4037] shadow-[0_0_10px_rgba(93,64,55,0.45)]"
+      : "bg-[#8D6E63] shadow-[0_0_10px_rgba(121,85,72,0.45)]";
 
   return (
-    <div className="flex items-start gap-2.5">
-      <span
-        className={`mt-1 inline-block h-2.5 w-2.5 ${dotStyle} ${
-          square ? "rounded-sm" : "rounded-full"
-        }`}
-      />
+    <div className="relative z-10 flex items-start gap-3">
+      <div className="relative mt-1 grid h-6 w-6 place-items-center">
+        {color === "saddle" && (
+          <span className="absolute h-6 w-6 animate-ping rounded-full bg-[#5D4037]/25" />
+        )}
+        <span
+          className={`relative h-3 w-3 ${dotBase} ${
+            square ? "rotate-45 rounded-[2px]" : "rounded-full"
+          }`}
+        />
+      </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[9px] font-bold uppercase tracking-widest text-[#795548]">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8D6E63]">
           {label}
         </p>
-        <p className="truncate text-xs text-[#3E2723] font-medium">{value}</p>
+        <p
+          className="mt-0.5 truncate text-sm font-medium text-[#3E2723]"
+          style={{ fontFamily: "'Fraunces', Georgia, serif" }}
+          title={value}
+        >
+          {value}
+        </p>
       </div>
     </div>
   );
@@ -849,12 +944,32 @@ function Stat({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-[#D7CCC8] bg-[#EFEBE9]/70 p-2.5 shadow-sm text-center">
-      <div className="flex items-center justify-center gap-1 text-[#795548]">{icon}</div>
-      <p className="mt-1 text-base font-bold text-[#3E2723]">{value}</p>
-      <p className="text-[9px] font-bold uppercase tracking-widest text-[#795548]">
+    <motion.div
+      whileHover={{ y: -2 }}
+      className="group relative overflow-hidden rounded-2xl border border-[#EFEBE9] bg-[#FBF7F1] p-3 text-center shadow-sm transition"
+    >
+      <div className="pointer-events-none absolute inset-x-0 -top-8 h-16 bg-gradient-to-b from-white/50 to-transparent opacity-0 transition group-hover:opacity-100" />
+      <div className="mx-auto grid h-8 w-8 place-items-center rounded-full bg-[#EFEBE9] text-[#5D4037]">
+        {icon}
+      </div>
+      <p
+        className="mt-1.5 text-sm font-semibold text-[#3E2723]"
+        style={{ fontFamily: "'Fraunces', Georgia, serif" }}
+      >
+        {value}
+      </p>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8D6E63]">
         {label}
       </p>
+    </motion.div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span>{label}</span>
+      <span className="font-semibold text-[#3E2723]">{value}</span>
     </div>
   );
 }
