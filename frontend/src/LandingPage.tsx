@@ -12,6 +12,7 @@ import {
   IndianRupee,
   Zap,
   Star,
+  TrendingUp,
 } from "lucide-react";
 
 import { Button } from "./components/ui/button";
@@ -174,7 +175,6 @@ export default function LandingPage() {
   // Pricing display state
   const [isCalculatingPrices, setIsCalculatingPrices] = useState(false);
   const [pricingError, setPricingError] = useState("");
-  const [calculatedDistanceMeters, setCalculatedDistanceMeters] = useState<number>(5000);
 
   // Detect user's current city on mount
   useEffect(() => {
@@ -297,10 +297,8 @@ export default function LandingPage() {
         const apiKey = import.meta.env.VITE_GEOAPIFY_API_KEY || "";
         const url = `https://api.geoapify.com/v1/routing?waypoints=${pickupCoords.latitude},${pickupCoords.longitude}|${destinationCoords.latitude},${destinationCoords.longitude}&mode=drive&apiKey=${apiKey}`;
         const res = await fetch(url);
-        const data = await res.json();
-        if (data?.features?.[0]?.properties?.distance) {
-          setCalculatedDistanceMeters(data.features[0].properties.distance);
-        }
+        // Distance data fetched for potential future use
+        await res.json();
       }
       await new Promise((r) => setTimeout(r, 500));
     } catch {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
 import {
   ArrowLeft,
   Phone,
@@ -15,10 +15,7 @@ import {
   Loader2,
   CheckCircle2,
   Navigation2,
-  Sparkles,
-  TrendingUp,
   Zap,
-  Radio,
 } from "lucide-react";
 import LoadingScreen from "./components/LoadingScreen";
 import MapView from "./components/MapView";
@@ -96,62 +93,10 @@ const STATUS_COPY: Record<RideStatus, { title: string; subtitle: string }> = {
   CANCELLED: { title: "Ride cancelled", subtitle: "This trip is no longer active" },
 };
 
-const RIDE_STATUS_CONFIG: Record<
-  RideStatus,
-  { label: string; badge: string; accent: string }
-> = {
-  SEARCHING: {
-    label: "Searching",
-    badge: "bg-[#3B2818]/70 text-[#F2CD7C] border border-[#7A5230]",
-    accent: "#D9A521",
-  },
-  DRIVER_ASSIGNED: {
-    label: "Assigned to you",
-    badge: "bg-[#3B2818]/70 text-[#F2CD7C] border border-[#7A5230]",
-    accent: "#E0B347",
-  },
-  DRIVER_ARRIVING: {
-    label: "Arriving",
-    badge: "bg-[#3B2818]/70 text-[#F2CD7C] border border-[#7A5230]",
-    accent: "#E8843A",
-  },
-  STARTED: {
-    label: "Trip in progress",
-    badge: "bg-[#3B2818]/80 text-[#FBEBC9] border border-[#A67C4E]",
-    accent: "#F2CD7C",
-  },
-  ARRIVED_AT_DESTINATION: {
-    label: "Arrived at destination",
-    badge: "bg-[#3B2818]/80 text-[#F6ECDA] border border-[#A67C4E]",
-    accent: "#D9A521",
-  },
-  COMPLETED: {
-    label: "Completed",
-    badge: "bg-[#3B2818]/60 text-[#C7D69E] border border-[#7A5230]",
-    accent: "#8FA34E",
-  },
-  CANCELLED: {
-    label: "Cancelled",
-    badge: "bg-[#3B2818]/60 text-[#E2A08E] border border-[#7A5230]",
-    accent: "#B54834",
-  },
-};
-
 function formatPaiseToRupee(amount: number | null | undefined): string {
   if (amount == null) return "0.00";
   const rupees = amount > 1000 ? amount / 100 : amount;
   return rupees.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-// ---------- Animated Number Component ----------
-function AnimatedNumber({ value, format }: { value: number; format?: (n: number) => string }) {
-  const mv = useMotionValue(0);
-  const spring = useSpring(mv, { stiffness: 90, damping: 20, mass: 0.6 });
-  const display = useTransform(spring, (v) => (format ? format(v) : Math.round(v).toLocaleString()));
-  useEffect(() => {
-    mv.set(value);
-  }, [value, mv]);
-  return <motion.span className="font-mono digit-flicker">{display}</motion.span>;
 }
 
 // ---------- Rising Embers Animation ----------
@@ -212,24 +157,6 @@ function DashboardAtmosphere() {
       />
       <EmberField count={12} />
     </>
-  );
-}
-
-// ---------- Status Pulse Badge ----------
-function StatusPulse({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="relative inline-flex items-center gap-2 rounded-full border border-[#7A5230] bg-[#241a10]/80 px-3 py-1.5 text-xs font-semibold text-[#F6ECDA] backdrop-blur console-readout">
-      <span className="relative flex h-2.5 w-2.5">
-        <motion.span
-          className="absolute inline-flex h-full w-full rounded-full"
-          style={{ backgroundColor: color }}
-          animate={{ scale: [1, 2.4], opacity: [0.7, 0] }}
-          transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut" }}
-        />
-        <span className="relative inline-flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
-      </span>
-      {label}
-    </span>
   );
 }
 
@@ -704,8 +631,6 @@ export default function RideDetails() {
     );
   }
 
-  const statusConfig = RIDE_STATUS_CONFIG[ride.status];
-  const stepIndex = STATUS_STEPS.findIndex((s) => s.key === ride.status);
   const isTerminal = ride.status === "COMPLETED" || ride.status === "CANCELLED";
   const paymentPending = ride.paymentStatus === "PENDING" || ride.paymentStatus === undefined;
 
