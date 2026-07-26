@@ -114,7 +114,7 @@ export default function ChooseMode() {
         setIsCreatingRide(true);
         try {
             const activeModeObj = RIDE_MODES.find(m => m.id === selectedMode);
-            const baseFareValue = rideData.routeDistance ? Math.round((rideData.routeDistance / 100) * 5) : 160;
+            const baseFareValue = rideData.routeDistance ? Math.round((rideData.routeDistance) * 500 * 4) : 160;
             const calculatedFare = Math.round(baseFareValue * (activeModeObj?.multiplier || 1));
 
             // Create ride document in MongoDB now with vehicleType and estimated fare
@@ -125,7 +125,7 @@ export default function ChooseMode() {
                 destination: { address: rideData.destination, coordinates: rideData.destinationCoords },
                 fare: { estimated: calculatedFare },
                 distance: { estimated: rideData.routeDistance ? Number((rideData.routeDistance / 1000).toFixed(1)) : 5 },
-                duration: { estimated: rideData.routeDuration ? Math.round(rideData.routeDuration / 60) : 14 },
+                duration: { estimated: rideData.routeDuration ? Math.round(rideData.routeDuration/60) : 14 },
             });
 
             // Clean up temporary session storage backup

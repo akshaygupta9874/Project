@@ -1,7 +1,7 @@
 import { IRide } from "../models/ride.model.js";
 import { IFareBreakdown } from "../payment/types/payment.types.js";
 
-const PLATFORM_COMMISSION_PERCENT = 20;
+const PLATFORM_COMMISSION_PERCENT = 10;
 
 const VEHICLE_MULTIPLIERS: Record<string, number> = {
     bike: 0.7,
@@ -19,19 +19,19 @@ class FareService {
         const multiplier = VEHICLE_MULTIPLIERS[resolvedVehicleType.toLowerCase()] ?? 1.0;
 
         const baseFarePaise = Math.round(
-            (ride.distance.estimated*5) * multiplier
+            (ride.distance.estimated*500) * multiplier
         );
 
         const distanceFarePaise = Math.round(
-            ( ride.distance.estimated*5) * multiplier
+            ( ride.distance.estimated*500) * multiplier
         );
 
         const timeFarePaise = Math.round(
-            (ride.distance.estimated*5) * multiplier
+            (ride.distance.estimated*500) * multiplier
         );
 
         const surgePaise = Math.round(
-            ( ride.distance.estimated*5) * multiplier
+            ( ride.distance.estimated*500) * multiplier
         );
 
         const rawTotal =

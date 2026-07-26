@@ -35,6 +35,10 @@ app.use(
     })
 );
 
+// Razorpay signs the exact request bytes. This must be registered before the
+// global JSON parser so the webhook route receives an untouched Buffer.
+app.use("/v1/webhooks", webhookRouter);
+
 app.use(express.json());
 
 app.use(
@@ -57,9 +61,6 @@ app.use("/v1/user", userRouter);
 app.use("/v1/driver", driverRouter);
 app.use("/v1/ride", rideRouter);
 app.use("/v1/payments", paymentRouter);
-
-// Webhooks are called by Razorpay, not your frontend.
-app.use("/v1/webhooks", webhookRouter);
 
 // app.use(errorHandler);
 
