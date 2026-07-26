@@ -11,6 +11,7 @@ import {
   Users,
   PersonStanding,
   Bus,
+  ArrowRight,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -72,7 +73,18 @@ export default function LandingPage2() {
   const navigate = useNavigate();
 
   return (
-    <section className="mx-auto max-w-7xl px-6 py-24 overflow-hidden">
+    <section className="relative mx-auto max-w-7xl px-6 py-24 overflow-hidden">
+      {/* Ambient background orbs */}
+      <motion.div
+        className="absolute -right-64 top-0 h-[400px] w-[400px] rounded-full bg-[#D9A521]/8 blur-[120px]"
+        animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute -left-64 bottom-0 h-[400px] w-[400px] rounded-full bg-[#F2CD7C]/5 blur-[120px]"
+        animate={{ scale: [1, 1.15, 1], opacity: [0.2, 0.4, 0.2] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+      />
       
       {/* SERVICES GRID */}
       <motion.div
@@ -87,24 +99,36 @@ export default function LandingPage2() {
             variants={iconVariants}
             key={title}
             className="group relative flex cursor-pointer flex-col items-center"
+            whileHover={{ scale: 1.08 }}
           >
-            {/* Icon Box */}
-            <div className="rounded-2xl bg-gray-100 p-5 transition-all duration-300 group-hover:-translate-y-2 group-hover:bg-black group-hover:text-white group-hover:shadow-xl">
-              <Icon size={32} strokeWidth={1.5} />
-            </div>
+            {/* Icon Box with brass gradient */}
+            <motion.div 
+              className="rounded-2xl bg-gradient-to-br from-[#D9A521]/20 to-[#7A5230]/10 border border-[#D9A521]/20 p-5 transition-all duration-300 group-hover:-translate-y-3 group-hover:bg-gradient-to-br group-hover:from-[#D9A521]/40 group-hover:to-[#7A5230]/20 group-hover:shadow-lg group-hover:shadow-[#D9A521]/30 backdrop-blur-sm"
+              animate={{ 
+                boxShadow: ['0 0 0 0 rgba(217, 165, 33, 0)', '0 0 0 8px rgba(217, 165, 33, 0)']
+              }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              <Icon size={32} strokeWidth={1.5} className="text-[#F2CD7C] group-hover:text-[#FFE5A8] transition-colors" />
+            </motion.div>
 
-            <p className="mt-3 text-sm font-semibold text-gray-800 transition-colors group-hover:text-black">
+            <p className="mt-3 text-sm font-semibold text-white group-hover:text-[#F2CD7C] transition-colors">
               {title}
             </p>
 
-            {/* CSS-Only Hover Tooltip (Optimized) */}
-            <div className="pointer-events-none absolute top-full z-50 mt-4 w-64 origin-top scale-95 rounded-2xl bg-black px-5 py-4 text-center text-white opacity-0 shadow-2xl transition-all duration-300 group-hover:scale-100 group-hover:opacity-100">
+            {/* Premium hover tooltip with console theme */}
+            <motion.div 
+              className="pointer-events-none absolute top-full z-50 mt-4 w-64 origin-top rounded-2xl border border-[#D9A521]/30 bg-[#1a1612]/80 backdrop-blur-xl px-5 py-4 text-center shadow-2xl shadow-[#D9A521]/20"
+              initial={{ scale: 0.95, opacity: 0 }}
+              whileHover={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
               {/* Arrow pointer */}
-              <div className="absolute -top-2 left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 bg-black" />
-              <p className="text-sm font-medium leading-relaxed shadow-black drop-shadow-md">
+              <div className="absolute -top-2 left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 bg-[#1a1612] border border-[#D9A521]/30" />
+              <p className="text-sm font-medium leading-relaxed text-[#F2CD7C] drop-shadow-md">
                 {description}
               </p>
-            </div>
+            </motion.div>
           </motion.div>
         ))}
       </motion.div>
@@ -120,31 +144,50 @@ export default function LandingPage2() {
           viewport={{ once: true, margin: "-100px" }}
           className="flex-1"
         >
-          <h2 className="max-w-lg text-5xl font-extrabold leading-[1.1] tracking-tight text-gray-900">
-            Log in to see your account details
-          </h2>
+          <motion.h2 
+            className="max-w-lg text-5xl font-extrabold leading-[1.1] tracking-tight bg-gradient-to-r from-[#F2CD7C] via-[#FFE5A8] to-[#D9A521] bg-clip-text text-transparent"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7 }}
+          >
+            Access your premium account
+          </motion.h2>
 
-          <p className="mt-6 max-w-md text-xl leading-relaxed text-gray-600">
+          <motion.p 
+            className="mt-6 max-w-md text-xl leading-relaxed text-[#D9A521]/80"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.1 }}
+          >
             View past trips, tailored suggestions, support resources, and more.
-          </p>
+          </motion.p>
 
-          <div className="mt-10 flex flex-wrap items-center gap-6">
+          <motion.div 
+            className="mt-10 flex flex-wrap items-center gap-6"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.2 }}
+          >
             <Button
-              className="h-14 rounded-full bg-black px-8 text-lg font-medium text-white transition-transform hover:scale-105 hover:bg-gray-900 active:scale-95"
+              className="group relative h-14 rounded-full bg-gradient-to-r from-[#D9A521] to-[#B8860B] px-8 text-lg font-medium text-white transition-all hover:scale-105 active:scale-95 shadow-lg shadow-[#D9A521]/40 hover:shadow-[#F2CD7C]/50"
               onClick={() => navigate("/login")}
             >
-              Log in to your account
+              <span className="flex items-center gap-2">
+                Log in to account
+                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+              </span>
             </Button>
 
-            <button
+            <motion.button
               type="button"
-              className="group relative text-lg font-medium text-gray-700 transition-colors hover:text-black"
+              className="group relative text-lg font-medium text-[#F2CD7C] transition-colors hover:text-[#FFE5A8]"
               onClick={() => navigate("/signup")}
+              whileHover={{ scale: 1.05 }}
             >
               Create an account
-              <span className="absolute -bottom-1 left-0 h-[2px] w-full bg-gray-300 transition-all duration-300 group-hover:bg-black"></span>
-            </button>
-          </div>
+              <span className="absolute -bottom-1 left-0 h-[2px] w-full bg-gradient-to-r from-[#D9A521] to-transparent transition-all duration-300 group-hover:bg-gradient-to-r group-hover:from-[#F2CD7C] group-hover:to-transparent"></span>
+            </motion.button>
+          </motion.div>
         </motion.div>
 
         {/* Right Side (Image) */}

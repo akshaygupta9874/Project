@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Bike,
   IndianRupee,
+  Zap,
 } from "lucide-react";
 
 import { Button } from "./components/ui/button";
@@ -81,7 +82,7 @@ function formatRupee(amount: number): string {
   return amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// ---------- Animated city map background ----------
+// ---------- Animated console background with ember particles ----------
 function CityMapBackground() {
   const verticals = useMemo(
     () => [60, 140, 230, 320, 410, 500, 600, 700, 820, 940, 1060, 1180, 1300],
@@ -103,33 +104,69 @@ function CityMapBackground() {
 
   const routes = useMemo(
     () => [
-      { d: "M -40 230 L 410 230 L 410 430 L 940 430 L 940 230 L 1380 230", dur: 14, delay: 0, color: "#0a0a0a" },
-      { d: "M 1380 540 L 820 540 L 820 740 L 320 740 L 320 540 L -40 540", dur: 18, delay: 2, color: "#1a1a1a" },
-      { d: "M 140 -40 L 140 330 L 600 330 L 600 640 L 1060 640 L 1060 900", dur: 16, delay: 4, color: "#0a0a0a" },
-      { d: "M -40 130 L 500 130 L 500 540 L 1380 540", dur: 20, delay: 1.5, color: "#0a0a0a" },
+      { d: "M -40 230 L 410 230 L 410 430 L 940 430 L 940 230 L 1380 230", dur: 14, delay: 0, color: "#3d2817" },
+      { d: "M 1380 540 L 820 540 L 820 740 L 320 740 L 320 540 L -40 540", dur: 18, delay: 2, color: "#4a3520" },
+      { d: "M 140 -40 L 140 330 L 600 330 L 600 640 L 1060 640 L 1060 900", dur: 16, delay: 4, color: "#3d2817" },
+      { d: "M -40 130 L 500 130 L 500 540 L 1380 540", dur: 20, delay: 1.5, color: "#3d2817" },
     ],
     [],
   );
 
+  // Ember particles
+  const embers = useMemo(() => Array.from({ length: 15 }, (_, i) => ({
+    id: i,
+    delay: Math.random() * 4,
+    duration: 4 + Math.random() * 3,
+    x: Math.random() * 100,
+    opacity: Math.random() * 0.6 + 0.2,
+  })), []);
+
   return (
     <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,#fff_0%,#f3efe7_45%,#e9e2d2_100%)]" />
+      {/* Premium console gradient background */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#2a2520] via-[#3a3228] to-[#1a1612]" />
+      
+      {/* Brass orbs with breathing effect */}
+      <motion.div
+        className="absolute -left-40 top-20 h-[520px] w-[520px] rounded-full bg-[#D9A521]/10 blur-[140px]"
+        animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.6, 0.3] }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute -right-40 bottom-32 h-[520px] w-[520px] rounded-full bg-[#F2CD7C]/8 blur-[140px]"
+        animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.5, 0.2] }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+      />
+      <motion.div
+        className="absolute left-1/3 top-1/3 h-[420px] w-[420px] rounded-full bg-[#D9A521]/5 blur-[160px]"
+        animate={{ scale: [1, 1.15, 1], opacity: [0.2, 0.4, 0.2] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+      />
 
-      <motion.div
-        className="absolute -left-32 top-0 h-[520px] w-[520px] rounded-full bg-[#0ea5e9]/15 blur-[120px]"
-        animate={{ x: [0, 60, -20, 0], y: [0, 40, -30, 0], scale: [1, 1.15, 0.9, 1] }}
-        transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute -right-32 bottom-0 h-[520px] w-[520px] rounded-full bg-[#34d399]/20 blur-[120px]"
-        animate={{ x: [0, -60, 30, 0], y: [0, -40, 30, 0], scale: [1, 0.9, 1.2, 1] }}
-        transition={{ duration: 26, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f59e0b]/10 blur-[140px]"
-        animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
-        transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
-      />
+      {/* Rising ember particles */}
+      {embers.map(ember => (
+        <motion.div
+          key={`ember-${ember.id}`}
+          className="absolute h-1 w-1 rounded-full bg-[#F2CD7C]"
+          style={{
+            left: `${ember.x}%`,
+            bottom: 0,
+            opacity: ember.opacity,
+            boxShadow: '0 0 8px rgba(242, 205, 124, 0.6)',
+          }}
+          animate={{
+            y: [-20, -window.innerHeight - 100],
+            opacity: [ember.opacity, 0],
+            scale: [1, 0.5],
+          }}
+          transition={{
+            duration: ember.duration,
+            delay: ember.delay,
+            repeat: Infinity,
+            ease: "easeOut",
+          }}
+        />
+      ))}
 
       <motion.svg
         viewBox="0 0 1340 880"
@@ -207,8 +244,8 @@ function CityMapBackground() {
         ))}
       </motion.svg>
 
-      <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-white/70 to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-white/70 to-transparent" />
+      <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-[#2a2520]/80 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#2a2520]/80 to-transparent" />
     </div>
   );
 }
@@ -230,7 +267,7 @@ function RotatingWord() {
           animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
           exit={{ y: -40, opacity: 0, filter: "blur(8px)" }}
           transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className="inline-block bg-gradient-to-r from-black via-neutral-700 to-black bg-clip-text text-transparent"
+          className="inline-block bg-gradient-to-r from-[#F2CD7C] via-[#D9A521] to-[#F2CD7C] bg-clip-text text-transparent"
         >
           {taglines[i]}
         </motion.span>
@@ -251,7 +288,7 @@ function LiveChip() {
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4, duration: 0.6 }}
-      className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/80 px-3.5 py-1.5 text-xs font-medium text-black/80 shadow-sm backdrop-blur-md"
+      className="inline-flex items-center gap-2 rounded-full border border-[#D9A521]/30 bg-[#1a1612]/60 px-3.5 py-1.5 text-xs font-medium text-[#F2CD7C] shadow-lg shadow-[#D9A521]/20 backdrop-blur-md"
     >
       <span className="relative flex h-2 w-2">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
@@ -482,8 +519,8 @@ export default function LandingPage() {
             {/* Pickup Input */}
             <div className="group relative">
               <motion.div
-                className="pointer-events-none absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-sky-400 via-emerald-400 to-amber-400 opacity-0 blur transition duration-500"
-                animate={{ opacity: isFocused ? 0.7 : 0 }}
+                className="pointer-events-none absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-[#F2CD7C] via-[#D9A521] to-[#F2CD7C] opacity-0 blur transition duration-500"
+                animate={{ opacity: isFocused ? 0.5 : 0 }}
               />
               <div
                 className="relative"
@@ -492,7 +529,7 @@ export default function LandingPage() {
                   if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsFocused(false);
                 }}
               >
-                <Circle className="absolute left-5 top-1/2 z-10 -translate-y-1/2 text-gray-500 transition-colors group-focus-within:text-black" size={16} />
+                <Circle className="absolute left-5 top-1/2 z-10 -translate-y-1/2 text-[#D9A521]/50 transition-colors group-focus-within:text-[#F2CD7C]" size={16} />
                 <Input
                   value={pickup}
                   onChange={(e) => {
@@ -502,13 +539,13 @@ export default function LandingPage() {
                   }}
                   onFocus={() => setActiveField("pickup")}
                   placeholder="Pickup location"
-                  className="h-16 w-full rounded-2xl border-2 border-transparent bg-white/90 pl-14 pr-14 text-lg shadow-sm backdrop-blur transition-all focus-within:border-black focus-within:bg-white focus-within:shadow-xl focus:outline-none"
+                  className="h-16 w-full rounded-2xl border-2 border-transparent bg-[#1a1612]/60 pl-14 pr-14 text-lg text-white placeholder-[#D9A521]/40 shadow-lg shadow-[#D9A521]/10 backdrop-blur transition-all focus-within:border-[#F2CD7C]/50 focus-within:bg-[#1a1612]/80 focus-within:shadow-lg focus-within:shadow-[#D9A521]/30 focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={handleUseCurrentLocationForPickup}
                   title="Use current location for pickup"
-                  className="absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center justify-center rounded-full bg-black p-2.5 text-white transition-all hover:scale-110"
+                  className="absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-br from-[#D9A521] to-[#B8860B] p-2.5 text-white transition-all hover:scale-110 active:scale-95 shadow-lg shadow-[#D9A521]/30"
                 >
                   {isLocatingPickup ? <Loader2 className="animate-spin" size={18} /> : <Locate size={18} />}
                 </button>
@@ -558,7 +595,7 @@ export default function LandingPage() {
                 />
               </div>
               <Square
-                className={`absolute left-5 top-1/2 z-10 -translate-y-1/2 transition-colors ${isFocused ? "text-black" : "text-gray-500"}`}
+                className={`absolute left-5 top-1/2 z-10 -translate-y-1/2 transition-colors ${isFocused ? "text-[#F2CD7C]" : "text-[#D9A521]/50"}`}
                 size={16}
               />
               <Input
@@ -570,7 +607,7 @@ export default function LandingPage() {
                 }}
                 onFocus={() => setActiveField("destination")}
                 placeholder="Dropoff location"
-                className="h-16 w-full rounded-2xl border-2 border-transparent bg-white/90 pl-14 text-lg shadow-sm backdrop-blur transition-all focus-within:border-black focus-within:bg-white focus-within:shadow-xl focus:outline-none"
+                className="h-16 w-full rounded-2xl border-2 border-transparent bg-[#1a1612]/60 pl-14 text-lg text-white placeholder-[#D9A521]/40 shadow-lg shadow-[#D9A521]/10 backdrop-blur transition-all focus-within:border-[#F2CD7C]/50 focus-within:bg-[#1a1612]/80 focus-within:shadow-lg focus-within:shadow-[#D9A521]/30 focus:outline-none"
               />
 
               {/* Destination Dropdown */}
@@ -622,11 +659,14 @@ export default function LandingPage() {
 
           <motion.div variants={itemVariants} className="mt-10 flex flex-wrap items-center gap-6">
             <Button
-              className="group relative h-14 overflow-hidden rounded-2xl bg-black px-8 text-base text-white shadow-lg shadow-black/20 transition-transform hover:scale-105 active:scale-95"
+              className="group relative h-14 overflow-hidden rounded-2xl bg-gradient-to-br from-[#D9A521] to-[#B8860B] px-8 text-base font-semibold text-white shadow-lg shadow-[#D9A521]/40 transition-all hover:scale-105 active:scale-95 hover:shadow-[#F2CD7C]/50"
               onClick={handleSeePricesClick}
             >
-              <span className="relative z-10">See prices</span>
-              <span className="absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-white/20 transition-transform duration-700 group-hover:translate-x-[420%]" />
+              <span className="relative z-10 flex items-center gap-2">
+                <Zap size={18} />
+                See prices
+              </span>
+              <span className="absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-white/30 transition-transform duration-700 group-hover:translate-x-[420%]" />
             </Button>
             <button
               type="button"
