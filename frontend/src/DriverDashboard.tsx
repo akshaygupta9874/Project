@@ -653,7 +653,6 @@ function IgnitionDial({
 function TiltTile({
   emoji,
   label,
-  icon: Icon,
   index,
 }: {
   emoji: string;
