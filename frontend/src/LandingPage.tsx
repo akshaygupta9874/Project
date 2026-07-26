@@ -1,23 +1,17 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion, type Variants, AnimatePresence } from "framer-motion";
-
 import {
   MapPin,
   Clock3,
-  ChevronDown,
   Circle,
   Square,
-  Navigation,
-  Sparkles,
-  Car,
-  Star,
   Loader2,
   Locate,
   ArrowRight,
   ShieldCheck,
-  Bike,
   IndianRupee,
   Zap,
+  Star,
 } from "lucide-react";
 
 import { Button } from "./components/ui/button";
@@ -25,286 +19,141 @@ import { Input } from "./components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { searchPlaces } from "./services/geoapify.service";
 
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.12, delayChildren: 0.1 },
-  },
-};
 
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 24 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] },
-  },
-};
 
-interface RideModeOption {
-  id: "bike" | "auto" | "car";
-  name: string;
-  description: string;
-  icon: React.ReactNode;
-  multiplier: number;
-  etaMinutes: number;
+// ========== CONSOLE STYLESHEET ==========
+function ConsoleStyleSheet() {
+  return (
+    <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+      .console-display { font-family: 'Fraunces', ui-serif, Georgia, serif; letter-spacing: -0.01em; }
+      .console-readout { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+      
+      .brass-text {
+        background: linear-gradient(120deg, #A67C4E 0%, #F2CD7C 35%, #FBEBC9 50%, #F2CD7C 65%, #A67C4E 100%);
+        background-size: 220% auto;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        animation: brassSheen 6s linear infinite;
+      }
+      @keyframes brassSheen {
+        0% { background-position: 0% center; }
+        100% { background-position: -220% center; }
+      }
+      @keyframes emberRise {
+        0% { transform: translateY(0) translateX(0) scale(0.6); opacity: 0; }
+        10% { opacity: 0.9; }
+        90% { opacity: 0.4; }
+        100% { transform: translateY(-140px) translateX(var(--drift, 12px)) scale(1); opacity: 0; }
+      }
+      ::selection { background: #D9A521; color: #1B130C; }
+    `}</style>
+  );
 }
 
-const RIDE_MODES: RideModeOption[] = [
-  {
-    id: "bike",
-    name: "Moto / Bike",
-    description: "Fastest through traffic",
-    icon: <Bike className="h-5 w-5" />,
-    multiplier: 0.7,
-    etaMinutes: 3,
-  },
-  {
-    id: "auto",
-    name: "Auto Rickshaw",
-    description: "Affordable local ride",
-    icon: <Sparkles className="h-5 w-5" />,
-    multiplier: 0.9,
-    etaMinutes: 5,
-  },
-  {
-    id: "car",
-    name: "Comfort Car",
-    description: "Spacious & air-conditioned",
-    icon: <Car className="h-5 w-5" />,
-    multiplier: 1.2,
-    etaMinutes: 7,
-  },
-];
-
-function formatRupee(amount: number): string {
-  return amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-// ---------- Animated console background with ember particles ----------
-function CityMapBackground() {
-  const verticals = useMemo(
-    () => [60, 140, 230, 320, 410, 500, 600, 700, 820, 940, 1060, 1180, 1300],
-    [],
-  );
-  const horizontals = useMemo(() => [60, 140, 230, 330, 430, 540, 640, 740, 840], []);
-
-  const pins = useMemo(
-    () => [
-      { x: 220, y: 200, delay: 0.2 },
-      { x: 760, y: 140, delay: 1.1 },
-      { x: 1080, y: 520, delay: 0.6 },
-      { x: 340, y: 640, delay: 1.6 },
-      { x: 980, y: 300, delay: 2.0 },
-      { x: 540, y: 420, delay: 0.9 },
-    ],
-    [],
-  );
-
-  const routes = useMemo(
-    () => [
-      { d: "M -40 230 L 410 230 L 410 430 L 940 430 L 940 230 L 1380 230", dur: 14, delay: 0, color: "#3d2817" },
-      { d: "M 1380 540 L 820 540 L 820 740 L 320 740 L 320 540 L -40 540", dur: 18, delay: 2, color: "#4a3520" },
-      { d: "M 140 -40 L 140 330 L 600 330 L 600 640 L 1060 640 L 1060 900", dur: 16, delay: 4, color: "#3d2817" },
-      { d: "M -40 130 L 500 130 L 500 540 L 1380 540", dur: 20, delay: 1.5, color: "#3d2817" },
-    ],
-    [],
-  );
-
-  // Ember particles
-  const embers = useMemo(() => Array.from({ length: 15 }, (_, i) => ({
+// ========== PREMIUM CONSOLE BACKGROUND ==========
+function PremiumConsoleBackground() {
+  const embers = useMemo(() => Array.from({ length: 25 }, (_, i) => ({
     id: i,
-    delay: Math.random() * 4,
-    duration: 4 + Math.random() * 3,
-    x: Math.random() * 100,
-    opacity: Math.random() * 0.6 + 0.2,
+    left: (i * 137.5) % 100,
+    delay: (i * 0.7) % 10,
+    duration: 7 + ((i * 4) % 8),
+    size: 1.5 + (i % 3),
+    drift: ((i % 5) - 2) * 15,
   })), []);
 
   return (
     <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-      {/* Premium console gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#2a2520] via-[#3a3228] to-[#1a1612]" />
-      
-      {/* Brass orbs with breathing effect */}
+      <ConsoleStyleSheet />
+      {/* Premium gradient background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#2a2218] via-[#3B2818] to-[#1B130C]" />
+
+      {/* Breathing brass orbs */}
       <motion.div
-        className="absolute -left-40 top-20 h-[520px] w-[520px] rounded-full bg-[#D9A521]/10 blur-[140px]"
-        animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.6, 0.3] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-[#D9A521]/25 blur-3xl"
+        animate={{ y: [0, 25, 0], x: [0, 15, 0], scale: [1, 1.2, 1], opacity: [0.4, 0.7, 0.4] }}
+        transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="absolute -right-40 bottom-32 h-[520px] w-[520px] rounded-full bg-[#F2CD7C]/8 blur-[140px]"
-        animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.5, 0.2] }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+        className="absolute top-1/3 -right-32 h-96 w-96 rounded-full bg-[#F2CD7C]/15 blur-3xl"
+        animate={{ y: [0, -30, 0], x: [0, -20, 0], scale: [1, 1.15, 1], opacity: [0.3, 0.6, 0.3] }}
+        transition={{ duration: 16, repeat: Infinity, ease: "easeInOut", delay: 2 }}
       />
       <motion.div
-        className="absolute left-1/3 top-1/3 h-[420px] w-[420px] rounded-full bg-[#D9A521]/5 blur-[160px]"
-        animate={{ scale: [1, 1.15, 1], opacity: [0.2, 0.4, 0.2] }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        className="absolute bottom-1/4 left-1/3 h-80 w-80 rounded-full bg-[#E8843A]/12 blur-3xl"
+        animate={{ scale: [1, 1.12, 1], opacity: [0.2, 0.45, 0.2] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 1 }}
       />
 
       {/* Rising ember particles */}
-      {embers.map(ember => (
-        <motion.div
-          key={`ember-${ember.id}`}
-          className="absolute h-1 w-1 rounded-full bg-[#F2CD7C]"
+      {embers.map(e => (
+        <span
+          key={`ember-${e.id}`}
+          className="absolute bottom-0 rounded-full"
           style={{
-            left: `${ember.x}%`,
-            bottom: 0,
-            opacity: ember.opacity,
-            boxShadow: '0 0 8px rgba(242, 205, 124, 0.6)',
-          }}
-          animate={{
-            y: [-20, -window.innerHeight - 100],
-            opacity: [ember.opacity, 0],
-            scale: [1, 0.5],
-          }}
-          transition={{
-            duration: ember.duration,
-            delay: ember.delay,
-            repeat: Infinity,
-            ease: "easeOut",
-          }}
+            left: `${e.left}%`,
+            width: e.size,
+            height: e.size,
+            backgroundColor: "#F2CD7C",
+            boxShadow: "0 0 8px 1px rgba(242,205,124,0.85)",
+            animation: `emberRise ${e.duration}s ease-in ${e.delay}s infinite`,
+            "--drift": `${e.drift}px`,
+          } as React.CSSProperties}
         />
       ))}
 
-      <motion.svg
-        viewBox="0 0 1340 880"
-        preserveAspectRatio="xMidYMid slice"
-        className="absolute inset-0 h-full w-full opacity-90"
-        animate={{ x: [0, -24, 0, 18, 0], y: [0, 10, 0, -8, 0] }}
-        transition={{ duration: 40, repeat: Infinity, ease: "easeInOut" }}
-      >
-        {verticals.slice(0, -1).map((vx, i) =>
-          horizontals.slice(0, -1).map((hy, j) => (
-            <rect
-              key={`b-${i}-${j}`}
-              x={vx + 6}
-              y={hy + 6}
-              width={verticals[i + 1] - vx - 12}
-              height={horizontals[j + 1] - hy - 12}
-              fill={(i + j) % 3 === 0 ? "#e5dccb" : (i + j) % 3 === 1 ? "#ede5d4" : "#e0d6c2"}
-              rx={3}
-              opacity={0.55}
-            />
-          )),
-        )}
-
-        <path
-          d="M -50 720 C 200 660, 420 780, 700 700 S 1200 560, 1400 620 L 1400 880 L -50 880 Z"
-          fill="#bfdbfe"
-          opacity="0.5"
-        />
-
-        {verticals.map((vx) => (
-          <line key={`v-${vx}`} x1={vx} y1={-20} x2={vx} y2={900} stroke="#ffffff" strokeWidth={10} />
-        ))}
-        {horizontals.map((hy) => (
-          <line key={`h-${hy}`} x1={-20} y1={hy} x2={1360} y2={hy} stroke="#ffffff" strokeWidth={10} />
-        ))}
-        {verticals.map((vx) => (
-          <line key={`vs-${vx}`} x1={vx} y1={-20} x2={vx} y2={900} stroke="#cbb98a" strokeWidth={1} strokeDasharray="6 10" />
-        ))}
-        {horizontals.map((hy) => (
-          <line key={`hs-${hy}`} x1={-20} y1={hy} x2={1360} y2={hy} stroke="#cbb98a" strokeWidth={1} strokeDasharray="6 10" />
-        ))}
-
-        {routes.map((r, idx) => (
-          <g key={`route-${idx}`}>
-            <path d={r.d} stroke={r.color} strokeOpacity={0.15} strokeWidth={5} fill="none" strokeLinecap="round" />
-            <motion.path
-              d={r.d}
-              stroke={r.color}
-              strokeWidth={5}
-              fill="none"
-              strokeLinecap="round"
-              strokeDasharray="80 1600"
-              initial={{ strokeDashoffset: 0 }}
-              animate={{ strokeDashoffset: [-1680, 0] }}
-              transition={{ duration: r.dur, delay: r.delay, repeat: Infinity, ease: "linear" }}
-            />
-            <circle r={7} fill="#0a0a0a" stroke="#fff" strokeWidth={3}>
-              <animateMotion dur={`${r.dur}s`} repeatCount="indefinite" begin={`${r.delay}s`} rotate="auto" path={r.d} />
-            </circle>
-          </g>
-        ))}
-
-        {pins.map((p, i) => (
-          <g key={`pin-${i}`} transform={`translate(${p.x} ${p.y})`}>
-            <motion.circle
-              r={6}
-              fill="#0ea5e9"
-              opacity={0.4}
-              animate={{ r: [6, 26, 6], opacity: [0.5, 0, 0.5] }}
-              transition={{ duration: 2.4, delay: p.delay, repeat: Infinity, ease: "easeOut" }}
-            />
-            <circle r={5} fill="#0a0a0a" />
-            <circle r={2} fill="#fff" />
-          </g>
-        ))}
-      </motion.svg>
-
-      <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-[#2a2520]/80 to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#2a2520]/80 to-transparent" />
+      {/* Scanline effect */}
+      <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,rgba(0,0,0,.1),rgba(0,0,0,.1)_1px,transparent_1px,transparent_2px)] opacity-20" />
     </div>
   );
 }
 
-// ---------- Rotating tagline ----------
-const taglines = ["anywhere", "anytime", "in style", "with Uber"];
+// ========== ROTATING WORD ANIMATION ==========
 function RotatingWord() {
-  const [i, setI] = useState(0);
+  const words = ["anywhere", "everywhere", "far", "forward"];
+  const [current, setCurrent] = useState(0);
+
   useEffect(() => {
-    const t = setInterval(() => setI((v) => (v + 1) % taglines.length), 2400);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setCurrent(p => (p + 1) % words.length), 3500);
+    return () => clearInterval(timer);
   }, []);
+
   return (
-    <span className="relative inline-block min-w-[280px] align-baseline">
-      <AnimatePresence mode="wait">
-        <motion.span
-          key={taglines[i]}
-          initial={{ y: 40, opacity: 0, filter: "blur(8px)" }}
-          animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
-          exit={{ y: -40, opacity: 0, filter: "blur(8px)" }}
-          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className="inline-block bg-gradient-to-r from-[#F2CD7C] via-[#D9A521] to-[#F2CD7C] bg-clip-text text-transparent"
-        >
-          {taglines[i]}
-        </motion.span>
-      </AnimatePresence>
-    </span>
+    <motion.span
+      key={words[current]}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.4 }}
+      className="brass-text"
+    >
+      {words[current]}
+    </motion.span>
   );
 }
 
-// ---------- Floating live stats chip ----------
+// ========== LIVE CHIP ==========
 function LiveChip() {
-  const [eta, setEta] = useState(3);
-  useEffect(() => {
-    const t = setInterval(() => setEta((e) => (e <= 1 ? 6 : e - 1)), 1800);
-    return () => clearInterval(t);
-  }, []);
   return (
     <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.4, duration: 0.6 }}
-      className="inline-flex items-center gap-2 rounded-full border border-[#D9A521]/30 bg-[#1a1612]/60 px-3.5 py-1.5 text-xs font-medium text-[#F2CD7C] shadow-lg shadow-[#D9A521]/20 backdrop-blur-md"
+      className="inline-flex items-center gap-2 rounded-full border border-[#D9A521]/40 bg-[#241a10]/70 px-3.5 py-1.5 text-xs font-semibold text-[#F2CD7C] shadow-lg shadow-[#D9A521]/20 backdrop-blur"
+      whileHover={{ scale: 1.05, boxShadow: "0 0 20px rgba(217,165,33,0.4)" }}
     >
-      <span className="relative flex h-2 w-2">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-      </span>
-      <Navigation size={12} />
-      <span>Drivers nearby · {eta} min away</span>
+      <motion.span
+        className="h-2 w-2 rounded-full bg-[#F2CD7C]"
+        animate={{ scale: [1, 1.5, 1], opacity: [0.8, 1, 0.8] }}
+        transition={{ duration: 2, repeat: Infinity }}
+      />
+      <span>Live · Booking ready</span>
     </motion.div>
   );
 }
 
+// ========== MAIN LANDING PAGE ==========
 export default function LandingPage() {
-  const [isFocused, setIsFocused] = useState(false);
   const navigate = useNavigate();
-
-  // Dynamic Current Location State
   const [currentLocationName, setCurrentLocationName] = useState("Kolkata, IN");
   const [isDetectingCity, setIsDetectingCity] = useState(false);
 
@@ -323,10 +172,9 @@ export default function LandingPage() {
   const [isLocatingPickup, setIsLocatingPickup] = useState(false);
 
   // Pricing display state
-  const [showPrices, setShowPrices] = useState(false);
   const [isCalculatingPrices, setIsCalculatingPrices] = useState(false);
   const [pricingError, setPricingError] = useState("");
-  const [calculatedDistanceMeters, setCalculatedDistanceMeters] = useState<number>(5000); // default 5km fallback
+  const [calculatedDistanceMeters, setCalculatedDistanceMeters] = useState<number>(5000);
 
   // Detect user's current city on mount
   useEffect(() => {
@@ -351,9 +199,7 @@ export default function LandingPage() {
             setIsDetectingCity(false);
           }
         },
-        () => {
-          setIsDetectingCity(false);
-        },
+        () => { setIsDetectingCity(false); },
         { timeout: 8000 }
       );
     }
@@ -419,7 +265,7 @@ export default function LandingPage() {
   const handleUseCurrentLocationForPickup = () => {
     setPricingError("");
     if (!navigator.geolocation) {
-      setPricingError("Geolocation is not supported by your browser.");
+      setPricingError("Geolocation is not supported.");
       return;
     }
     setIsLocatingPickup(true);
@@ -444,7 +290,6 @@ export default function LandingPage() {
       return;
     }
     setPricingError("");
-    setShowPrices(true);
     setIsCalculatingPrices(true);
 
     try {
@@ -459,77 +304,120 @@ export default function LandingPage() {
       }
       await new Promise((r) => setTimeout(r, 500));
     } catch {
-      // keep fallback distance
+      // keep fallback
     } finally {
       setIsCalculatingPrices(false);
     }
   };
 
-  const baseFareValue = Math.round((calculatedDistanceMeters / 100) * 5);
+  const containerVariants: Variants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { staggerChildren: 0.1, delayChildren: 0.2, duration: 0.8 },
+    },
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 15 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6 } },
+  };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#f0ece2] font-sans text-black">
-      <CityMapBackground />
+    <div className="console-root relative min-h-screen overflow-hidden bg-[#1B130C]">
+      <PremiumConsoleBackground />
 
-      <section className="relative z-10 mx-auto flex min-h-[calc(100vh-80px)] max-w-7xl flex-col items-center justify-between gap-16 px-8 py-10 lg:flex-row">
-        {/* Left */}
-        <motion.div className="flex-1" variants={containerVariants} initial="hidden" animate="visible">
-          <motion.div variants={itemVariants} className="mb-5 flex flex-wrap items-center gap-3">
+      <section className="relative z-10 mx-auto flex min-h-screen max-w-7xl flex-col items-center justify-between gap-16 px-6 py-12 lg:flex-row lg:py-20">
+        {/* LEFT CONTENT */}
+        <motion.div
+          className="flex-1 space-y-8"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          {/* Status Chips */}
+          <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-3">
             <LiveChip />
-            <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/70 px-3.5 py-1.5 text-xs font-medium backdrop-blur-md">
-              <Sparkles size={12} className="text-amber-500" />
-              New · Schedule rides up to 30 days ahead
-            </div>
+            <motion.div
+              className="inline-flex items-center gap-2 rounded-full border border-[#D9A521]/30 bg-[#241a10]/60 px-3.5 py-1.5 text-xs font-medium text-[#F2CD7C] backdrop-blur"
+              whileHover={{ scale: 1.05 }}
+            >
+              <TrendingUp size={12} />
+              Premium booking experience
+            </motion.div>
           </motion.div>
 
-          <motion.div variants={itemVariants} className="mb-6 flex items-center gap-2 text-base text-gray-800">
-            <MapPin size={18} className="text-black" />
+          {/* Location Badge */}
+          <motion.div variants={itemVariants} className="flex items-center gap-2 text-sm text-[#C9AE86]">
+            <MapPin size={18} className="text-[#D9A521]" />
             <span className="font-medium">
               {isDetectingCity ? "Detecting location..." : currentLocationName}
             </span>
-            <button className="text-gray-500 underline underline-offset-4 transition-colors hover:text-black">
+            <button className="text-[#8D7350] hover:text-[#F2CD7C] transition-colors underline-offset-2 hover:underline">
               Change city
             </button>
           </motion.div>
 
-          <motion.h1
-            variants={itemVariants}
-            className="max-w-xl text-6xl font-extrabold leading-[1.05] tracking-tight md:text-7xl"
-          >
-            Go <RotatingWord />
-            <br />
-            with one tap.
+          {/* Main Headline */}
+          <motion.h1 variants={itemVariants} className="console-display text-6xl sm:text-7xl lg:text-8xl font-bold leading-tight tracking-tight">
+            <div className="text-[#F6ECDA]">Your Ride</div>
+            <div className="brass-text">Go <RotatingWord /></div>
           </motion.h1>
 
-          <motion.p variants={itemVariants} className="mt-5 max-w-md text-base text-black/60">
-            Request a ride, hop in, and relax. Real-time tracking, upfront pricing,
-            and trusted drivers — wherever you're headed.
+          {/* Subheading */}
+          <motion.p variants={itemVariants} className="max-w-md text-lg text-[#C9AE86] leading-relaxed">
+            Premium ride-booking experience with real-time tracking, instant pricing, and unmatched safety standards.
           </motion.p>
 
-          <motion.div variants={itemVariants}>
-            <button className="mt-7 flex items-center gap-3 rounded-full bg-white px-6 py-3 shadow-sm ring-1 ring-black/5 transition-all hover:bg-black hover:text-white hover:shadow-lg active:scale-95">
-              <Clock3 size={20} />
-              <span className="text-base font-medium">Pickup now</span>
-              <ChevronDown size={18} />
-            </button>
-          </motion.div>
-
-          {/* Inputs */}
-          <motion.div variants={itemVariants} className="mt-7 max-w-lg space-y-5">
-            {/* Pickup Input */}
-            <div className="group relative">
-              <motion.div
-                className="pointer-events-none absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-[#F2CD7C] via-[#D9A521] to-[#F2CD7C] opacity-0 blur transition duration-500"
-                animate={{ opacity: isFocused ? 0.5 : 0 }}
+          {/* CTA Buttons */}
+          <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-4 pt-4">
+            <Button
+              className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-[#D9A521] to-[#B8860B] px-8 py-3.5 font-semibold text-white shadow-lg shadow-[#D9A521]/40 hover:shadow-[#F2CD7C]/50 transition-all hover:scale-105 active:scale-95"
+              onClick={() => navigate("/dashboard")}
+            >
+              <span className="relative z-10 flex items-center gap-2">
+                <Zap size={18} />
+                Book a Ride
+              </span>
+              <motion.span
+                className="absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-white/25"
+                animate={{ x: ["0%", "400%"] }}
+                transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
               />
-              <div
-                className="relative"
-                onFocus={() => setIsFocused(true)}
-                onBlur={(e) => {
-                  if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsFocused(false);
-                }}
-              >
-                <Circle className="absolute left-5 top-1/2 z-10 -translate-y-1/2 text-[#D9A521]/50 transition-colors group-focus-within:text-[#F2CD7C]" size={16} />
+            </Button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center gap-2 rounded-xl border border-[#D9A521]/40 bg-[#241a10]/60 px-6 py-3.5 font-semibold text-[#F2CD7C] backdrop-blur hover:border-[#F2CD7C]/60 transition-all"
+              onClick={() => navigate("/login")}
+            >
+              Sign In
+              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+            </motion.button>
+          </motion.div>
+        </motion.div>
+
+        {/* RIGHT: BOOKING CARD */}
+        <motion.div
+          className="flex-1 w-full max-w-md"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8, delay: 0.3 }}
+        >
+          <motion.div className="rounded-2xl border border-[#D9A521]/30 bg-[#241a10]/80 p-6 sm:p-8 backdrop-blur-xl shadow-2xl shadow-[#D9A521]/10">
+            {/* Form Header */}
+            <div className="mb-6 space-y-2">
+              <h2 className="console-display text-2xl font-bold text-[#F6ECDA]">Book Your Ride</h2>
+              <p className="text-sm text-[#8D7350]">Enter your destinations and get instant pricing</p>
+            </div>
+
+            {/* Pickup Input */}
+            <motion.div className="mb-4 relative group" whileTap={{ scale: 1.01 }}>
+              <label className="block text-xs uppercase tracking-widest text-[#C9AE86] font-semibold mb-2">Pickup</label>
+              <div className="relative">
+                <Circle className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[#D9A521]/60 group-focus-within:text-[#F2CD7C] transition-colors" />
+                <motion.div className="pointer-events-none absolute -inset-0.5 rounded-xl bg-gradient-to-r from-[#D9A521]/40 via-[#F2CD7C]/20 to-[#D9A521]/40 opacity-0 blur group-focus-within:opacity-100 transition-opacity" />
                 <Input
                   value={pickup}
                   onChange={(e) => {
@@ -539,294 +427,138 @@ export default function LandingPage() {
                   }}
                   onFocus={() => setActiveField("pickup")}
                   placeholder="Pickup location"
-                  className="h-16 w-full rounded-2xl border-2 border-transparent bg-[#1a1612]/60 pl-14 pr-14 text-lg text-white placeholder-[#D9A521]/40 shadow-lg shadow-[#D9A521]/10 backdrop-blur transition-all focus-within:border-[#F2CD7C]/50 focus-within:bg-[#1a1612]/80 focus-within:shadow-lg focus-within:shadow-[#D9A521]/30 focus:outline-none"
+                  className="relative rounded-xl border border-[#7A5230]/40 bg-[#1B130C] pl-12 pr-12 py-3.5 text-[#F6ECDA] placeholder-[#8D7350] shadow-lg shadow-[#D9A521]/10 backdrop-blur transition-all focus:border-[#F2CD7C]/60 focus:bg-[#241a10] focus:shadow-lg focus:shadow-[#D9A521]/30"
                 />
                 <button
                   type="button"
                   onClick={handleUseCurrentLocationForPickup}
-                  title="Use current location for pickup"
-                  className="absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-br from-[#D9A521] to-[#B8860B] p-2.5 text-white transition-all hover:scale-110 active:scale-95 shadow-lg shadow-[#D9A521]/30"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg bg-gradient-to-br from-[#D9A521] to-[#B8860B] p-2 text-white hover:scale-110 active:scale-95 transition-all shadow-lg shadow-[#D9A521]/30"
                 >
                   {isLocatingPickup ? <Loader2 className="animate-spin" size={18} /> : <Locate size={18} />}
                 </button>
-
-                {/* Pickup Dropdown */}
-                <AnimatePresence>
-                  {activeField === "pickup" && pickup.trim().length > 2 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      className="absolute left-0 right-0 top-full z-30 mt-2 max-h-60 overflow-y-auto rounded-2xl border border-black/10 bg-white p-2 shadow-xl backdrop-blur"
-                    >
-                      {isSearchingPickup ? (
-                        <div className="flex items-center justify-center gap-2 py-4 text-sm text-gray-500">
-                          <Loader2 className="h-4 w-4 animate-spin" /> Searching...
-                        </div>
-                      ) : pickupSuggestions.length > 0 ? (
-                        pickupSuggestions.map((item, idx) => (
-                          <div
-                            key={idx}
-                            onClick={() => handleSelectPlace(item, "pickup")}
-                            className="flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2.5 text-sm text-black transition hover:bg-gray-100"
-                          >
-                            <MapPin size={14} className="shrink-0 text-gray-400" />
-                            <span className="truncate">{item.properties?.formatted || item.properties?.name}</span>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="py-3 text-center text-sm text-gray-400">No locations found</div>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
               </div>
-            </div>
-
-            {/* Dropoff Input */}
-            <div className="relative">
-              <div className="absolute left-[27px] -top-6 h-10 w-0.5 overflow-hidden">
-                <div className="h-full w-full bg-gray-300" />
-                <motion.div
-                  className="absolute top-0 left-0 h-full w-full origin-top bg-black"
-                  initial={{ scaleY: 0 }}
-                  animate={{ scaleY: isFocused ? 1 : 0 }}
-                  transition={{ duration: 0.4, ease: "easeInOut" }}
-                />
-              </div>
-              <Square
-                className={`absolute left-5 top-1/2 z-10 -translate-y-1/2 transition-colors ${isFocused ? "text-[#F2CD7C]" : "text-[#D9A521]/50"}`}
-                size={16}
-              />
-              <Input
-                value={destination}
-                onChange={(e) => {
-                  setDestination(e.target.value);
-                  setActiveField("destination");
-                  setDestinationCoords(null);
-                }}
-                onFocus={() => setActiveField("destination")}
-                placeholder="Dropoff location"
-                className="h-16 w-full rounded-2xl border-2 border-transparent bg-[#1a1612]/60 pl-14 text-lg text-white placeholder-[#D9A521]/40 shadow-lg shadow-[#D9A521]/10 backdrop-blur transition-all focus-within:border-[#F2CD7C]/50 focus-within:bg-[#1a1612]/80 focus-within:shadow-lg focus-within:shadow-[#D9A521]/30 focus:outline-none"
-              />
-
-              {/* Destination Dropdown */}
+              {/* Pickup Suggestions */}
               <AnimatePresence>
-                {activeField === "destination" && destination.trim().length > 2 && (
+                {isSearchingPickup && (
+                  <motion.div className="absolute top-full left-0 right-0 mt-2 rounded-lg border border-[#7A5230]/40 bg-[#1B130C] backdrop-blur p-2 z-50">
+                    <Loader2 className="animate-spin text-[#D9A521] mx-auto" size={20} />
+                  </motion.div>
+                )}
+                {pickupSuggestions.length > 0 && (
                   <motion.div
-                    initial={{ opacity: 0, y: -6 }}
+                    className="absolute top-full left-0 right-0 mt-2 rounded-lg border border-[#7A5230]/40 bg-[#1B130C] backdrop-blur shadow-xl z-50"
+                    initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    className="absolute left-0 right-0 top-full z-30 mt-2 max-h-60 overflow-y-auto rounded-2xl border border-black/10 bg-white p-2 shadow-xl backdrop-blur"
                   >
-                    {isSearchingDestination ? (
-                      <div className="flex items-center justify-center gap-2 py-4 text-sm text-gray-500">
-                        <Loader2 className="h-4 w-4 animate-spin" /> Searching...
-                      </div>
-                    ) : destinationSuggestions.length > 0 ? (
-                      destinationSuggestions.map((item, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => handleSelectPlace(item, "destination")}
-                          className="flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2.5 text-sm text-black transition hover:bg-gray-100"
-                        >
-                          <MapPin size={14} className="shrink-0 text-gray-400" />
-                          <span className="truncate">{item.properties?.formatted || item.properties?.name}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="py-3 text-center text-sm text-gray-400">No locations found</div>
-                    )}
+                    {pickupSuggestions.slice(0, 5).map((suggestion, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleSelectPlace(suggestion, "pickup")}
+                        className="w-full px-4 py-2 text-left text-sm text-[#C9AE86] hover:bg-[#241a10]/60 hover:text-[#F2CD7C] transition-colors border-b border-[#7A5230]/20 last:border-0"
+                      >
+                        {suggestion.properties?.formatted || suggestion.properties?.name}
+                      </button>
+                    ))}
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
-          </motion.div>
+            </motion.div>
 
-          {/* Inline Pricing Error */}
-          <AnimatePresence>
-            {pricingError && (
-              <motion.p
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                className="mt-3 text-sm font-medium text-red-600"
-              >
-                {pricingError}
-              </motion.p>
-            )}
-          </AnimatePresence>
-
-          <motion.div variants={itemVariants} className="mt-10 flex flex-wrap items-center gap-6">
-            <Button
-              className="group relative h-14 overflow-hidden rounded-2xl bg-gradient-to-br from-[#D9A521] to-[#B8860B] px-8 text-base font-semibold text-white shadow-lg shadow-[#D9A521]/40 transition-all hover:scale-105 active:scale-95 hover:shadow-[#F2CD7C]/50"
-              onClick={handleSeePricesClick}
-            >
-              <span className="relative z-10 flex items-center gap-2">
-                <Zap size={18} />
-                See prices
-              </span>
-              <span className="absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-white/30 transition-transform duration-700 group-hover:translate-x-[420%]" />
-            </Button>
-            <button
-              type="button"
-              className="group relative text-base font-medium text-gray-600 transition-colors hover:text-black"
-              onClick={() => navigate("/login")}
-            >
-              Log in to see your recent activity
-              <span className="absolute -bottom-1 left-0 h-[2px] w-0 bg-black transition-all duration-300 group-hover:w-full" />
-            </button>
-          </motion.div>
-
-          {/* Pricing Preview Showcase Panel matching ChooseMode styles */}
-          <AnimatePresence>
-            {showPrices && (
-              <motion.div
-                initial={{ opacity: 0, y: 16, height: 0 }}
-                animate={{ opacity: 1, y: 0, height: "auto" }}
-                exit={{ opacity: 0, y: 16, height: 0 }}
-                className="mt-8 max-w-lg overflow-hidden rounded-3xl border border-black/10 bg-white/95 p-6 shadow-2xl backdrop-blur-md"
-              >
-                <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-black">Choose your ride mode</h3>
-                    <p className="text-xs text-gray-500 truncate max-w-[280px]">
-                      {pickup} → {destination}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setShowPrices(false)}
-                    className="text-xs font-semibold text-gray-400 hover:text-black"
-                  >
-                    Close
-                  </button>
-                </div>
-
-                {isCalculatingPrices ? (
-                  <div className="flex flex-col items-center justify-center py-10 text-gray-500">
-                    <Loader2 className="mb-2 h-6 w-6 animate-spin text-black" />
-                    <p className="text-sm">Calculating best fares & ETAs...</p>
-                  </div>
-                ) : (
-                  <div className="mt-4 space-y-3">
-                    {RIDE_MODES.map((mode) => {
-                      const calculatedFare = Math.round(baseFareValue * mode.multiplier);
-                      return (
-                        <div
-                          key={mode.id}
-                          onClick={() => navigate("/login")}
-                          className="group flex cursor-pointer items-center justify-between rounded-2xl border border-gray-100 bg-gray-50/60 p-4 transition-all hover:border-black hover:bg-white hover:shadow-md"
-                        >
-                          <div className="flex items-center gap-3.5">
-                            <div className="grid h-12 w-12 place-items-center rounded-xl bg-black text-white shadow-sm">
-                              {mode.icon}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-black">{mode.name}</span>
-                                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
-                                  {mode.etaMinutes} mins away
-                                </span>
-                              </div>
-                              <p className="text-xs text-gray-500">{mode.description}</p>
-                            </div>
-                          </div>
-
-                          <div className="text-right">
-                            <p className="text-base font-extrabold text-black flex items-center justify-end">
-                              <IndianRupee className="h-3.5 w-3.5 mr-0.5" />
-                              {formatRupee(calculatedFare)}
-                            </p>
-                            <div className="text-xs text-emerald-600 flex items-center gap-1 justify-end font-semibold">
-                              <span>Book</span> <ArrowRight size={12} />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    <div className="pt-2 text-center">
-                      <p className="text-[11px] text-gray-400 flex items-center justify-center gap-1">
-                        <ShieldCheck size={12} /> Sign in to confirm booking & lock in your fare
-                      </p>
-                    </div>
-                  </div>
+            {/* Destination Input */}
+            <motion.div className="mb-6 relative group" whileTap={{ scale: 1.01 }}>
+              <label className="block text-xs uppercase tracking-widest text-[#C9AE86] font-semibold mb-2">Dropoff</label>
+              <div className="relative">
+                <Square className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[#D9A521]/60 group-focus-within:text-[#F2CD7C] transition-colors" />
+                <motion.div className="pointer-events-none absolute -inset-0.5 rounded-xl bg-gradient-to-r from-[#D9A521]/40 via-[#F2CD7C]/20 to-[#D9A521]/40 opacity-0 blur group-focus-within:opacity-100 transition-opacity" />
+                <Input
+                  value={destination}
+                  onChange={(e) => {
+                    setDestination(e.target.value);
+                    setActiveField("destination");
+                    setDestinationCoords(null);
+                  }}
+                  onFocus={() => setActiveField("destination")}
+                  placeholder="Dropoff location"
+                  className="relative rounded-xl border border-[#7A5230]/40 bg-[#1B130C] pl-12 pr-4 py-3.5 text-[#F6ECDA] placeholder-[#8D7350] shadow-lg shadow-[#D9A521]/10 backdrop-blur transition-all focus:border-[#F2CD7C]/60 focus:bg-[#241a10] focus:shadow-lg focus:shadow-[#D9A521]/30"
+                />
+              </div>
+              {/* Destination Suggestions */}
+              <AnimatePresence>
+                {isSearchingDestination && (
+                  <motion.div className="absolute top-full left-0 right-0 mt-2 rounded-lg border border-[#7A5230]/40 bg-[#1B130C] backdrop-blur p-2 z-50">
+                    <Loader2 className="animate-spin text-[#D9A521] mx-auto" size={20} />
+                  </motion.div>
                 )}
+                {destinationSuggestions.length > 0 && (
+                  <motion.div
+                    className="absolute top-full left-0 right-0 mt-2 rounded-lg border border-[#7A5230]/40 bg-[#1B130C] backdrop-blur shadow-xl z-50"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    {destinationSuggestions.slice(0, 5).map((suggestion, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleSelectPlace(suggestion, "destination")}
+                        className="w-full px-4 py-2 text-left text-sm text-[#C9AE86] hover:bg-[#241a10]/60 hover:text-[#F2CD7C] transition-colors border-b border-[#7A5230]/20 last:border-0"
+                      >
+                        {suggestion.properties?.formatted || suggestion.properties?.name}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+
+            {/* Error Message */}
+            {pricingError && (
+              <motion.div className="mb-4 rounded-lg border border-[#B54834]/40 bg-[#B54834]/10 px-4 py-3 text-sm text-[#E2A08E]">
+                {pricingError}
               </motion.div>
             )}
-          </AnimatePresence>
 
-          {/* Trust row */}
-          <motion.div variants={itemVariants} className="mt-10 flex items-center gap-6 text-sm text-black/60">
-            <div className="flex items-center gap-1.5">
-              <Star size={14} className="fill-amber-400 text-amber-400" />
-              <span className="font-semibold text-black">4.9</span>
-              <span>· 130M+ riders</span>
-            </div>
-            <div className="hidden h-4 w-px bg-black/15 md:block" />
-            <div className="hidden md:block">Available in 10,000+ cities</div>
-          </motion.div>
-        </motion.div>
-
-        {/* Right */}
-        <motion.div
-          initial={{ opacity: 0, x: 40 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.9, delay: 0.3, ease: "easeOut" }}
-          className="relative hidden flex-1 justify-center lg:flex"
-        >
-          <motion.div
-            animate={{ y: [0, -12, 0] }}
-            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-            className="relative"
-          >
-            <div className="absolute -inset-6 rounded-[2rem] bg-gradient-to-tr from-sky-300/40 via-transparent to-amber-300/40 blur-2xl" />
-            <img
-              src="https://cn-geo1.uber.com/image-proc/crop/resizecrop/udam/format=auto/width=1344/height=1344/srcb64=aHR0cHM6Ly90Yi1zdGF0aWMudWJlci5jb20vcHJvZC91ZGFtLWFzc2V0cy9jZTczNjUzMy1iMWE0LTQ3ZjktOTk0OS0zNWEzZGUyNTkyYzk="
-              alt="Uber Journey"
-              className="relative w-[460px] rounded-[2rem] object-cover shadow-2xl ring-1 ring-black/5"
-            />
-
-            {/* Top-left floating ETA card */}
-            <motion.div
-              initial={{ opacity: 0, y: -10, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ delay: 0.9, duration: 0.6 }}
-              className="absolute -left-8 top-10 flex items-center gap-3 rounded-2xl bg-white/95 px-4 py-3 shadow-xl backdrop-blur"
+            {/* Book Button */}
+            <Button
+              className="w-full group relative overflow-hidden rounded-xl bg-gradient-to-br from-[#D9A521] via-[#E8A845] to-[#B8860B] px-6 py-3.5 font-semibold text-white shadow-lg shadow-[#D9A521]/40 hover:shadow-[#F2CD7C]/50 transition-all hover:scale-105 active:scale-95"
+              onClick={handleSeePricesClick}
+              disabled={isCalculatingPrices}
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-black text-white">
-                <Car size={18} />
+              <div className="relative z-10 flex items-center justify-center gap-2">
+                {isCalculatingPrices ? (
+                  <>
+                    <Loader2 className="animate-spin" size={18} />
+                    Calculating...
+                  </>
+                ) : (
+                  <>
+                    <Zap size={18} />
+                    See Prices
+                  </>
+                )}
               </div>
-              <div className="text-sm">
-                <div className="font-semibold">UberX · 2 min</div>
-                <div className="text-black/55">Arriving nearby</div>
-              </div>
-            </motion.div>
+              <motion.span
+                className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-white/30"
+                animate={{ x: ["0%", "400%"] }}
+                transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+              />
+            </Button>
 
-            {/* Right floating rating */}
-            <motion.div
-              initial={{ opacity: 0, x: 20, scale: 0.95 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              transition={{ delay: 1.1, duration: 0.6 }}
-              className="absolute -right-6 top-1/2 flex items-center gap-2 rounded-full bg-white/95 px-4 py-2.5 shadow-xl backdrop-blur"
-            >
-              <Star size={14} className="fill-amber-400 text-amber-400" />
-              <span className="text-sm font-semibold">5.0 trip</span>
-            </motion.div>
-
-            {/* Bottom card */}
-            <motion.div
-              animate={{ y: [0, -6, 0] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute -bottom-6 left-1/2 flex w-[88%] -translate-x-1/2 items-center justify-between rounded-2xl bg-[#B67863] px-6 py-5 text-white shadow-xl backdrop-blur"
-            >
-              <div>
-                <h2 className="text-2xl font-bold tracking-tight">Ready to travel?</h2>
-                <p className="text-sm opacity-90">Plan your ride in advance.</p>
-              </div>
-              <Button className="rounded-full bg-white px-6 font-semibold text-black transition-transform hover:scale-105 hover:bg-gray-100">
-                Schedule
-              </Button>
+            {/* Features Grid */}
+            <motion.div className="mt-8 grid grid-cols-2 gap-3">
+              {[
+                { icon: ShieldCheck, label: "Safe & Secure" },
+                { icon: Star, label: "Trusted Drivers" },
+                { icon: Clock3, label: "Quick Pickup" },
+                { icon: IndianRupee, label: "Best Prices" },
+              ].map((feature, idx) => (
+                <motion.div
+                  key={idx}
+                  className="rounded-lg border border-[#D9A521]/20 bg-[#1B130C]/60 p-3 text-center backdrop-blur"
+                  whileHover={{ scale: 1.05, borderColor: "#F2CD7C" }}
+                >
+                  <feature.icon className="h-5 w-5 text-[#D9A521] mx-auto mb-1" />
+                  <p className="text-xs font-semibold text-[#C9AE86]">{feature.label}</p>
+                </motion.div>
+              ))}
             </motion.div>
           </motion.div>
         </motion.div>
