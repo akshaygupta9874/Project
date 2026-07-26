@@ -3,6 +3,7 @@ import { Request, Response, NextFunction, RequestHandler } from "express";
 import { redisClient } from "../redis/client.js";
 import { getRefreshTokenRedisKey } from "../utils/generateToken.js";
 import UserModel from "../models/user.model.js";
+import { getCookieOptions } from "../utils/cookie.js";
 
 type UserRole = string;
 
@@ -111,12 +112,13 @@ export const sessionMiddleware: RequestHandler = async (
       }
     );
 
-    response.cookie("sessionId", request.sessionID, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: SESSION_TTL * 1000,
-    });
+    response.cookie(
+      "sessionId",
+      request.sessionID,
+      getCookieOptions({
+        maxAge: SESSION_TTL * 1000,
+      })
+    );
   };
 
   request.session.destroy = async function (): Promise<void> {
