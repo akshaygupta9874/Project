@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence, type Variants } from "framer-motion";
-import { Sparkles, MapPin, Navigation, ShieldCheck, QrCode, Car, Bike, Zap, Star, Fingerprint, Loader2 } from "lucide-react";
+import { motion, type Variants, AnimatePresence } from "framer-motion";
+import { Sparkles, MapPin, Navigation, ShieldCheck } from "lucide-react";
 import api from "./apiInterceptor";
 import { AxiosError } from "axios";
 import { useAuthContext } from "./context/authContext";
+
+/* ============================================================
+   GOLDEN BROWN — Premium Ride Booking Login
+   Built using the exact same tone, components, and layout 
+   as the Signup page.
+   ============================================================ */
 
 // ---------- Form animation ----------
 const containerVariants: Variants = {
@@ -27,7 +33,7 @@ const itemVariants: Variants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: "easeOut" as const } },
 };
 
-// ---------- Golden-brown animated city map background (Parchment Tone) ----------
+// ---------- Golden-brown animated city map background ----------
 function CityMapBackground() {
   const verticals = useMemo(
     () => [60, 140, 230, 320, 410, 500, 600, 700, 820, 940, 1060, 1180, 1300],
@@ -240,83 +246,8 @@ function WelcomePill() {
       >
         <Sparkles size={14} className="text-[#b8722c]" />
       </motion.span>
-      <span className="tracking-wide">Welcome back · Sign in to request your ride</span>
+      <span className="tracking-wide">Welcome back · Sign in to continue your journey</span>
     </motion.div>
-  );
-}
-
-type RideKind = "BIKE" | "AUTO" | "CAR" | "PREMIUM";
-
-const RIDE_KINDS: { key: RideKind; label: string; icon: React.ComponentType<{ className?: string }>; eta: string }[] = [
-  { key: "BIKE", label: "Bike", icon: Bike, eta: "2 min" },
-  { key: "AUTO", label: "Auto", icon: Zap, eta: "3 min" },
-  { key: "CAR", label: "Car", icon: Car, eta: "4 min" },
-  { key: "PREMIUM", label: "Premium", icon: Star, eta: "6 min" },
-];
-
-function VehicleQuickSelect() {
-  const [selected, setSelected] = useState<RideKind>("CAR");
-  return (
-    <div>
-      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#7a4416]">
-        Quick preview · pick a ride
-      </p>
-      <div className="grid grid-cols-4 gap-2">
-        {RIDE_KINDS.map((rk) => {
-          const active = rk.key === selected;
-          return (
-            <motion.button
-              key={rk.key}
-              type="button"
-              onClick={() => setSelected(rk.key)}
-              whileTap={{ scale: 0.94 }}
-              className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-center transition-colors ${
-                active
-                  ? "border-[#b8722c] bg-gradient-to-br from-[#fffaf0] to-[#f7e2b8] text-[#3a1f0a] shadow-[0_0_0_1px_rgba(184,114,44,0.3)] font-semibold"
-                  : "border-[#7a4416]/20 bg-[#fffaf0]/60 text-[#7a4416]/70 hover:border-[#7a4416]/40 hover:text-[#3a1f0a]"
-              }`}
-            >
-              <rk.icon className="h-4 w-4 text-[#b8722c]" />
-              <span className="text-[10px] font-semibold">{rk.label}</span>
-              <span className="text-[9px] opacity-70">{rk.eta}</span>
-            </motion.button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function BiometricButton() {
-  const [hint, setHint] = useState(false);
-  return (
-    <div className="relative">
-      <motion.button
-        type="button"
-        whileHover={{ y: -1 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={() => {
-          setHint(true);
-          setTimeout(() => setHint(false), 2200);
-        }}
-        className="flex w-full items-center justify-center gap-3 rounded-xl border border-[#7a4416]/20 bg-[#fffaf0]/90 py-3.5 text-base font-medium text-[#3a1f0a] shadow-sm transition-all hover:bg-[#fffaf0] active:scale-[0.98]"
-      >
-        <Fingerprint className="h-5 w-5 text-[#b8722c]" />
-        Use Face ID / Fingerprint
-      </motion.button>
-      <AnimatePresence>
-        {hint && (
-          <motion.p
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-x-0 -bottom-5 text-center text-[11px] text-[#7a4416]"
-          >
-            Biometric sign-in is coming soon
-          </motion.p>
-        )}
-      </AnimatePresence>
-    </div>
   );
 }
 
@@ -382,7 +313,7 @@ export default function LoginPage() {
     <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#f5e6c8] font-sans text-[#2e1808]">
       <CityMapBackground />
 
-      {/* Floating badges (upper corners) */}
+      {/* Floating traveling car badge (upper corner) */}
       <motion.div
         initial={{ opacity: 0, x: -30 }}
         animate={{ opacity: 1, x: 0 }}
@@ -393,7 +324,7 @@ export default function LoginPage() {
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
         </span>
-        Live · Drivers nearby
+        Live · 3,240 riders on the road
       </motion.div>
 
       <motion.div
@@ -406,7 +337,7 @@ export default function LoginPage() {
         Bank-grade encryption
       </motion.div>
 
-      {/* Main Content */}
+      {/* Main Form Content */}
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pb-16 pt-8">
         <WelcomePill />
 
@@ -439,13 +370,20 @@ export default function LoginPage() {
             transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", repeatDelay: 3.5 }}
           />
 
-          {/* Route pin badge */}
+          {/* Aura ring behind card (only visible on focus) */}
+          <motion.div
+            aria-hidden
+            className="pointer-events-none absolute -inset-4 -z-10 rounded-[2.5rem] bg-gradient-to-r from-[#b8722c] via-[#f4b860] to-[#7a4416] opacity-0 blur-2xl transition duration-700"
+            animate={{ opacity: focusedField ? 0.45 : 0 }}
+          />
+
+          {/* Route pin badge — top of card */}
           <motion.div
             variants={itemVariants}
             className="mb-5 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#3a1f0a] to-[#7a4416] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-[#ffd88a] shadow-[0_8px_20px_-8px_rgba(58,31,10,0.6)]"
           >
             <MapPin size={12} />
-            Where to next?
+            Welcome back
           </motion.div>
 
           <motion.h2
@@ -454,27 +392,31 @@ export default function LoginPage() {
           >
             Sign in to ride
           </motion.h2>
-          <motion.p variants={itemVariants} className="mb-6 text-sm font-medium text-[#6b3a12]/80">
+          <motion.p variants={itemVariants} className="mb-8 text-sm font-medium text-[#6b3a12]/80">
             Enter your credentials to continue your journey.
           </motion.p>
 
-          <motion.div variants={itemVariants} className="mb-6">
-            <VehicleQuickSelect />
-          </motion.div>
-
           <motion.form variants={itemVariants} className="relative mb-6 space-y-4" onSubmit={handleLogin}>
+            <motion.div
+              aria-hidden
+              className="pointer-events-none absolute -inset-1 rounded-2xl bg-gradient-to-r from-[#7a4416] via-[#f4b860] to-[#b8722c] blur transition duration-500"
+              animate={{ opacity: focusedField ? 0.35 : 0 }}
+            />
+
+            {/* Email */}
             <input
               type="email"
               placeholder="Email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              onFocus={() => setFocusedField("email")}
+              onFocus={() => setFocusedField("contact")}
               onBlur={() => setFocusedField(null)}
               required
-              className={inputBase}
+              className={`${inputBase} py-4 text-lg`}
             />
 
-             <input
+            {/* Password */}
+            <input
               type="password"
               placeholder="Password"
               value={password}
@@ -482,16 +424,19 @@ export default function LoginPage() {
               onFocus={() => setFocusedField("password")}
               onBlur={() => setFocusedField(null)}
               required
-              className={inputBase}
+              className={`${inputBase} py-4 text-lg`}
             />
 
+            {/* Primary CTA — brass gradient with shine sweep and glow */}
             <motion.button
               type="submit"
               disabled={isSubmitting}
               whileTap={{ scale: 0.98 }}
               className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] py-4 text-lg font-semibold text-[#ffe9be] shadow-[0_18px_40px_-12px_rgba(58,31,10,0.7),inset_0_1px_0_rgba(255,216,138,0.35)] transition-all hover:-translate-y-0.5 hover:shadow-[0_24px_50px_-14px_rgba(58,31,10,0.85),inset_0_1px_0_rgba(255,216,138,0.5)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70"
             >
+              {/* Brass inner rim */}
               <span className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-[#c58a3a]/40" />
+              {/* Shine sweep */}
               <span className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-[#ffd88a]/60 to-transparent transition-transform duration-1000 group-hover:translate-x-[460%]" />
               <span className="relative z-10 inline-flex items-center justify-center gap-2">
                 {isSubmitting ? (
@@ -520,16 +465,19 @@ export default function LoginPage() {
                 placeholder="Enter email OTP"
                 value={otp}
                 onChange={(event) => setOtp(event.target.value)}
-                className={inputBase}
+                required
+                className={`${inputBase} py-4 text-lg`}
               />
               <motion.button
                 type="button"
                 disabled={isSubmitting || !otp}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleVerifyOtp}
-                className="w-full rounded-xl bg-gradient-to-br from-[#7a4416] to-[#3a1f0a] py-3.5 text-base font-semibold text-[#ffe9be] shadow-md transition-all hover:opacity-95 disabled:opacity-60"
+                className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-br from-[#7a4416] via-[#9a581e] to-[#3a1f0a] py-3.5 text-base font-semibold text-[#ffe9be] shadow-md transition-all hover:opacity-95 disabled:opacity-60"
               >
-                {isSubmitting ? "Verifying..." : "Verify OTP"}
+                <span className="relative z-10 inline-flex items-center justify-center gap-2">
+                  {isSubmitting ? "Verifying..." : "Verify OTP"}
+                </span>
               </motion.button>
             </motion.div>
           )}
@@ -553,16 +501,23 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => navigate("/signup")}
-              className="font-semibold text-[#6b3a12] transition-colors hover:text-[#3a1f0a] underline underline-offset-4"
+              className="group relative font-semibold text-[#6b3a12] transition-colors hover:text-[#3a1f0a]"
             >
-              Don't have an account? Sign up
+              Don't have an account?{" "}
+              <span className="relative inline-block">
+                Sign up
+                <span className="absolute inset-x-0 -bottom-0.5 h-px scale-x-100 bg-gradient-to-r from-[#7a4416] via-[#c58a3a] to-[#7a4416] transition-transform duration-300 group-hover:scale-x-110" />
+              </span>
             </button>
             <button
               type="button"
               onClick={() => navigate("/forgot-password")}
-              className="font-semibold text-[#6b3a12] transition-colors hover:text-[#3a1f0a] underline underline-offset-4"
+              className="group relative font-semibold text-[#6b3a12] transition-colors hover:text-[#3a1f0a]"
             >
-              Forgot password?
+              <span className="relative inline-block">
+                Forgot password?
+                <span className="absolute inset-x-0 -bottom-0.5 h-px scale-x-100 bg-gradient-to-r from-[#7a4416] via-[#c58a3a] to-[#7a4416] transition-transform duration-300 group-hover:scale-x-110" />
+              </span>
             </button>
           </motion.div>
 
@@ -576,34 +531,43 @@ export default function LoginPage() {
           </motion.div>
 
           {/* Social Buttons */}
-          <motion.div variants={itemVariants} className="mb-4 flex gap-3">
-            <button className="group relative flex flex-1 items-center justify-center gap-3 overflow-hidden rounded-xl border border-[#7a4416]/20 bg-[#fffaf0]/90 py-3 text-sm font-medium text-[#3a1f0a] shadow-sm transition-all hover:bg-[#fffaf0]">
-              <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+          <motion.div variants={itemVariants} className="mb-6 flex gap-3">
+            <button className="group relative flex flex-1 items-center justify-center gap-3 overflow-hidden rounded-xl border border-[#7a4416]/20 bg-[#fffaf0]/90 py-3.5 text-base font-medium text-[#3a1f0a] shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[#fffaf0] hover:shadow-md active:scale-[0.98]">
+              <span className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-white/60 transition-transform duration-700 group-hover:translate-x-[420%]" />
+              <svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  fill="#4285F4"
+                />
+                <path
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  fill="#34A853"
+                />
+                <path
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                  fill="#FBBC05"
+                />
+                <path
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                  fill="#EA4335"
+                />
               </svg>
               Google
             </button>
 
-            <button className="group relative flex flex-1 items-center justify-center gap-3 overflow-hidden rounded-xl border border-[#7a4416]/20 bg-[#fffaf0]/90 py-3 text-sm font-medium text-[#3a1f0a] shadow-sm transition-all hover:bg-[#fffaf0]">
-              <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+            <button className="group relative flex flex-1 items-center justify-center gap-3 overflow-hidden rounded-xl border border-[#7a4416]/20 bg-[#fffaf0]/90 py-3.5 text-base font-medium text-[#3a1f0a] shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[#fffaf0] hover:shadow-md active:scale-[0.98]">
+              <span className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-white/60 transition-transform duration-700 group-hover:translate-x-[420%]" />
+              <svg
+                viewBox="0 0 24 24"
+                width="22"
+                height="22"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="currentColor"
+              >
                 <path d="M17.05 13.57c-.02-2.12 1.73-3.15 1.81-3.2-1-1.47-2.55-1.68-3.11-1.7-1.33-.14-2.58.78-3.26.78-.68 0-1.71-.76-2.81-.74-1.42.02-2.73.82-3.46 2.1-1.49 2.58-.38 6.4 1.07 8.5.71 1.03 1.55 2.18 2.68 2.14 1.09-.04 1.5-.7 2.81-.7 1.3 0 1.69.7 2.83.68 1.16-.02 1.88-1.07 2.58-2.1 1.13-1.65 1.6-3.25 1.62-3.34-.03-.01-2.73-1.04-2.76-3.42zM15.1 6.3c.6-.73 1.01-1.75.9-2.77-.88.04-1.95.59-2.56 1.32-.54.65-.99 1.69-.87 2.7 1 .08 2.01-.52 2.53-1.25z" />
               </svg>
               Apple
             </button>
-          </motion.div>
-
-          <motion.div variants={itemVariants} className="mb-4">
-            <button className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#7a4416]/20 bg-[#fffaf0]/90 py-3 text-sm font-medium text-[#3a1f0a] shadow-sm transition-all hover:bg-[#fffaf0]">
-              <QrCode size={18} className="text-[#6b3a12]" />
-              Log in with QR code
-            </button>
-          </motion.div>
-
-          <motion.div variants={itemVariants} className="mb-6">
-            <BiometricButton />
           </motion.div>
 
           {/* Disclaimer */}
@@ -611,7 +575,7 @@ export default function LoginPage() {
             variants={itemVariants}
             className="text-center text-[11px] leading-relaxed text-[#6b3a12]/65"
           >
-            By proceeding, you consent to get calls, WhatsApp or SMS messages from Ride and its affiliates.
+            By proceeding, you consent to get calls, WhatsApp or SMS messages, including by automated means, from Ride and its affiliates to the number provided.
           </motion.p>
 
           {/* Brass bottom rail */}
