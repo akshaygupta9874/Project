@@ -126,7 +126,9 @@ export const sessionMiddleware: RequestHandler = async (
       await redisClient.del(`session:${request.sessionID}`);
     }
 
-    response.clearCookie("sessionId");
+    response.clearCookie("sessionId",getCookieOptions({
+        maxAge: SESSION_TTL * 1000,
+      }));
 
     if (request.session.userId && request.sessionID) {
       await removeSessionFromUser(request.session.userId, request.sessionID);
@@ -155,12 +157,9 @@ export const sessionMiddleware: RequestHandler = async (
       }
     );
 
-    response.cookie("sessionId", request.sessionID, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: SESSION_TTL * 1000,
-    });
+    response.cookie("sessionId", request.sessionID, getCookieOptions({
+        maxAge: SESSION_TTL * 1000,
+      }));
   };
 
   next();

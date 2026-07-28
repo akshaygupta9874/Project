@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import {
   ChevronLeft,
   Clock,
@@ -45,23 +45,171 @@ interface RideHistoryRide {
   createdAt: string;
 }
 
-// Luxurious Golden-Brown & Obsidian Theme Styles
+// ---------- Form / Container animations ----------
+const containerVariants: Variants = {
+  hidden: { opacity: 0, y: 24, scale: 0.98 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.2,
+      duration: 0.8,
+      ease: [0.16, 1, 0.3, 1] as const,
+    },
+  },
+};
+
+
+// ---------- Golden-brown animated city map background ----------
+function CityMapBackground() {
+  const verticals = useMemo(
+    () => [60, 140, 230, 320, 410, 500, 600, 700, 820, 940, 1060, 1180, 1300],
+    [],
+  );
+  const horizontals = useMemo(() => [60, 140, 230, 330, 430, 540, 640, 740, 840], []);
+
+  const pins = useMemo(
+    () => [
+      { x: 220, y: 200, delay: 0.2 },
+      { x: 760, y: 140, delay: 1.1 },
+      { x: 1080, y: 520, delay: 0.6 },
+      { x: 340, y: 640, delay: 1.6 },
+      { x: 980, y: 300, delay: 2.0 },
+      { x: 540, y: 420, delay: 0.9 },
+    ],
+    [],
+  );
+
+  const routes = useMemo(
+    () => [
+      { d: "M -40 230 L 410 230 L 410 430 L 940 430 L 940 230 L 1380 230", dur: 14, delay: 0, color: "#3a1f0a" },
+      { d: "M 1380 540 L 820 540 L 820 740 L 320 740 L 320 540 L -40 540", dur: 18, delay: 2, color: "#4a2a12" },
+      { d: "M 140 -40 L 140 330 L 600 330 L 600 640 L 1060 640 L 1060 900", dur: 16, delay: 4, color: "#2e1808" },
+    ],
+    [],
+  );
+
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_15%,#fff7e6_0%,#f5e6c8_35%,#e6c893_65%,#c99a5a_100%)]" />
+      <div
+        className="absolute inset-0 opacity-[0.18] mix-blend-multiply"
+        style={{
+          backgroundImage:
+            "radial-gradient(rgba(80,45,15,0.35) 1px, transparent 1px), radial-gradient(rgba(80,45,15,0.2) 1px, transparent 1px)",
+          backgroundSize: "3px 3px, 7px 7px",
+          backgroundPosition: "0 0, 1px 2px",
+        }}
+      />
+      <motion.div
+        className="absolute -left-40 top-0 h-[560px] w-[560px] rounded-full bg-[#f4b860]/40 blur-[130px]"
+        animate={{ x: [0, 60, -20, 0], y: [0, 40, -30, 0], scale: [1, 1.15, 0.9, 1] }}
+        transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute -right-40 bottom-0 h-[560px] w-[560px] rounded-full bg-[#b8722c]/40 blur-[130px]"
+        animate={{ x: [0, -60, 30, 0], y: [0, -40, 30, 0], scale: [1, 0.9, 1.2, 1] }}
+        transition={{ duration: 26, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.svg
+        viewBox="0 0 1340 880"
+        preserveAspectRatio="xMidYMid slice"
+        className="absolute inset-0 h-full w-full"
+        animate={{ x: [0, -24, 0, 18, 0], y: [0, 10, 0, -8, 0] }}
+        transition={{ duration: 40, repeat: Infinity, ease: "easeInOut" }}
+      >
+        <defs>
+          <linearGradient id="brassRoute" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#7a4416" />
+            <stop offset="50%" stopColor="#c58a3a" />
+            <stop offset="100%" stopColor="#7a4416" />
+          </linearGradient>
+          <radialGradient id="pinGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#ffd88a" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="#ffd88a" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+
+        {verticals.slice(0, -1).map((vx, i) =>
+          horizontals.slice(0, -1).map((hy, j) => (
+            <rect
+              key={`b-${i}-${j}`}
+              x={vx + 6}
+              y={hy + 6}
+              width={verticals[i + 1] - vx - 12}
+              height={horizontals[j + 1] - hy - 12}
+              fill={(i + j) % 4 === 0 ? "#e8c98b" : (i + j) % 4 === 1 ? "#dbb271" : (i + j) % 4 === 2 ? "#efd8a3" : "#cf9d55"}
+              rx={3}
+              opacity={0.55}
+            />
+          )),
+        )}
+
+        {verticals.map((vx) => (
+          <line key={`v-${vx}`} x1={vx} y1={-20} x2={vx} y2={900} stroke="#fff4dc" strokeWidth={10} />
+        ))}
+        {horizontals.map((hy) => (
+          <line key={`h-${hy}`} x1={-20} y1={hy} x2={1360} y2={hy} stroke="#fff4dc" strokeWidth={10} />
+        ))}
+
+        {routes.map((r, idx) => (
+          <g key={`route-${idx}`}>
+            <path d={r.d} stroke={r.color} strokeOpacity={0.22} strokeWidth={5} fill="none" strokeLinecap="round" />
+            <motion.path
+              d={r.d}
+              stroke="url(#brassRoute)"
+              strokeWidth={5}
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray="80 1600"
+              initial={{ strokeDashoffset: 0 }}
+              animate={{ strokeDashoffset: [-1680, 0] }}
+              transition={{ duration: r.dur, delay: r.delay, repeat: Infinity, ease: "linear" }}
+            />
+          </g>
+        ))}
+
+        {pins.map((p, i) => (
+          <g key={`pin-${i}`} transform={`translate(${p.x} ${p.y})`}>
+            <circle r={28} fill="url(#pinGlow)" />
+            <motion.circle
+              r={6}
+              fill="#c58a3a"
+              opacity={0.6}
+              animate={{ r: [6, 28, 6], opacity: [0.6, 0, 0.6] }}
+              transition={{ duration: 2.4, delay: p.delay, repeat: Infinity, ease: "easeOut" }}
+            />
+            <circle r={5} fill="#3a1f0a" />
+            <circle r={2} fill="#fff4dc" />
+          </g>
+        ))}
+      </motion.svg>
+      <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-[#f5e6c8]/95 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#c99a5a]/60 to-transparent" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(60,30,8,0.35)_100%)]" />
+    </div>
+  );
+}
+
+// ---------- Theme Styles (Golden Brown & Parchment) ----------
 const RIDE_STATUS_STYLES: Record<string, string> = {
-  COMPLETED: "bg-amber-500/10 text-amber-700 border-amber-300/50 shadow-sm",
-  ONGOING: "bg-amber-100 text-amber-900 border-amber-400 animate-pulse",
-  IN_PROGRESS: "bg-amber-100 text-amber-900 border-amber-400 animate-pulse",
-  CANCELLED: "bg-stone-200/60 text-stone-600 border-stone-300",
+  COMPLETED: "bg-emerald-500/15 text-emerald-900 border-emerald-500/30",
+  ONGOING: "bg-amber-500/20 text-amber-950 border-amber-500/40 animate-pulse",
+  IN_PROGRESS: "bg-amber-500/20 text-amber-950 border-amber-500/40 animate-pulse",
+  CANCELLED: "bg-stone-500/15 text-stone-700 border-stone-500/30",
 };
 
 const PAYMENT_STATUS_STYLES: Record<string, string> = {
-  PAID: "bg-emerald-500/10 text-emerald-800 border-emerald-300/50",
-  CAPTURED: "bg-emerald-500/10 text-emerald-800 border-emerald-300/50",
-  COMPLETED: "bg-emerald-500/10 text-emerald-800 border-emerald-300/50",
-  PENDING: "bg-amber-500/10 text-amber-700 border-amber-300/50",
-  FAILED: "bg-rose-500/10 text-rose-800 border-rose-300/50",
+  PAID: "bg-emerald-500/15 text-emerald-900 border-emerald-500/30",
+  CAPTURED: "bg-emerald-500/15 text-emerald-900 border-emerald-500/30",
+  COMPLETED: "bg-emerald-500/15 text-emerald-900 border-emerald-500/30",
+  PENDING: "bg-amber-500/20 text-amber-950 border-amber-500/40",
+  FAILED: "bg-rose-500/15 text-rose-900 border-rose-500/30",
 };
 
-const DEFAULT_BADGE_STYLE = "bg-stone-100 text-stone-700 border-stone-200";
+const DEFAULT_BADGE_STYLE = "bg-[#fffaf0] text-[#3a1f0a] border-[#7a4416]/20";
 
 function getBadgeStyle(map: Record<string, string>, key?: string | null) {
   if (!key) return DEFAULT_BADGE_STYLE;
@@ -88,7 +236,7 @@ export default function RideHistory() {
   const [message, setMessage] = useState("");
   const [processingRideId, setProcessingRideId] = useState<string | null>(null);
 
-  // New interactive feature states
+  // Interactive feature states
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [selectedRideForModal, setSelectedRideForModal] = useState<RideHistoryRide | null>(null);
@@ -98,7 +246,7 @@ export default function RideHistory() {
       try {
         const response = await appApi.get<{ totalRides: number; rides: RideHistoryRide[] }>("/ride/history");
         setRides(response.data.rides);
-      } catch (err) {
+      } catch {
         setError("Unable to load ride history. Please refresh the page.");
       } finally {
         setLoading(false);
@@ -211,7 +359,7 @@ export default function RideHistory() {
           name: `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim(),
           email: user?.email,
         },
-        theme: { color: "#b45309" }, // Amber-700
+        theme: { color: "#b8722c" },
         modal: {
           ondismiss: () => {
             setMessage("Payment window closed. You can retry this ride payment anytime.");
@@ -229,36 +377,40 @@ export default function RideHistory() {
   };
 
   if (loading) {
-    return <LoadingScreen label="Loading your elite travel history..." />;
+    return <LoadingScreen label="Loading your travel history..." />;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950/20 p-4 md:p-8 text-stone-100">
-      <div className="mx-auto max-w-6xl space-y-8">
+    <div className="relative min-h-screen bg-[#f5e6c8] font-sans text-[#2e1808] p-4 md:p-8 overflow-hidden">
+      <CityMapBackground />
+
+      <div className="relative z-10 mx-auto max-w-6xl space-y-8">
         
-        {/* Header Section */}
+        {/* Header Section (Ticket Styled) */}
         <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative overflow-hidden rounded-3xl border border-amber-500/20 bg-stone-900/80 p-6 md:p-8 shadow-2xl backdrop-blur-xl"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="relative overflow-hidden rounded-[2rem] border border-[#fff4dc]/70 bg-gradient-to-b from-[#fffaf0]/90 via-[#fff4dc]/85 to-[#f7e2b8]/85 p-6 md:p-8 shadow-[0_30px_90px_-20px_rgba(80,40,10,0.4),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-2xl"
         >
-          <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
-          
+          {/* Brass top rail */}
+          <div className="pointer-events-none absolute inset-x-8 top-0 h-[3px] rounded-full bg-gradient-to-r from-transparent via-[#c58a3a] to-transparent" />
+
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-ping" />
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-amber-500">Concierge Log</p>
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#3a1f0a] to-[#7a4416] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-[#ffd88a] shadow-[0_8px_20px_-8px_rgba(58,31,10,0.6)]">
+                <Sparkles size={12} />
+                Travel Journal
               </div>
-              <h1 className="font-serif text-3xl md:text-4xl font-bold tracking-tight text-stone-100">Ride History & Ledger</h1>
-              <p className="text-sm text-stone-400">
-                Review your luxury journeys, settle invoices, and manage past itineraries.
+              <h1 className="font-serif text-3xl md:text-4xl font-bold tracking-tight text-[#2e1808]">Ride History</h1>
+              <p className="text-sm font-medium text-[#6b3a12]/80">
+                Review your journeys and settle invoices in pristine golden style.
               </p>
             </div>
 
             <Button
               variant="outline"
-              className="border-amber-500/30 bg-stone-900/50 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 transition-all rounded-2xl"
+              className="border-[#7a4416]/30 bg-[#fffaf0]/80 text-[#3a1f0a] hover:bg-[#fff4dc] hover:text-[#2e1808] transition-all rounded-2xl shadow-sm"
               onClick={() => navigate("/dashboard")}
             >
               <ChevronLeft className="mr-2 h-4 w-4" /> Dashboard
@@ -266,77 +418,80 @@ export default function RideHistory() {
           </div>
 
           {/* Quick Metrics Bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8 pt-6 border-t border-stone-800/80">
-            <div className="flex items-center gap-4 bg-stone-950/40 p-4 rounded-2xl border border-stone-800">
-              <div className="p-3 rounded-xl bg-amber-500/10 text-amber-500">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8 pt-6 border-t border-[#7a4416]/20">
+            <div className="flex items-center gap-4 bg-[#fffaf0]/90 p-4 rounded-2xl border border-[#7a4416]/20 shadow-sm">
+              <div className="p-3 rounded-xl bg-[#3a1f0a] text-[#ffd88a]">
                 <Car className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-stone-400 uppercase tracking-wider">Total Trips</p>
-                <p className="font-serif text-xl font-bold text-stone-100">{stats.totalRides}</p>
+                <p className="text-xs font-semibold text-[#6b3a12]/70 uppercase tracking-wider">Total Trips</p>
+                <p className="font-serif text-xl font-bold text-[#2e1808]">{stats.totalRides}</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4 bg-stone-950/40 p-4 rounded-2xl border border-stone-800">
-              <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400">
+            <div className="flex items-center gap-4 bg-[#fffaf0]/90 p-4 rounded-2xl border border-[#7a4416]/20 shadow-sm">
+              <div className="p-3 rounded-xl bg-[#2e5a36] text-emerald-200">
                 <CheckCircle2 className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-stone-400 uppercase tracking-wider">Completed</p>
-                <p className="font-serif text-xl font-bold text-stone-100">{stats.completedRides}</p>
+                <p className="text-xs font-semibold text-[#6b3a12]/70 uppercase tracking-wider">Completed</p>
+                <p className="font-serif text-xl font-bold text-[#2e1808]">{stats.completedRides}</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4 bg-stone-950/40 p-4 rounded-2xl border border-stone-800">
-              <div className="p-3 rounded-xl bg-amber-500/10 text-amber-500">
+            <div className="flex items-center gap-4 bg-[#fffaf0]/90 p-4 rounded-2xl border border-[#7a4416]/20 shadow-sm">
+              <div className="p-3 rounded-xl bg-[#b8722c]/20 text-[#7a4416]">
                 <IndianRupee className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-stone-400 uppercase tracking-wider">Total Investment</p>
-                <p className="font-serif text-xl font-bold text-stone-100">₹{stats.totalSpent / 100}</p>
+                <p className="text-xs font-semibold text-[#6b3a12]/70 uppercase tracking-wider">Total Invested</p>
+                <p className="font-serif text-xl font-bold text-[#2e1808]">₹{stats.totalSpent / 100}</p>
               </div>
             </div>
           </div>
+
+          {/* Brass bottom rail */}
+          <div className="pointer-events-none absolute inset-x-8 bottom-0 h-[3px] rounded-full bg-gradient-to-r from-transparent via-[#c58a3a] to-transparent" />
         </motion.div>
 
         {/* Alerts */}
         {error && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-start gap-3 rounded-2xl border border-rose-500/30 bg-rose-950/30 p-4 text-sm text-rose-300 shadow-lg">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-start gap-3 rounded-2xl border border-rose-500/30 bg-rose-950/20 p-4 text-sm text-rose-900 shadow-lg backdrop-blur-md">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-700" />
             <span>{error}</span>
           </motion.div>
         )}
 
         {message && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-start gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-950/30 p-4 text-sm text-emerald-300 shadow-lg">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-start gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-4 text-sm text-emerald-900 shadow-lg backdrop-blur-md">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
             <span>{message}</span>
           </motion.div>
         )}
 
         {/* Interactive Search and Filter Toolbar */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-stone-900/60 p-4 rounded-2xl border border-stone-800 backdrop-blur-md">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-[#fffaf0]/90 p-4 rounded-2xl border border-[#7a4416]/20 shadow-md backdrop-blur-md">
           <div className="relative w-full md:w-96">
-            <Search className="absolute left-3.5 top-3 h-4 w-4 text-stone-400" />
+            <Search className="absolute left-3.5 top-3 h-4 w-4 text-[#7a4416]/60" />
             <input
               type="text"
               placeholder="Search by pickup or drop location..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl bg-stone-950 border border-stone-800 pl-10 pr-4 py-2.5 text-sm text-stone-100 placeholder-stone-500 focus:border-amber-500 focus:outline-none transition-colors"
+              className="w-full rounded-xl border border-[#7a4416]/20 bg-white/90 pl-10 pr-4 py-2.5 text-sm text-[#2e1808] placeholder-[#7a4416]/45 focus:border-[#b8722c] focus:outline-none focus:ring-2 focus:ring-[#b8722c]/20 transition-all"
             />
           </div>
 
           <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-            <Filter className="h-4 w-4 text-amber-500 shrink-0 ml-1" />
+            <Filter className="h-4 w-4 text-[#b8722c] shrink-0 ml-1" />
             {["ALL", "COMPLETED", "ONGOING", "PENDING_PAYMENT", "CANCELLED"].map((filterKey) => (
               <button
                 key={filterKey}
                 onClick={() => setStatusFilter(filterKey)}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
                   statusFilter === filterKey
-                    ? "bg-amber-600 text-stone-950 font-semibold shadow-lg shadow-amber-900/40"
-                    : "bg-stone-950/60 text-stone-400 border border-stone-800 hover:text-stone-200"
+                    ? "bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] text-[#ffd88a] font-semibold shadow-md"
+                    : "bg-white/70 text-[#6b3a12] border border-[#7a4416]/20 hover:bg-[#fff4dc]"
                 }`}
               >
                 {filterKey.replace("_", " ")}
@@ -347,17 +502,17 @@ export default function RideHistory() {
 
         {/* Ride List */}
         {filteredRides.length === 0 ? (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-stone-800 bg-stone-900/40 p-16 text-center shadow-inner">
-            <div className="rounded-2xl bg-amber-500/10 p-4 text-amber-500 border border-amber-500/20">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-[#7a4416]/30 bg-[#fffaf0]/60 p-16 text-center shadow-inner">
+            <div className="rounded-2xl bg-[#7a4416]/10 p-4 text-[#7a4416] border border-[#7a4416]/20">
               <Inbox className="h-8 w-8" />
             </div>
             <div className="space-y-1">
-              <p className="font-serif text-xl text-stone-200">No matching itineraries found</p>
-              <p className="text-sm text-stone-400">Try tweaking your search filters or book a new journey.</p>
+              <p className="font-serif text-xl text-[#2e1808]">No matching itineraries found</p>
+              <p className="text-sm text-[#6b3a12]/80">Try tweaking your search filters or book a new journey.</p>
             </div>
             <Button
               onClick={() => navigate("/dashboard")}
-              className="mt-2 bg-amber-600 text-stone-950 hover:bg-amber-500 font-semibold rounded-xl"
+              className="mt-2 bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] text-[#ffd88a] hover:opacity-95 font-semibold rounded-xl shadow-md"
             >
               Book New Ride <ArrowUpRight className="ml-1.5 h-4 w-4" />
             </Button>
@@ -375,28 +530,28 @@ export default function RideHistory() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
                   key={ride._id}
-                  className="group overflow-hidden rounded-3xl border border-stone-800 bg-stone-900/80 shadow-lg transition-all hover:border-amber-500/40 hover:shadow-amber-950/20"
+                  className="group overflow-hidden rounded-3xl border border-[#7a4416]/25 bg-gradient-to-b from-[#fffaf0] via-[#fff4dc]/90 to-[#f7e2b8]/90 shadow-lg transition-all hover:border-[#b8722c] hover:shadow-xl"
                 >
                   <div className="grid gap-6 p-6 md:grid-cols-[1.6fr_1fr_1fr] items-center">
                     
                     {/* Route Info */}
                     <div className="flex gap-4">
                       <div className="flex flex-col items-center pt-1">
-                        <span className="h-3 w-3 rounded-full bg-amber-500 shadow-sm shadow-amber-500/50" />
-                        <span className="my-1.5 w-px flex-1 border-l border-dashed border-stone-700" />
-                        <span className="h-3 w-3 rounded-full border-2 border-amber-500 bg-stone-900" />
+                        <span className="h-3 w-3 rounded-full bg-[#b8722c] shadow-sm shadow-[#b8722c]/50" />
+                        <span className="my-1.5 w-px flex-1 border-l border-dashed border-[#7a4416]/40" />
+                        <span className="h-3 w-3 rounded-full border-2 border-[#b8722c] bg-[#fffaf0]" />
                       </div>
                       <div className="flex flex-1 flex-col justify-between gap-3">
-                        <div className="flex items-start gap-2.5 text-sm text-stone-200">
-                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                        <div className="flex items-start gap-2.5 text-sm text-[#2e1808]">
+                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#b8722c]" />
                           <span className="font-medium line-clamp-1">{ride.pickup.address}</span>
                         </div>
-                        <div className="flex items-start gap-2.5 text-sm text-stone-300">
-                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-stone-500" />
+                        <div className="flex items-start gap-2.5 text-sm text-[#6b3a12]">
+                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#7a4416]/60" />
                           <span className="line-clamp-1">{ride.destination.address}</span>
                         </div>
-                        <div className="text-xs text-stone-500 flex items-center gap-2">
-                          <Clock className="h-3.5 w-3.5 text-amber-500/70" />
+                        <div className="text-xs text-[#7a4416]/70 flex items-center gap-2">
+                          <Clock className="h-3.5 w-3.5 text-[#b8722c]" />
                           {new Date(ride.createdAt).toLocaleDateString(undefined, {
                             day: "numeric",
                             month: "short",
@@ -411,23 +566,23 @@ export default function RideHistory() {
                     </div>
 
                     {/* Fare / Meta Details */}
-                    <div className="grid gap-3 rounded-2xl border border-stone-800/80 bg-stone-950/50 p-4">
+                    <div className="grid gap-3 rounded-2xl border border-[#7a4416]/15 bg-[#fffaf0]/80 p-4 shadow-sm">
                       <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-1.5 text-xs text-stone-400 uppercase tracking-wider">
-                          <IndianRupee className="h-3.5 w-3.5 text-amber-500" />
+                        <span className="flex items-center gap-1.5 text-xs text-[#6b3a12]/80 uppercase tracking-wider">
+                          <IndianRupee className="h-3.5 w-3.5 text-[#b8722c]" />
                           Total Fare
                         </span>
-                        <span className="font-serif text-lg font-bold text-amber-400">{displayFare}</span>
+                        <span className="font-serif text-lg font-bold text-[#b8722c]">{displayFare}</span>
                       </div>
-                      <div className="border-t border-stone-800/80" />
-                      <div className="flex items-center justify-between text-xs text-stone-400">
+                      <div className="border-t border-[#7a4416]/15" />
+                      <div className="flex items-center justify-between text-xs text-[#6b3a12]/80">
                         <span>Estimated Duration</span>
-                        <span className="text-stone-200">{ride.duration.estimated ?? 0} mins</span>
+                        <span className="text-[#2e1808] font-medium">{ride.duration.estimated ?? 0} mins</span>
                       </div>
-                      <div className="flex items-center justify-between text-xs text-stone-400">
+                      <div className="flex items-center justify-between text-xs text-[#6b3a12]/80">
                         <span>Chauffeur</span>
-                        <span className="flex items-center gap-2 text-stone-200 font-medium">
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/20 text-[10px] font-bold text-amber-400 border border-amber-500/30">
+                        <span className="flex items-center gap-2 text-[#2e1808] font-medium">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#3a1f0a] text-[10px] font-bold text-[#ffd88a] border border-[#c58a3a]/40">
                             {driverInitial(ride)}
                           </span>
                           {driverDisplayName(ride)}
@@ -460,10 +615,10 @@ export default function RideHistory() {
                         <Button
                           variant="secondary"
                           disabled={!canPay || isProcessing}
-                          className={`flex-1 rounded-xl text-xs font-semibold py-2.5 transition-all ${
+                          className={`flex-1 rounded-xl text-xs font-semibold py-2.5 transition-all shadow-md ${
                             canPay
-                              ? "bg-amber-600 text-stone-950 hover:bg-amber-500 shadow-lg shadow-amber-900/40"
-                              : "bg-stone-800 text-stone-300 hover:bg-stone-700"
+                              ? "bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] text-[#ffd88a] hover:opacity-95"
+                              : "bg-[#fffaf0] text-[#6b3a12] border border-[#7a4416]/25 hover:bg-[#fff4dc]"
                           }`}
                           onClick={() => handlePay(ride)}
                         >
@@ -484,7 +639,7 @@ export default function RideHistory() {
                         <button
                           title="Support / Report Issue"
                           onClick={() => alert(`Support ticket requested for ride #${ride._id.slice(-6).toUpperCase()}`)}
-                          className="p-2.5 rounded-xl border border-stone-800 bg-stone-950 text-stone-400 hover:text-amber-400 hover:border-amber-500/40 transition-colors"
+                          className="p-2.5 rounded-xl border border-[#7a4416]/20 bg-[#fffaf0] text-[#7a4416] hover:text-[#2e1808] hover:border-[#b8722c] transition-colors shadow-sm"
                         >
                           <HelpCircle className="h-4 w-4" />
                         </button>
@@ -501,59 +656,59 @@ export default function RideHistory() {
         {/* Modal for Ride Details / Receipt Preview */}
         <AnimatePresence>
           {selectedRideForModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="relative w-full max-w-lg rounded-3xl border border-amber-500/30 bg-stone-900 p-6 shadow-2xl text-stone-100"
+                className="relative w-full max-w-lg rounded-[2rem] border border-[#fff4dc] bg-gradient-to-b from-[#fffaf0] via-[#fff4dc] to-[#f7e2b8] p-6 shadow-2xl text-[#2e1808]"
               >
-                <div className="flex items-center justify-between border-b border-stone-800 pb-4">
+                <div className="flex items-center justify-between border-b border-[#7a4416]/20 pb-4">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-amber-500" />
+                    <Sparkles className="h-5 w-5 text-[#b8722c]" />
                     <h3 className="font-serif text-xl font-bold">Journey Summary & Receipt</h3>
                   </div>
                   <button
                     onClick={() => setSelectedRideForModal(null)}
-                    className="p-2 rounded-full bg-stone-800 text-stone-400 hover:text-white transition-colors"
+                    className="p-2 rounded-full bg-[#7a4416]/10 text-[#7a4416] hover:bg-[#7a4416]/20 transition-colors"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
 
                 <div className="space-y-4 py-4 text-sm">
-                  <div className="bg-stone-950 p-4 rounded-2xl border border-stone-800 space-y-2">
-                    <div className="flex justify-between text-stone-400">
+                  <div className="bg-[#fffaf0] p-4 rounded-2xl border border-[#7a4416]/20 space-y-2 shadow-sm">
+                    <div className="flex justify-between text-[#6b3a12]/80">
                       <span>Ride ID</span>
-                      <span className="font-mono text-stone-200">#{selectedRideForModal._id.toUpperCase()}</span>
+                      <span className="font-mono text-[#2e1808]">#{selectedRideForModal._id.toUpperCase()}</span>
                     </div>
-                    <div className="flex justify-between text-stone-400">
+                    <div className="flex justify-between text-[#6b3a12]/80">
                       <span>Booking Status</span>
-                      <span className="text-amber-400 font-semibold">{selectedRideForModal.status}</span>
+                      <span className="text-[#b8722c] font-semibold">{selectedRideForModal.status}</span>
                     </div>
-                    <div className="flex justify-between text-stone-400">
+                    <div className="flex justify-between text-[#6b3a12]/80">
                       <span>Payment Status</span>
-                      <span className="text-emerald-400 font-semibold">{selectedRideForModal.paymentStatus ?? "Completed"}</span>
+                      <span className="text-emerald-800 font-semibold">{selectedRideForModal.paymentStatus ?? "Completed"}</span>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-stone-400">Route breakdown</p>
-                    <div className="space-y-2 rounded-2xl border border-stone-800 p-4 bg-stone-950/40">
-                      <p className="text-stone-300"><strong>From:</strong> {selectedRideForModal.pickup.address}</p>
-                      <p className="text-stone-300"><strong>To:</strong> {selectedRideForModal.destination.address}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-[#6b3a12]/70">Route breakdown</p>
+                    <div className="space-y-2 rounded-2xl border border-[#7a4416]/20 p-4 bg-[#fffaf0]/80 shadow-sm">
+                      <p className="text-[#2e1808]"><strong>From:</strong> {selectedRideForModal.pickup.address}</p>
+                      <p className="text-[#2e1808]"><strong>To:</strong> {selectedRideForModal.destination.address}</p>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-stone-400">Fare breakdown</p>
-                    <div className="rounded-2xl border border-stone-800 p-4 bg-stone-950/40 space-y-2">
-                      <div className="flex justify-between text-stone-300">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-[#6b3a12]/70">Fare breakdown</p>
+                    <div className="rounded-2xl border border-[#7a4416]/20 p-4 bg-[#fffaf0]/80 space-y-2 shadow-sm">
+                      <div className="flex justify-between text-[#2e1808]">
                         <span>Base / Estimated Fare</span>
                         <span>₹{selectedRideForModal.fare.estimated}</span>
                       </div>
                       {selectedRideForModal.fare.final && (
-                        <div className="flex justify-between font-bold text-amber-400 pt-2 border-t border-stone-800">
+                        <div className="flex justify-between font-bold text-[#b8722c] pt-2 border-t border-[#7a4416]/20">
                           <span>Final Total Charged</span>
                           <span>₹{selectedRideForModal.fare.final / 100}</span>
                         </div>
@@ -562,20 +717,20 @@ export default function RideHistory() {
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t border-stone-800">
+                <div className="flex gap-3 pt-4 border-t border-[#7a4416]/20">
                   <Button
                     onClick={() => {
                       alert("Simulating receipt download as PDF...");
                       setSelectedRideForModal(null);
                     }}
-                    className="flex-1 bg-amber-600 hover:bg-amber-500 text-stone-950 font-semibold rounded-xl"
+                    className="flex-1 bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] text-[#ffd88a] hover:opacity-95 font-semibold rounded-xl shadow-md"
                   >
                     <Download className="mr-2 h-4 w-4" /> Download PDF Receipt
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => setSelectedRideForModal(null)}
-                    className="border-stone-700 bg-stone-800 text-stone-300 hover:bg-stone-700 rounded-xl"
+                    className="border-[#7a4416]/30 bg-[#fffaf0] text-[#3a1f0a] hover:bg-[#fff4dc] rounded-xl"
                   >
                     Close
                   </Button>

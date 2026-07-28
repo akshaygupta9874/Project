@@ -125,8 +125,8 @@ export const revokeRefreshToken = async (userId: string, response: Response, ses
   if (!userId) {
     throw new Error("revokeRefreshToken: userId is required");
   }
-  response.clearCookie("refreshToken");
-  response.clearCookie("csrfToken");
+  response.clearCookie("refreshToken",getCookieOptions());
+  response.clearCookie("csrfToken",getCookieOptions());
   const refreshTokenKey = getRefreshTokenRedisKey(userId, sessionId);
   await redisClient.del(refreshTokenKey);
   await revokeCSRFToken(userId)
