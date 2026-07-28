@@ -438,16 +438,6 @@ export default function RideHistory() {
                 <p className="font-serif text-xl font-bold text-[#2e1808]">{stats.completedRides}</p>
               </div>
             </div>
-
-            <div className="flex items-center gap-4 bg-[#fffaf0]/90 p-4 rounded-2xl border border-[#7a4416]/20 shadow-sm">
-              <div className="p-3 rounded-xl bg-[#b8722c]/20 text-[#7a4416]">
-                <IndianRupee className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-[#6b3a12]/70 uppercase tracking-wider">Total Invested</p>
-                <p className="font-serif text-xl font-bold text-[#2e1808]">₹{stats.totalSpent / 100}</p>
-              </div>
-            </div>
           </div>
 
           {/* Brass bottom rail */}

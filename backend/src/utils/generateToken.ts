@@ -3,7 +3,7 @@ import jwt, { JwtPayload, SignOptions } from "jsonwebtoken";
 import { redisClient } from "../redis/client.js";
 import { Response } from "express";
 import { revokeCSRFToken } from "../middlewares/csrfMiddleware.js";
-import { getCookieOptions } from "./cookie.js";
+import { getCookieOptions, getCsrfCookieOptions } from "./cookie.js";
 
 export interface TokenPayload extends JwtPayload {
   firstName: string;
@@ -125,8 +125,8 @@ export const revokeRefreshToken = async (userId: string, response: Response, ses
   if (!userId) {
     throw new Error("revokeRefreshToken: userId is required");
   }
-  response.clearCookie("refreshToken",getCookieOptions());
-  response.clearCookie("csrfToken",getCookieOptions());
+  response.clearCookie("refreshToken", getCookieOptions());
+  response.clearCookie("csrfToken",getCsrfCookieOptions());
   const refreshTokenKey = getRefreshTokenRedisKey(userId, sessionId);
   await redisClient.del(refreshTokenKey);
   await revokeCSRFToken(userId)

@@ -7,8 +7,8 @@ type LoadingScreenProps = {
 };
 
 export default function LoadingScreen({
-  label = "Finding your ride",
-  sublabel = "Warming up the engines and syncing nearby drivers",
+  label = "Loading....",
+  sublabel = "Getting Things Done..",
 }: LoadingScreenProps) {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top_left,_#fbf5ea_0%,_#f0e1c8_40%,_#d9b98a_100%)] px-6 py-10 text-[#2b1d0e]">

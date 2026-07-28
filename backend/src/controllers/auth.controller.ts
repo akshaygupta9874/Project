@@ -11,6 +11,8 @@ import { generateCSRFToken, refreshCSRFToken, revokeCSRFToken } from "../middlew
 import UserModel from "../models/user.model.js";
 import { getCookieOptions, getCsrfCookieOptions } from "../utils/cookie.js";
 
+const SESSION_TTL = 60 * 60 * 24 * 7;
+
 export const userRegistrationController = asyncTryCatchHandler(
     async (request: Request, response: Response) => {
         const validatedData = UserRegistrationSchema.safeParse(request.body);
@@ -397,7 +399,6 @@ export const userLogoutController = asyncTryCatchHandler(
         response.clearCookie("sessionId", getCookieOptions())
         response.clearCookie("refreshToken", getCookieOptions());
         response.clearCookie("csrfToken", getCsrfCookieOptions());
-
 
         // Destroy Redis Session + sessionId cookie
         await request.session.destroy?.();

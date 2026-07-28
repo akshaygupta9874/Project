@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { redisClient } from "../redis/client.js";
 import { NextFunction, Request, Response } from "express";
 import { AuthenticatedRequest } from "./auth.middleware.js";
+import { getCsrfCookieOptions } from "../utils/cookie.js";
 
 
 export const generateCSRFToken = async (userID: string, response: Response)=>{
@@ -9,12 +10,9 @@ export const generateCSRFToken = async (userID: string, response: Response)=>{
     const csrfKey = `csrf:${userID}`;
     await redisClient.setEx(csrfKey, 3600, csrfToken);
 
-    response.cookie("csrfToken", csrfToken, {
-        httpOnly: false,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        maxAge: 60 * 60 * 1000
-    })
+    response.cookie("csrfToken", csrfToken, getCsrfCookieOptions({
+        maxAge : 24 * 60 * 60 * 1000
+    }))
     return csrfToken;
 }
 
