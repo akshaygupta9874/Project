@@ -15,9 +15,9 @@ const NAV_LINKS = [
 function NavBar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
-  // 2. Detect scroll for a sleek glassmorphism effect
+  // 2. Detect scroll for a sleek glassmorphism parchment effect
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
@@ -35,22 +35,28 @@ function NavBar() {
 
   return (
     <nav
-      className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? "bg-black/80 backdrop-blur-md shadow-lg" : "bg-black"
-        } text-white`}
+      className={`sticky top-0 z-50 transition-all duration-300 ${
+        scrolled
+          ? "bg-[#fffaf0]/90 backdrop-blur-md shadow-[0_10px_30px_-10px_rgba(80,40,10,0.15)] border-b border-[#7a4416]/20"
+          : "bg-[#f5e6c8]/90 backdrop-blur-sm border-b border-[#7a4416]/10"
+      } text-[#2e1808]`}
     >
-
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
         {/* Logo */}
-        <div className="flex  items-center justify-center gap-3 ">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white">
-            <Car size={20} className="text-black" />
+        <div 
+          className="flex items-center gap-3 cursor-pointer group"
+          onClick={() => navigate("/dashboard")}
+        >
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-r from-[#3a1f0a] to-[#7a4416] text-[#ffd88a] shadow-[0_8px_20px_-8px_rgba(58,31,10,0.6)] transition-transform duration-300 group-hover:scale-105">
+            <Car size={22} />
           </div>
-          <h1 className="cursor-pointer text-3xl font-bold tracking-tight transition-opacity hover:opacity-80">
+          <h1 
+            className="text-3xl font-bold tracking-tight text-[#2e1808] transition-opacity hover:opacity-80"
+            style={{ fontFamily: "'Fraunces', Georgia, serif" }}
+          >
             Uber
           </h1>
-
         </div>
-
 
         {/* Desktop Navigation */}
         <ul className="hidden items-center gap-8 md:flex">
@@ -58,9 +64,9 @@ function NavBar() {
             <li key={link.name}>
               <a
                 href={link.href}
-                className="relative text-sm font-medium text-gray-200 transition-colors hover:text-white
+                className="relative text-sm font-semibold text-[#6b3a12] transition-colors hover:text-[#3a1f0a]
                            after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0
-                           after:bg-white after:transition-all after:duration-300 hover:after:w-full"
+                           after:bg-[#b8722c] after:transition-all after:duration-300 hover:after:w-full"
               >
                 {link.name}
               </a>
@@ -72,26 +78,29 @@ function NavBar() {
         <div className="hidden items-center gap-3 md:flex">
           <Button
             variant="ghost"
-            className="rounded-full text-white transition-colors hover:bg-white/10"
+            className="rounded-xl text-[#3a1f0a] font-semibold transition-all hover:bg-[#fff4dc] hover:text-[#2e1808]"
             onClick={() => navigate("/login")}
           >
             Log in
           </Button>
 
-          <Button className="rounded-full bg-white px-5 text-black transition-transform hover:scale-105 hover:bg-gray-200"
-          onClick={() => navigate("/signup")}>
-            Sign up
+          <Button 
+            className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] px-6 py-2.5 text-sm font-semibold text-[#ffe9be] shadow-[0_12px_28px_-10px_rgba(58,31,10,0.6)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-12px_rgba(58,31,10,0.8)]"
+            onClick={() => navigate("/signup")}
+          >
+            <span className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-[#c58a3a]/40" />
+            <span className="relative z-10">Sign up</span>
           </Button>
         </div>
 
         {/* Mobile Menu Toggle */}
         <button
-          className="rounded-md p-2 -mr-2 transition-colors hover:bg-white/10 md:hidden"
+          className="rounded-xl p-2.5 -mr-2 border border-[#7a4416]/20 bg-[#fffaf0]/80 text-[#3a1f0a] transition-colors hover:bg-[#fff4dc] md:hidden shadow-sm"
           onClick={() => setIsOpen(!isOpen)}
           aria-expanded={isOpen}
           aria-label="Toggle navigation menu"
         >
-          {isOpen ? <X size={28} /> : <Menu size={28} />}
+          {isOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
@@ -100,24 +109,25 @@ function NavBar() {
         {isOpen && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "calc(100vh - 4rem)" }}
+            animate={{ opacity: 1, height: "calc(100vh - 5rem)" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="absolute left-0 top-16 w-full overflow-hidden border-t border-gray-800 bg-black px-6 md:hidden"
+            className="absolute left-0 top-20 w-full overflow-hidden border-t border-[#7a4416]/20 bg-gradient-to-b from-[#fffaf0] via-[#fff4dc] to-[#f7e2b8] px-6 md:hidden shadow-2xl backdrop-blur-2xl"
           >
-            <div className="flex h-full flex-col py-6">
+            <div className="flex h-full flex-col py-8">
               <ul className="flex flex-col gap-6">
                 {NAV_LINKS.map((link, index) => (
                   <motion.li
                     key={link.name}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
+                    transition={{ delay: index * 0.08 }}
                   >
                     <a
                       href={link.href}
-                      className="block text-3xl font-semibold transition-colors hover:text-gray-300"
-                      onClick={() => setIsOpen(false)} // Close menu on click
+                      className="block text-3xl font-bold text-[#2e1808] transition-colors hover:text-[#b8722c]"
+                      style={{ fontFamily: "'Fraunces', Georgia, serif" }}
+                      onClick={() => setIsOpen(false)}
                     >
                       {link.name}
                     </a>
@@ -125,10 +135,10 @@ function NavBar() {
                 ))}
               </ul>
 
-              <div className="mt-8 flex flex-col gap-4 border-t border-gray-800 pt-8">
+              <div className="mt-auto mb-10 flex flex-col gap-4 border-t border-[#7a4416]/20 pt-8">
                 <Button
                   variant="ghost"
-                  className="w-full justify-center rounded-full py-6 text-lg text-white hover:bg-white/10"
+                  className="w-full justify-center rounded-xl py-6 text-base font-semibold text-[#3a1f0a] hover:bg-[#fff4dc] border border-[#7a4416]/20"
                   onClick={() => {
                     setIsOpen(false);
                     navigate("/login");
@@ -138,7 +148,7 @@ function NavBar() {
                 </Button>
 
                 <Button
-                  className="w-full rounded-full bg-white py-6 text-lg text-black hover:bg-gray-200"
+                  className="w-full rounded-xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] py-6 text-base font-semibold text-[#ffe9be] shadow-[0_14px_30px_-10px_rgba(58,31,10,0.7)]"
                   onClick={() => {
                     setIsOpen(false);
                     navigate("/signup");

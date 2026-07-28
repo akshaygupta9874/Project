@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import {
@@ -12,7 +12,7 @@ import {
   Locate,
   Loader2,
   Clock,
-  Route as RouteIcon,
+  Route as RouteIcon
 } from "lucide-react";
 import LoadingScreen from "./components/LoadingScreen";
 import { Input } from "./components/ui/input";
@@ -24,7 +24,7 @@ import DriverCTA from "./components/DriverCTA";
 import { searchPlaces } from "./services/geoapify.service";
 
 /**
- * Rider Dashboard — Premium travel-ticket edition.
+ * Rider Dashboard — Unified Golden-Luxury Master Ticket Edition
  */
 
 type RideStatus =
@@ -50,34 +50,157 @@ interface Ride {
   status: RideStatus;
 }
 
-const DISPLAY_FONT = "'Fraunces', 'Iowan Old Style', Georgia, serif";
-const BODY_FONT =
-  "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
-
 // ---- Motion presets ----
-const easeOutExpo = [0.16, 1, 0.3, 1] as const;
-
-const containerStagger = {
-  hidden: {},
-  show: {
-    transition: { staggerChildren: 0.08, delayChildren: 0.05 },
-  },
-};
-
-const riseIn = {
-  hidden: { opacity: 0, y: 24, filter: "blur(6px)" },
-  show: {
+const containerVariants: Variants = {
+  hidden: { opacity: 0, y: 24, scale: 0.98 },
+  visible: {
     opacity: 1,
     y: 0,
-    filter: "blur(0px)",
-    transition: { duration: 0.7, ease: easeOutExpo },
+    scale: 1,
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.2,
+      duration: 0.8,
+      ease: [0.16, 1, 0.3, 1] as const,
+    },
   },
 };
 
-const fadeIn: Variants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { duration: 0.6, ease: "easeOut" } },
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 14 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: "easeOut" as const } },
 };
+
+// ---------- Golden-brown animated city map background ----------
+function CityMapBackground() {
+  const verticals = useMemo(
+    () => [60, 140, 230, 320, 410, 500, 600, 700, 820, 940, 1060, 1180, 1300],
+    [],
+  );
+  const horizontals = useMemo(() => [60, 140, 230, 330, 430, 540, 640, 740, 840], []);
+
+  const pins = useMemo(
+    () => [
+      { x: 220, y: 200, delay: 0.2 },
+      { x: 760, y: 140, delay: 1.1 },
+      { x: 1080, y: 520, delay: 0.6 },
+      { x: 340, y: 640, delay: 1.6 },
+      { x: 980, y: 300, delay: 2.0 },
+      { x: 540, y: 420, delay: 0.9 },
+    ],
+    [],
+  );
+
+  const routes = useMemo(
+    () => [
+      { d: "M -40 230 L 410 230 L 410 430 L 940 430 L 940 230 L 1380 230", dur: 14, delay: 0, color: "#3a1f0a" },
+      { d: "M 1380 540 L 820 540 L 820 740 L 320 740 L 320 540 L -40 540", dur: 18, delay: 2, color: "#4a2a12" },
+      { d: "M 140 -40 L 140 330 L 600 330 L 600 640 L 1060 640 L 1060 900", dur: 16, delay: 4, color: "#2e1808" },
+    ],
+    [],
+  );
+
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_15%,#fff7e6_0%,#f5e6c8_35%,#e6c893_65%,#c99a5a_100%)]" />
+      <div
+        className="absolute inset-0 opacity-[0.18] mix-blend-multiply"
+        style={{
+          backgroundImage:
+            "radial-gradient(rgba(80,45,15,0.35) 1px, transparent 1px), radial-gradient(rgba(80,45,15,0.2) 1px, transparent 1px)",
+          backgroundSize: "3px 3px, 7px 7px",
+          backgroundPosition: "0 0, 1px 2px",
+        }}
+      />
+      <motion.div
+        className="absolute -left-40 top-0 h-[560px] w-[560px] rounded-full bg-[#f4b860]/40 blur-[130px]"
+        animate={{ x: [0, 60, -20, 0], y: [0, 40, -30, 0], scale: [1, 1.15, 0.9, 1] }}
+        transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute -right-40 bottom-0 h-[560px] w-[560px] rounded-full bg-[#b8722c]/40 blur-[130px]"
+        animate={{ x: [0, -60, 30, 0], y: [0, -40, 30, 0], scale: [1, 0.9, 1.2, 1] }}
+        transition={{ duration: 26, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.svg
+        viewBox="0 0 1340 880"
+        preserveAspectRatio="xMidYMid slice"
+        className="absolute inset-0 h-full w-full"
+        animate={{ x: [0, -24, 0, 18, 0], y: [0, 10, 0, -8, 0] }}
+        transition={{ duration: 40, repeat: Infinity, ease: "easeInOut" }}
+      >
+        <defs>
+          <linearGradient id="brassRoute" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#7a4416" />
+            <stop offset="50%" stopColor="#c58a3a" />
+            <stop offset="100%" stopColor="#7a4416" />
+          </linearGradient>
+          <radialGradient id="pinGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#ffd88a" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="#ffd88a" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+
+        {verticals.slice(0, -1).map((vx, i) =>
+          horizontals.slice(0, -1).map((hy, j) => (
+            <rect
+              key={`b-${i}-${j}`}
+              x={vx + 6}
+              y={hy + 6}
+              width={verticals[i + 1] - vx - 12}
+              height={horizontals[j + 1] - hy - 12}
+              fill={(i + j) % 4 === 0 ? "#e8c98b" : (i + j) % 4 === 1 ? "#dbb271" : (i + j) % 4 === 2 ? "#efd8a3" : "#cf9d55"}
+              rx={3}
+              opacity={0.55}
+            />
+          )),
+        )}
+
+        {verticals.map((vx) => (
+          <line key={`v-${vx}`} x1={vx} y1={-20} x2={vx} y2={900} stroke="#fff4dc" strokeWidth={10} />
+        ))}
+        {horizontals.map((hy) => (
+          <line key={`h-${hy}`} x1={-20} y1={hy} x2={1360} y2={hy} stroke="#fff4dc" strokeWidth={10} />
+        ))}
+
+        {routes.map((r, idx) => (
+          <g key={`route-${idx}`}>
+            <path d={r.d} stroke={r.color} strokeOpacity={0.22} strokeWidth={5} fill="none" strokeLinecap="round" />
+            <motion.path
+              d={r.d}
+              stroke="url(#brassRoute)"
+              strokeWidth={5}
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray="80 1600"
+              initial={{ strokeDashoffset: 0 }}
+              animate={{ strokeDashoffset: [-1680, 0] }}
+              transition={{ duration: r.dur, delay: r.delay, repeat: Infinity, ease: "linear" }}
+            />
+          </g>
+        ))}
+
+        {pins.map((p, i) => (
+          <g key={`pin-${i}`} transform={`translate(${p.x} ${p.y})`}>
+            <circle r={28} fill="url(#pinGlow)" />
+            <motion.circle
+              r={6}
+              fill="#c58a3a"
+              opacity={0.6}
+              animate={{ r: [6, 28, 6], opacity: [0.6, 0, 0.6] }}
+              transition={{ duration: 2.4, delay: p.delay, repeat: Infinity, ease: "easeOut" }}
+            />
+            <circle r={5} fill="#3a1f0a" />
+            <circle r={2} fill="#fff4dc" />
+          </g>
+        ))}
+      </motion.svg>
+      <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-[#f5e6c8]/95 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#c99a5a]/60 to-transparent" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(60,30,8,0.35)_100%)]" />
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -111,7 +234,7 @@ export default function Dashboard() {
   const [isLocating, setIsLocating] = useState(false);
 
   const socketRef = useRef<any>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const formRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     async function loadDriver() {
@@ -127,9 +250,10 @@ export default function Dashboard() {
     loadDriver();
   }, []);
 
+  // Close suggestions dropdown when clicking outside the master card form
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      if (formRef.current && !formRef.current.contains(event.target as Node)) {
         setActiveField(null);
       }
     }
@@ -318,10 +442,7 @@ export default function Dashboard() {
       routeDuration,
     };
 
-    // Save data to sessionStorage for robust page refresh recovery
     sessionStorage.setItem("pendingRide", JSON.stringify(payload));
-
-    // Navigate to ChooseMode screen seamlessly
     navigate("/choose");
   };
 
@@ -357,138 +478,46 @@ export default function Dashboard() {
     : "Rider";
 
   return (
-    <div
-      ref={containerRef}
-      className="relative min-h-screen w-full overflow-hidden"
-      style={{
-        fontFamily: BODY_FONT,
-        background:
-          "radial-gradient(1200px 700px at 12% -10%, #F5E6D3 0%, transparent 55%), radial-gradient(1000px 600px at 100% 0%, #EADFC8 0%, transparent 60%), linear-gradient(180deg, #FBF7F1 0%, #F3E9D8 100%)",
-      }}
-    >
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#f5e6c8] font-sans text-[#2e1808]">
+      <CityMapBackground />
+
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap');
 
-        @keyframes float-slow {
-          0%, 100% { transform: translate3d(0,0,0); }
-          50% { transform: translate3d(0,-14px,0); }
-        }
-        @keyframes drift {
-          0% { transform: translateX(-10%); }
-          100% { transform: translateX(110%); }
-        }
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-        @keyframes pulse-ring {
-          0% { transform: scale(0.8); opacity: 0.7; }
-          100% { transform: scale(2.4); opacity: 0; }
-        }
         @keyframes route-dash {
           to { stroke-dashoffset: -40; }
-        }
-
-        .rd-float { animation: float-slow 9s ease-in-out infinite; }
-        .rd-ticket-shimmer {
-          background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%);
-          background-size: 200% 100%;
-          animation: shimmer 6s linear infinite;
-        }
-        .rd-brass-gradient {
-          background: linear-gradient(135deg, #B08968 0%, #8B5E3C 50%, #6F4A2F 100%);
-        }
-        .rd-parchment {
-          background:
-            radial-gradient(1200px 200px at 50% -20%, rgba(255,255,255,0.7), transparent 70%),
-            linear-gradient(180deg, #FBF7F1 0%, #F5EBDC 100%);
-        }
-        .rd-noise::before {
-          content: "";
-          position: absolute; inset: 0; pointer-events: none; opacity: 0.05;
-          background-image: radial-gradient(rgba(93,64,55,0.4) 1px, transparent 1px);
-          background-size: 3px 3px;
-        }
-        .rd-focus-ring:focus-within {
-          box-shadow: 0 0 0 3px rgba(176,137,104,0.25), 0 10px 30px -14px rgba(93,64,55,0.4);
-          border-color: #B08968 !important;
-        }
-        .rd-btn-primary {
-          background: linear-gradient(135deg, #5D4037 0%, #3E2723 100%);
-          box-shadow: 0 12px 28px -12px rgba(62,39,35,0.55), inset 0 1px 0 rgba(255,255,255,0.08);
-        }
-        .rd-btn-primary:hover { filter: brightness(1.08); }
-        .rd-btn-primary:active { transform: translateY(1px); }
-
-        .rd-pulse-ring {
-          animation: pulse-ring 2.2s cubic-bezier(0.4,0,0.2,1) infinite;
         }
         .rd-route-line {
           stroke-dasharray: 6 8;
           animation: route-dash 1.2s linear infinite;
         }
         .rd-scroll-fade::-webkit-scrollbar { width: 6px; }
-        .rd-scroll-fade::-webkit-scrollbar-thumb { background: #D7CCC8; border-radius: 999px; }
+        .rd-scroll-fade::-webkit-scrollbar-thumb { background: #c58a3a; border-radius: 999px; }
       `}</style>
 
-      {/* Ambient background */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="rd-float absolute -left-20 top-10 h-72 w-72 rounded-full bg-[#E8D5B7] opacity-60 blur-3xl" />
-        <div
-          className="rd-float absolute right-[-60px] top-40 h-96 w-96 rounded-full bg-[#D7BFA1] opacity-50 blur-3xl"
-          style={{ animationDelay: "1.4s" }}
-        />
-        <div
-          className="rd-float absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-[#F1DEC1] opacity-60 blur-3xl"
-          style={{ animationDelay: "2.6s" }}
-        />
-        {/* subtle grid */}
-        <svg className="absolute inset-0 h-full w-full opacity-[0.06]" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <pattern id="grid" width="42" height="42" patternUnits="userSpaceOnUse">
-              <path d="M 42 0 L 0 0 0 42" fill="none" stroke="#5D4037" strokeWidth="0.5" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#grid)" />
-        </svg>
-
-        {/* drifting car icon */}
-        <motion.div
-          className="absolute top-24 left-0 text-[#8B5E3C]/30"
-          initial={{ x: "-10%" }}
-          animate={{ x: "110vw" }}
-          transition={{ duration: 28, repeat: Infinity, ease: "linear" }}
-        >
-          <Car className="h-8 w-8" />
-        </motion.div>
-      </div>
-
-      {/* Content container */}
+      {/* Main Content Container */}
       <motion.div
-        variants={containerStagger}
+        variants={containerVariants}
         initial="hidden"
-        animate="show"
-        className="relative mx-auto flex w-full max-w-6xl flex-col gap-8 px-5 pb-16 pt-8 sm:px-8 lg:px-12"
+        animate="visible"
+        className="relative z-10 mx-auto flex w-full max-w-5xl flex-col gap-8 px-5 pb-16 pt-8 sm:px-8 lg:px-12"
       >
         {/* Header */}
-        <motion.header variants={riseIn} className="flex items-center justify-between">
+        <motion.header variants={itemVariants} className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <motion.div
               whileHover={{ rotate: -8, scale: 1.05 }}
               transition={{ type: "spring", stiffness: 300, damping: 15 }}
-              className="rd-brass-gradient grid h-11 w-11 place-items-center rounded-2xl shadow-[0_10px_24px_-10px_rgba(139,94,60,0.7)]"
+              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-r from-[#3a1f0a] to-[#7a4416] text-[#ffd88a] shadow-[0_10px_24px_-10px_rgba(58,31,10,0.6)]"
             >
-              <Car className="h-5 w-5 text-[#FBF7F1]" />
+              <Car className="h-6 w-6" />
             </motion.div>
             <div>
-              <p
-                className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8B5E3C]"
-                style={{ fontFamily: BODY_FONT }}
-              >
-                Uber
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#7a4416]">
+                Aura Luxury Rides
               </p>
-              <p className="text-sm font-medium text-[#5D4037]">
-                Hey, <span className="text-[#3E2723]">{displayName.split(" ")[0]}</span>
+              <p className="text-sm font-medium text-[#2e1808]">
+                Hey, <span className="font-bold text-[#3a1f0a]">{displayName.split(" ")[0]}</span>
               </p>
             </div>
           </div>
@@ -498,140 +527,99 @@ export default function Dashboard() {
               whileHover={{ y: -2 }}
               whileTap={{ scale: 0.94 }}
               onClick={() => navigate("/history")}
-              className="grid h-10 w-10 place-items-center rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/80 text-[#5D4037] backdrop-blur transition hover:bg-[#EFEBE9]"
+              className="grid h-10 w-10 place-items-center rounded-full border border-[#7a4416]/20 bg-[#fffaf0]/90 text-[#3a1f0a] shadow-sm backdrop-blur transition hover:bg-[#fff4dc]"
               aria-label="History"
             >
-              <History className="h-4 w-4" />
+              <History className="h-4 w-4 text-[#b8722c]" />
             </motion.button>
             <motion.button
               whileHover={{ y: -2 }}
               whileTap={{ scale: 0.94 }}
               onClick={handleLogout}
-              className="grid h-10 w-10 place-items-center rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/80 text-[#5D4037] backdrop-blur transition hover:bg-[#EFEBE9]"
+              className="grid h-10 w-10 place-items-center rounded-full border border-[#7a4416]/20 bg-[#fffaf0]/90 text-[#3a1f0a] shadow-sm backdrop-blur transition hover:bg-[#fff4dc]"
               aria-label="Log out"
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-4 w-4 text-[#b8722c]" />
             </motion.button>
           </div>
         </motion.header>
 
-        {/* Hero greeting */}
-        <motion.section variants={riseIn} className="pt-2">
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/70 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-[#8B5E3C] backdrop-blur">
-            <Sparkles className="h-3 w-3" />
-            Where are we heading today?
-          </div>
-          <h1
-            className="mt-2 text-4xl leading-[1.05] text-[#3E2723] sm:text-5xl lg:text-6xl"
-            style={{ fontFamily: DISPLAY_FONT, fontWeight: 500, letterSpacing: "-0.02em" }}
-          >
-            Book a ride in{" "}
-            <span className="relative inline-block">
-              <span
-                className="italic"
-                style={{
-                  background: "linear-gradient(135deg, #B08968 0%, #6F4A2F 100%)",
-                  WebkitBackgroundClip: "text",
-                  backgroundClip: "text",
-                  color: "transparent",
-                }}
-              >
-                seconds.
-              </span>
-              <motion.span
-                aria-hidden
-                initial={{ scaleX: 0 }}
-                animate={{ scaleX: 1 }}
-                transition={{ delay: 0.6, duration: 0.9, ease: easeOutExpo }}
-                className="absolute -bottom-1 left-0 h-[3px] w-full origin-left rounded-full"
-                style={{ background: "linear-gradient(90deg, #B08968, transparent)" }}
-              />
-            </span>
-          </h1>
-        </motion.section>
-
-        {/* Booking ticket */}
+        {/* UNIFIED MASTER TICKET CARD */}
         <motion.section
-          variants={riseIn}
+          ref={formRef}
+          variants={itemVariants}
           whileHover={{ y: -2 }}
           transition={{ type: "spring", stiffness: 200, damping: 22 }}
-          className="rd-parchment rd-noise relative overflow-hidden rounded-[28px] border border-[#E4D5BE] p-6 sm:p-8"
-          style={{
-            boxShadow:
-              "0 40px 80px -40px rgba(93,64,55,0.35), 0 2px 0 rgba(255,255,255,0.6) inset",
-          }}
+          className="relative overflow-hidden rounded-[2.5rem] border border-[#fff4dc]/70 bg-gradient-to-b from-[#fffaf0]/95 via-[#fff4dc]/90 to-[#f7e2b8]/90 p-6 sm:p-10 shadow-[0_40px_100px_-24px_rgba(80,40,10,0.55),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-2xl"
         >
-          {/* shimmer sweep */}
-          <div className="rd-ticket-shimmer pointer-events-none absolute inset-x-0 top-0 h-full" />
-
-          {/* Ticket header */}
-          <div className="relative flex flex-wrap items-center justify-between gap-3">
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#3E2723] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#F5E6D3]">
-              <span className="grid h-4 w-4 place-items-center rounded-full bg-[#B08968]">
-                <Car className="h-2.5 w-2.5 text-[#3E2723]" />
-              </span>
-              New trip
-            </div>
-
-            <AnimatePresence mode="wait">
-              {(routeDistance !== null || isCalculatingRoute) && (
-                <motion.div
-                  key={isCalculatingRoute ? "calc" : "done"}
-                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                  transition={{ duration: 0.35 }}
-                  className="flex items-center gap-2 rounded-full border border-[#E4D5BE] bg-[#FAF6F0]/80 px-3 py-1.5 text-xs font-medium text-[#5D4037] backdrop-blur"
-                >
-                  {isCalculatingRoute ? (
-                    <div className="flex items-center gap-2 text-[#8B5E3C]">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Calculating route…
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-1.5">
-                        <RouteIcon className="h-3.5 w-3.5 text-[#8B5E3C]" />
-                        <span className="tabular-nums">
-                          {routeDistance ? `${(routeDistance / 1000).toFixed(1)} km` : ""}
-                        </span>
-                      </div>
-                      <span className="h-3 w-px bg-[#D7CCC8]" />
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="h-3.5 w-3.5 text-[#8B5E3C]" />
-                        <span className="tabular-nums">
-                          {routeDuration ? `${Math.round(routeDuration / 60)} mins` : ""}
-                        </span>
-                      </div>
-                    </>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
+          {/* Perforation ticket-edge dots */}
+          <div className="pointer-events-none absolute left-0 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col gap-2">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <span key={`pl-${i}`} className="h-2 w-2 rounded-full bg-[#f5e6c8]" />
+            ))}
+          </div>
+          <div className="pointer-events-none absolute right-0 top-1/2 flex translate-x-1/2 -translate-y-1/2 flex-col gap-2">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <span key={`pr-${i}`} className="h-2 w-2 rounded-full bg-[#f5e6c8]" />
+            ))}
           </div>
 
-          {/* Ticket perforation */}
+          {/* Brass top rail */}
+          <div className="pointer-events-none absolute inset-x-8 top-0 h-[3px] rounded-full bg-gradient-to-r from-transparent via-[#c58a3a] to-transparent" />
+
+          {/* Hero greeting & Title inside the card */}
+          <div className="mb-6 text-center sm:text-left">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#3a1f0a] to-[#7a4416] px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-[#ffd88a] shadow-[0_8px_20px_-8px_rgba(58,31,10,0.6)]">
+              <Sparkles size={13} />
+              Where are we heading today?
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <h1
+                className="text-3xl leading-tight text-[#2e1808] sm:text-4xl lg:text-5xl font-bold tracking-tight"
+                style={{ fontFamily: "'Fraunces', Georgia, serif" }}
+              >
+                Book a ride in{" "}
+                <span className="italic bg-gradient-to-br from-[#2e1808] via-[#6b3a12] to-[#b8722c] bg-clip-text text-transparent">
+                  seconds.
+                </span>
+              </h1>
+
+              <motion.button
+                whileHover={{ x: 2 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={handleUseCurrentLocation}
+                className="self-start sm:self-auto inline-flex items-center gap-2 rounded-full border border-[#7a4416]/25 bg-[#fffaf0]/90 px-4 py-2 text-xs font-semibold text-[#3a1f0a] shadow-sm transition hover:bg-[#fff4dc] hover:border-[#b8722c]"
+              >
+                {isLocating ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Locate className="h-3.5 w-3.5 text-[#b8722c]" />
+                )}
+                Use current location
+              </motion.button>
+            </div>
+          </div>
+
+          {/* Ticket perforation divider */}
           <div className="relative my-6 flex items-center gap-3">
-            <span className="h-6 w-6 -translate-x-1/2 rounded-full bg-[#F3E9D8] shadow-[inset_0_2px_4px_rgba(93,64,55,0.15)]" />
+            <span className="h-6 w-6 -translate-x-1/2 rounded-full bg-[#f5e6c8] shadow-[inset_0_2px_4px_rgba(122,68,22,0.2)]" />
             <div
               className="h-px flex-1"
               style={{
                 backgroundImage:
-                  "repeating-linear-gradient(90deg, #B08968 0 8px, transparent 8px 16px)",
+                  "repeating-linear-gradient(90deg, #7a4416 0 8px, transparent 8px 16px)",
+                opacity: 0.4,
               }}
             />
-            <span className="h-6 w-6 translate-x-1/2 rounded-full bg-[#F3E9D8] shadow-[inset_0_2px_4px_rgba(93,64,55,0.15)]" />
+            <span className="h-6 w-6 translate-x-1/2 rounded-full bg-[#f5e6c8] shadow-[inset_0_2px_4px_rgba(122,68,22,0.2)]" />
           </div>
 
-          <div
-            className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8B5E3C]"
-            style={{ fontFamily: BODY_FONT }}
-          >
-            Route
+          <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#7a4416]">
+            Route Specifications
           </div>
 
-          {/* Fields */}
-          <div className="relative">
+          {/* Route Fields */}
+          <div className="relative space-y-4">
             {/* connecting line */}
             <svg
               className="pointer-events-none absolute left-[22px] top-[36px] h-[calc(100%-72px)] w-[2px]"
@@ -644,7 +632,7 @@ export default function Dashboard() {
                 y1="0"
                 x2="1"
                 y2="100"
-                stroke="#B08968"
+                stroke="#b8722c"
                 strokeWidth="2"
                 className="rd-route-line"
               />
@@ -653,22 +641,13 @@ export default function Dashboard() {
             {/* Pickup */}
             <div className="relative">
               <FieldRow
-                icon={<Dot color="saddle" />}
+                icon={<Dot color="dark" />}
                 trailing={
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={handleUseCurrentLocation}
-                    className="grid h-8 w-8 place-items-center rounded-full text-[#8B5E3C] hover:bg-[#EFEBE9]"
-                    aria-label="Use current location"
-                  >
-                    {isLocating ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Locate className="h-4 w-4" />
-                    )}
-                  </motion.button>
+                  <div className="grid h-8 w-8 place-items-center text-[#7a4416]">
+                    <MapPin className="h-4 w-4 text-[#b8722c]" />
+                  </div>
                 }
-                label="Pickup"
+                label="Pickup Location"
                 value={pickup}
                 placeholder="Where from?"
                 onChange={(v) => {
@@ -685,10 +664,10 @@ export default function Dashboard() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -6, scale: 0.98 }}
                     transition={{ duration: 0.2 }}
-                    className="rd-scroll-fade absolute left-11 right-0 top-full z-30 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-[#E4D5BE] bg-[#FBF7F1] shadow-[0_20px_50px_-20px_rgba(93,64,55,0.35)]"
+                    className="rd-scroll-fade absolute left-11 right-0 top-full z-30 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-[#7a4416]/25 bg-[#fffaf0] p-1 shadow-[0_20px_50px_-20px_rgba(80,40,10,0.4)] backdrop-blur-md"
                   >
                     {isSearchingPickup ? (
-                      <div className="flex items-center justify-center gap-2 py-4 text-xs text-[#8B5E3C]">
+                      <div className="flex items-center justify-center gap-2 py-4 text-xs text-[#7a4416]">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Searching places...
                       </div>
@@ -700,16 +679,16 @@ export default function Dashboard() {
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: idx * 0.02 }}
                           onClick={() => handleSelectPlace(item, "pickup")}
-                          className="flex cursor-pointer items-center gap-2 border-b border-[#D7CCC8]/30 px-4 py-2.5 text-xs text-[#3E2723] transition hover:bg-[#EFEBE9] last:border-none"
+                          className="flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium text-[#2e1808] transition hover:bg-[#fff4dc]"
                         >
-                          <MapPin className="h-3.5 w-3.5 shrink-0 text-[#B08968]" />
+                          <MapPin className="h-3.5 w-3.5 shrink-0 text-[#b8722c]" />
                           <span className="truncate">
                             {item.properties?.formatted || item.properties?.name}
                           </span>
                         </motion.div>
                       ))
                     ) : (
-                      <div className="py-4 text-center text-xs text-[#8B5E3C]">
+                      <div className="py-4 text-center text-xs text-[#7a4416]/70">
                         No locations found
                       </div>
                     )}
@@ -718,15 +697,13 @@ export default function Dashboard() {
               </AnimatePresence>
             </div>
 
-            <div className="my-3 ml-11 h-px bg-[#E4D5BE]" />
-
             {/* Destination */}
             <div className="relative">
               <FieldRow
                 icon={<Dot color="brass" />}
                 trailing={
-                  <div className="grid h-8 w-8 place-items-center rounded-full text-[#8B5E3C]">
-                    <Navigation className="h-4 w-4" />
+                  <div className="grid h-8 w-8 place-items-center text-[#7a4416]">
+                    <Navigation className="h-4 w-4 text-[#b8722c]" />
                   </div>
                 }
                 label="Destination"
@@ -746,10 +723,10 @@ export default function Dashboard() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -6, scale: 0.98 }}
                     transition={{ duration: 0.2 }}
-                    className="rd-scroll-fade absolute left-11 right-0 top-full z-30 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-[#E4D5BE] bg-[#FBF7F1] shadow-[0_20px_50px_-20px_rgba(93,64,55,0.35)]"
+                    className="rd-scroll-fade absolute left-11 right-0 top-full z-30 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-[#7a4416]/25 bg-[#fffaf0] p-1 shadow-[0_20px_50px_-20px_rgba(80,40,10,0.4)] backdrop-blur-md"
                   >
                     {isSearchingDestination ? (
-                      <div className="flex items-center justify-center gap-2 py-4 text-xs text-[#8B5E3C]">
+                      <div className="flex items-center justify-center gap-2 py-4 text-xs text-[#7a4416]">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Searching places...
                       </div>
@@ -761,16 +738,16 @@ export default function Dashboard() {
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: idx * 0.02 }}
                           onClick={() => handleSelectPlace(item, "destination")}
-                          className="flex cursor-pointer items-center gap-2 border-b border-[#D7CCC8]/30 px-4 py-2.5 text-xs text-[#3E2723] transition hover:bg-[#EFEBE9] last:border-none"
+                          className="flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium text-[#2e1808] transition hover:bg-[#fff4dc]"
                         >
-                          <MapPin className="h-3.5 w-3.5 shrink-0 text-[#B08968]" />
+                          <MapPin className="h-3.5 w-3.5 shrink-0 text-[#b8722c]" />
                           <span className="truncate">
                             {item.properties?.formatted || item.properties?.name}
                           </span>
                         </motion.div>
                       ))
                     ) : (
-                      <div className="py-4 text-center text-xs text-[#8B5E3C]">
+                      <div className="py-4 text-center text-xs text-[#7a4416]/70">
                         No locations found
                       </div>
                     )}
@@ -780,37 +757,65 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <motion.button
-              whileHover={{ x: 2 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={handleUseCurrentLocation}
-              className="inline-flex items-center gap-2 self-start rounded-full border border-[#D7CCC8] bg-[#FAF6F0] px-4 py-2 text-xs font-medium text-[#5D4037] transition hover:bg-[#EFEBE9]"
-            >
-              {isLocating ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          {/* Bottom Dispatch & Route Metrics Bar inside Master Card */}
+          <div className="mt-8 pt-6 border-t border-[#7a4416]/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <AnimatePresence mode="wait">
+              {(routeDistance !== null || isCalculatingRoute) ? (
+                <motion.div
+                  key={isCalculatingRoute ? "calc" : "done"}
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  className="flex items-center gap-3 rounded-full border border-[#7a4416]/20 bg-[#fffaf0]/90 px-4 py-2 text-xs font-medium text-[#3a1f0a] shadow-sm"
+                >
+                  {isCalculatingRoute ? (
+                    <div className="flex items-center gap-2 text-[#7a4416]">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Calculating route…
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-1.5">
+                        <RouteIcon className="h-3.5 w-3.5 text-[#b8722c]" />
+                        <span className="tabular-nums font-semibold">
+                          {routeDistance ? `${(routeDistance / 1000).toFixed(1)} km` : ""}
+                        </span>
+                      </div>
+                      <span className="h-3 w-px bg-[#7a4416]/30" />
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5 text-[#b8722c]" />
+                        <span className="tabular-nums font-semibold">
+                          {routeDuration ? `${Math.round(routeDuration / 60)} mins` : ""}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </motion.div>
               ) : (
-                <Locate className="h-3.5 w-3.5" />
+                <div className="text-xs font-medium text-[#7a4416]/80">
+                  Select pickup & destination to estimate fare & time.
+                </div>
               )}
-              Use current location
-            </motion.button>
+            </AnimatePresence>
 
             <motion.button
               onClick={handleProceedToChoose}
               disabled={!canProceed}
               whileHover={canProceed ? { y: -2 } : {}}
               whileTap={canProceed ? { scale: 0.97 } : {}}
-              className="rd-btn-primary group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full px-6 py-3 text-sm font-semibold text-[#FBF7F1] transition disabled:cursor-not-allowed disabled:opacity-60"
+              className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] px-8 py-4 text-base font-semibold text-[#ffe9be] shadow-[0_18px_40px_-12px_rgba(58,31,10,0.7),inset_0_1px_0_rgba(255,216,138,0.35)] transition-all hover:shadow-[0_24px_50px_-14px_rgba(58,31,10,0.85)] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-              Choose vehicle
-              <motion.span
-                animate={{ x: [0, 4, 0] }}
-                transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-              >
-                <ArrowRight className="h-4 w-4" />
-              </motion.span>
+              <span className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-[#c58a3a]/40" />
+              <span className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-[#ffd88a]/60 to-transparent transition-transform duration-1000 group-hover:translate-x-[460%]" />
+              <span className="relative z-10 inline-flex items-center gap-2">
+                Choose vehicle
+                <motion.span
+                  animate={{ x: [0, 4, 0] }}
+                  transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  <ArrowRight className="h-4 w-4 text-[#ffd88a]" />
+                </motion.span>
+              </span>
             </motion.button>
           </div>
 
@@ -821,36 +826,37 @@ export default function Dashboard() {
                 initial={{ opacity: 0, y: -4, height: 0 }}
                 animate={{ opacity: 1, y: 0, height: "auto" }}
                 exit={{ opacity: 0, y: -4, height: 0 }}
-                className="mt-4 rounded-xl border border-[#E9C9B8] bg-[#FBEDE4] px-3 py-2 text-xs text-[#8B3A1F]"
+                className="mt-4 rounded-xl border border-rose-500/30 bg-rose-950/20 px-4 py-3 text-xs font-medium text-rose-900 shadow-sm"
               >
                 {rideError}
               </motion.p>
             )}
           </AnimatePresence>
+
+          {/* Brass bottom rail */}
+          <div className="pointer-events-none absolute inset-x-8 bottom-0 h-[3px] rounded-full bg-gradient-to-r from-transparent via-[#c58a3a] to-transparent" />
         </motion.section>
 
-        {/* Driver CTA */}
-        <motion.section variants={riseIn}>
-          <DriverCTA
-            user={user!}
-            driver={driverProfile}
-            loading={isLoadingDriver}
-          />
-        </motion.section>
+        {/* Driver CTA Section */}
+        <DriverCTA
+          user={user!}
+          driver={driverProfile}
+          loading={isLoadingDriver}
+        />
 
         {/* Passive server message */}
         <AnimatePresence>
           {serverMessage && (
             <motion.div
-              variants={fadeIn}
+              variants={itemVariants}
               initial="hidden"
-              animate="show"
+              animate="visible"
               exit={{ opacity: 0, y: 8 }}
-              className="mx-auto flex items-center gap-2 rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/80 px-4 py-2 text-xs text-[#5D4037] backdrop-blur"
+              className="mx-auto flex items-center gap-2 rounded-full border border-[#7a4416]/25 bg-[#fffaf0]/90 px-4 py-2 text-xs font-medium text-[#3a1f0a] shadow-sm backdrop-blur"
             >
               <span className="relative grid h-2.5 w-2.5 place-items-center">
-                <span className="rd-pulse-ring absolute inset-0 rounded-full bg-[#B08968]" />
-                <span className="h-2 w-2 rounded-full bg-[#8B5E3C]" />
+                <span className="absolute inset-0 rounded-full bg-[#b8722c] animate-ping" />
+                <span className="h-2 w-2 rounded-full bg-[#7a4416]" />
               </span>
               {serverMessage}
             </motion.div>
@@ -863,19 +869,19 @@ export default function Dashboard() {
 
 /* ---------- helpers ---------- */
 
-function Dot({ color }: { color: "saddle" | "brass" }) {
+function Dot({ color }: { color: "dark" | "brass" }) {
   if (color === "brass") {
     return (
       <span className="relative grid h-6 w-6 place-items-center">
-        <span className="absolute inset-0 rounded-md bg-[#B08968]/25" />
-        <span className="h-3 w-3 rounded-[3px] rd-brass-gradient shadow-[0_2px_6px_rgba(139,94,60,0.4)]" />
+        <span className="absolute inset-0 rounded-md bg-[#b8722c]/20" />
+        <span className="h-3 w-3 rounded-[3px] bg-gradient-to-br from-[#7a4416] to-[#b8722c] shadow-sm" />
       </span>
     );
   }
   return (
     <span className="relative grid h-6 w-6 place-items-center">
-      <span className="rd-pulse-ring absolute inset-0 rounded-full bg-[#5D4037]/40" />
-      <span className="h-3 w-3 rounded-full bg-[#3E2723] ring-2 ring-[#FBF7F1] shadow-[0_2px_6px_rgba(62,39,35,0.5)]" />
+      <span className="absolute inset-0 rounded-full bg-[#3a1f0a]/20 animate-ping" />
+      <span className="h-3 w-3 rounded-full bg-[#3a1f0a] ring-2 ring-[#fffaf0] shadow-sm" />
     </span>
   );
 }
@@ -898,13 +904,10 @@ function FieldRow({
   onFocus: () => void;
 }) {
   return (
-    <label className="rd-focus-ring flex items-center gap-3 rounded-2xl border border-transparent bg-[#FBF7F1]/60 px-3 py-2 transition">
+    <label className="flex items-center gap-3 rounded-2xl border border-[#7a4416]/20 bg-[#fffaf0]/95 px-4 py-3 transition-all duration-300 focus-within:border-transparent focus-within:ring-2 focus-within:ring-[#b8722c] focus-within:shadow-[0_0_0_4px_rgba(184,114,44,0.15)] shadow-sm">
       <span className="shrink-0">{icon}</span>
       <span className="flex flex-1 flex-col">
-        <span
-          className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#8B5E3C]"
-          style={{ fontFamily: BODY_FONT }}
-        >
+        <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#7a4416]">
           {label}
         </span>
         <Input
@@ -912,7 +915,7 @@ function FieldRow({
           onChange={(e) => onChange(e.target.value)}
           onFocus={onFocus}
           placeholder={placeholder}
-          className="h-10 border-0 bg-transparent px-0 text-base text-[#3E2723] placeholder:text-[#A1887F] focus-visible:ring-0 shadow-none"
+          className="h-10 border-0 bg-transparent px-0 text-base text-[#2e1808] placeholder:text-[#7a4416]/45 focus-visible:ring-0 shadow-none outline-none"
         />
       </span>
       <span className="shrink-0">{trailing}</span>

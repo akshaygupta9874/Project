@@ -42,7 +42,7 @@ import { connectDriverSocket, sendDriverLocation } from "./lib/socket";
 import { fetchDriverProfile } from "./lib/driverApi";
 import { useAuthContext } from "./context/authContext";
 
-// --- Types mirrored from the backend Mongoose models (Driver.ts / Ride.ts) ---
+// --- Types mirrored from backend Mongoose models (Driver.ts / Ride.ts) ---
 type VehicleType = "CAR" | "BIKE" | "AUTO";
 
 type RideStatus =
@@ -171,69 +171,67 @@ const VEHICLE_TYPE_ICON: Record<VehicleType, React.ComponentType<{ className?: s
   AUTO: Car,
 };
 
-// ---------- Golden-brown "instrument console" design tokens ----------
-// espresso (surfaces) / brass+gold (accent, metallic) / cream (text) / rust + olive (status)
 const RIDE_STATUS_CONFIG: Record<
   RideStatus,
   { label: string; badge: string; description: string; step: number; accent: string }
 > = {
   SEARCHING: {
     label: "Searching",
-    badge: "bg-[#3B2818]/70 text-[#F2CD7C] border border-[#7A5230]",
+    badge: "bg-[#3a1f0a]/80 text-[#ffd88a] border border-[#7a4416]/40",
     description: "Matching this ride with a driver.",
     step: 0,
-    accent: "#D9A521",
+    accent: "#b8722c",
   },
   DRIVER_ASSIGNED: {
     label: "Assigned to you",
-    badge: "bg-[#3B2818]/70 text-[#F2CD7C] border border-[#7A5230]",
+    badge: "bg-[#3a1f0a]/80 text-[#ffd88a] border border-[#7a4416]/40",
     description: "Head to the pickup point.",
     step: 1,
-    accent: "#E0B347",
+    accent: "#c58a3a",
   },
   DRIVER_ARRIVING: {
     label: "Arriving",
-    badge: "bg-[#3B2818]/70 text-[#F2CD7C] border border-[#7A5230]",
+    badge: "bg-[#3a1f0a]/80 text-[#ffd88a] border border-[#7a4416]/40",
     description: "You're on your way to the rider.",
     step: 2,
-    accent: "#E8843A",
+    accent: "#d8a24c",
   },
   STARTED: {
     label: "Trip in progress",
-    badge: "bg-[#3B2818]/80 text-[#FBEBC9] border border-[#A67C4E]",
+    badge: "bg-[#3a1f0a]/90 text-[#ffe9be] border border-[#c58a3a]/60",
     description: "Trip is underway to the destination.",
     step: 3,
-    accent: "#F2CD7C",
+    accent: "#ffd88a",
   },
   ARRIVED_AT_DESTINATION: {
     label: "Arrived at destination",
-    badge: "bg-[#3B2818]/80 text-[#F6ECDA] border border-[#A67C4E]",
+    badge: "bg-[#3a1f0a]/90 text-[#ffe9be] border border-[#c58a3a]/60",
     description: "Payment is required before completion.",
     step: 4,
-    accent: "#D9A521",
+    accent: "#b8722c",
   },
   COMPLETED: {
     label: "Completed",
-    badge: "bg-[#3B2818]/60 text-[#C7D69E] border border-[#7A5230]",
+    badge: "bg-emerald-950/80 text-emerald-200 border border-emerald-500/30",
     description: "This trip has been completed.",
     step: 5,
-    accent: "#8FA34E",
+    accent: "#34d399",
   },
   CANCELLED: {
     label: "Cancelled",
-    badge: "bg-[#3B2818]/60 text-[#E2A08E] border border-[#7A5230]",
+    badge: "bg-rose-950/80 text-rose-200 border border-rose-500/30",
     description: "This ride was cancelled.",
     step: 4,
-    accent: "#B54834",
+    accent: "#f87171",
   },
 };
 
 const PAYMENT_STATUS_CONFIG: Record<RidePaymentStatus, { label: string; badge: string; dot: string }> = {
-  PENDING: { label: "Payment pending", badge: "text-[#E0B347]", dot: "bg-[#D9A521]" },
-  PAID: { label: "Paid", badge: "text-[#F2CD7C]", dot: "bg-[#F2CD7C]" },
-  CAPTURED: { label: "Payment captured", badge: "text-[#F2CD7C]", dot: "bg-[#F2CD7C]" },
-  FAILED: { label: "Payment failed", badge: "text-[#E2A08E]", dot: "bg-[#B54834]" },
-  REFUNDED: { label: "Refunded", badge: "text-[#C9AE86]", dot: "bg-[#A67C4E]" },
+  PENDING: { label: "Payment pending", badge: "text-amber-400", dot: "bg-amber-400" },
+  PAID: { label: "Paid", badge: "text-emerald-400", dot: "bg-emerald-400" },
+  CAPTURED: { label: "Payment captured", badge: "text-emerald-400", dot: "bg-emerald-400" },
+  FAILED: { label: "Payment failed", badge: "text-rose-400", dot: "bg-rose-400" },
+  REFUNDED: { label: "Refunded", badge: "text-[#ffd88a]", dot: "bg-[#7a4416]" },
 };
 
 const RIDE_STEPS: { key: RideStatus; label: string }[] = [
@@ -249,20 +247,18 @@ function formatPaise(paise: number): string {
 }
 
 function formatDistanceMeters(meters: number): string {
-  if (meters >= 1000) return `${meters.toFixed(1)} km`;
+  if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`;
   return `${Math.round(meters)} m`;
 }
 
 function formatDurationSeconds(seconds: number): string {
-  const minutes = Math.round(seconds);
-  if (minutes < 60) return `${minutes} min`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${Math.max(1, minutes)} min`;
   const hours = Math.floor(minutes / 60);
   return `${hours}h ${minutes % 60}m`;
 }
 
-// ---------- Global console styling: fonts, variables, keyframes ----------
-// Fraunces = brass-plate display serif for headings. JetBrains Mono = odometer
-// readout face for every number on the dash (fares, distance, ETA, stats).
+// ---------- Global styling & fonts ----------
 function ConsoleStyleSheet() {
   return (
     <style>{`
@@ -275,11 +271,8 @@ function ConsoleStyleSheet() {
         font-variant-numeric: tabular-nums;
         letter-spacing: 0.02em;
       }
-      .brass-edge {
-        border-image: linear-gradient(120deg, #7A5230, #F2CD7C 45%, #7A5230) 1;
-      }
       .brass-text {
-        background: linear-gradient(120deg, #A67C4E 0%, #F2CD7C 35%, #FBEBC9 50%, #F2CD7C 65%, #A67C4E 100%);
+        background: linear-gradient(120deg, #7a4416 0%, #b8722c 35%, #ffd88a 50%, #b8722c 65%, #7a4416 100%);
         background-size: 220% auto;
         -webkit-background-clip: text;
         background-clip: text;
@@ -297,19 +290,15 @@ function ConsoleStyleSheet() {
         100% { transform: translateY(-140px) translateX(var(--drift, 12px)) scale(1); opacity: 0; }
       }
       @keyframes dialGlow {
-        0%, 100% { filter: drop-shadow(0 0 6px rgba(217,165,33,0.35)); }
-        50% { filter: drop-shadow(0 0 18px rgba(217,165,33,0.7)); }
-      }
-      @keyframes scanline {
-        0% { transform: translateY(-100%); }
-        100% { transform: translateY(100%); }
+        0%, 100% { filter: drop-shadow(0 0 6px rgba(184,114,44,0.35)); }
+        50% { filter: drop-shadow(0 0 18px rgba(184,114,44,0.7)); }
       }
       .digit-flicker { animation: digitIn 0.5s ease-out; }
       @keyframes digitIn {
         0% { opacity: 0.2; filter: blur(2px); }
         100% { opacity: 1; filter: blur(0); }
       }
-      ::selection { background: #D9A521; color: #1B130C; }
+      ::selection { background: #b8722c; color: #2e1808; }
     `}</style>
   );
 }
@@ -326,7 +315,6 @@ function AnimatedNumber({ value, format }: { value: number; format?: (n: number)
   return <motion.span className="console-readout digit-flicker">{display}</motion.span>;
 }
 
-/** Rising embers drifting up through the console — the ambient signature of the dash. */
 function EmberField({ count = 16 }: { count?: number }) {
   const embers = useMemo(
     () =>
@@ -351,8 +339,8 @@ function EmberField({ count = 16 }: { count?: number }) {
               left: `${e.left}%`,
               width: e.size,
               height: e.size,
-              backgroundColor: "#F2CD7C",
-              boxShadow: "0 0 6px 1px rgba(242,205,124,0.8)",
+              backgroundColor: "#ffd88a",
+              boxShadow: "0 0 6px 1px rgba(255,216,138,0.8)",
               animation: `emberRise ${e.duration}s ease-in ${e.delay}s infinite`,
               "--drift": `${e.drift}px`,
             } as React.CSSProperties
@@ -363,26 +351,143 @@ function EmberField({ count = 16 }: { count?: number }) {
   );
 }
 
-function DashboardAtmosphere() {
+// ---------- Golden-brown animated city map background matching the rest of the app ----------
+function CityMapBackground() {
+  const verticals = useMemo(
+    () => [60, 140, 230, 320, 410, 500, 600, 700, 820, 940, 1060, 1180, 1300],
+    [],
+  );
+  const horizontals = useMemo(() => [60, 140, 230, 330, 430, 540, 640, 740, 840], []);
+
+  const pins = useMemo(
+    () => [
+      { x: 220, y: 200, delay: 0.2 },
+      { x: 760, y: 140, delay: 1.1 },
+      { x: 1080, y: 520, delay: 0.6 },
+      { x: 340, y: 640, delay: 1.6 },
+      { x: 980, y: 300, delay: 2.0 },
+      { x: 540, y: 420, delay: 0.9 },
+    ],
+    [],
+  );
+
+  const routes = useMemo(
+    () => [
+      { d: "M -40 230 L 410 230 L 410 430 L 940 430 L 940 230 L 1380 230", dur: 14, delay: 0, color: "#3a1f0a" },
+      { d: "M 1380 540 L 820 540 L 820 740 L 320 740 L 320 540 L -40 540", dur: 18, delay: 2, color: "#4a2a12" },
+      { d: "M 140 -40 L 140 330 L 600 330 L 600 640 L 1060 640 L 1060 900", dur: 16, delay: 4, color: "#2e1808" },
+    ],
+    [],
+  );
+
   return (
-    <>
-      <motion.div
-        className="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-[#7A5230]/30 blur-3xl"
-        animate={{ y: [0, 20, 0], x: [0, 10, 0], opacity: [0.5, 0.8, 0.5] }}
-        transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
+    <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_15%,#fff7e6_0%,#f5e6c8_35%,#e6c893_65%,#c99a5a_100%)]" />
+      <div
+        className="absolute inset-0 opacity-[0.18] mix-blend-multiply"
+        style={{
+          backgroundImage:
+            "radial-gradient(rgba(80,45,15,0.35) 1px, transparent 1px), radial-gradient(rgba(80,45,15,0.2) 1px, transparent 1px)",
+          backgroundSize: "3px 3px, 7px 7px",
+          backgroundPosition: "0 0, 1px 2px",
+        }}
       />
       <motion.div
-        className="pointer-events-none absolute top-60 -right-40 h-[28rem] w-[28rem] rounded-full bg-[#D9A521]/15 blur-3xl"
-        animate={{ y: [0, -25, 0], x: [0, -15, 0], opacity: [0.4, 0.7, 0.4] }}
-        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute -left-40 top-0 h-[560px] w-[560px] rounded-full bg-[#f4b860]/40 blur-[130px]"
+        animate={{ x: [0, 60, -20, 0], y: [0, 40, -30, 0], scale: [1, 1.15, 0.9, 1] }}
+        transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="pointer-events-none absolute bottom-0 left-1/2 h-[30rem] w-[30rem] -translate-x-1/2 rounded-full bg-[#E8843A]/10 blur-3xl"
-        animate={{ scale: [1, 1.08, 1], opacity: [0.35, 0.6, 0.35] }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute -right-40 bottom-0 h-[560px] w-[560px] rounded-full bg-[#b8722c]/40 blur-[130px]"
+        animate={{ x: [0, -60, 30, 0], y: [0, -40, 30, 0], scale: [1, 0.9, 1.2, 1] }}
+        transition={{ duration: 26, repeat: Infinity, ease: "easeInOut" }}
       />
-      <EmberField />
-    </>
+      <motion.svg
+        viewBox="0 0 1340 880"
+        preserveAspectRatio="xMidYMid slice"
+        className="absolute inset-0 h-full w-full"
+        animate={{ x: [0, -24, 0, 18, 0], y: [0, 10, 0, -8, 0] }}
+        transition={{ duration: 40, repeat: Infinity, ease: "easeInOut" }}
+      >
+        <defs>
+          <linearGradient id="brassRoute" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#7a4416" />
+            <stop offset="50%" stopColor="#c58a3a" />
+            <stop offset="100%" stopColor="#7a4416" />
+          </linearGradient>
+          <radialGradient id="pinGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#ffd88a" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="#ffd88a" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+
+        {verticals.slice(0, -1).map((vx, i) =>
+          horizontals.slice(0, -1).map((hy, j) => (
+            <rect
+              key={`b-${i}-${j}`}
+              x={vx + 6}
+              y={hy + 6}
+              width={verticals[i + 1] - vx - 12}
+              height={horizontals[j + 1] - hy - 12}
+              fill={(i + j) % 4 === 0 ? "#e8c98b" : (i + j) % 4 === 1 ? "#dbb271" : (i + j) % 4 === 2 ? "#efd8a3" : "#cf9d55"}
+              rx={3}
+              opacity={0.55}
+            />
+          )),
+        )}
+
+        <path
+          d="M -50 720 C 200 660, 420 780, 700 700 S 1200 560, 1400 620 L 1400 880 L -50 880 Z"
+          fill="#a0611f"
+          opacity="0.35"
+        />
+
+        {verticals.map((vx) => (
+          <line key={`v-${vx}`} x1={vx} y1={-20} x2={vx} y2={900} stroke="#fff4dc" strokeWidth={10} />
+        ))}
+        {horizontals.map((hy) => (
+          <line key={`h-${hy}`} x1={-20} y1={hy} x2={1360} y2={hy} stroke="#fff4dc" strokeWidth={10} />
+        ))}
+
+        {routes.map((r, idx) => (
+          <g key={`route-${idx}`}>
+            <path d={r.d} stroke={r.color} strokeOpacity={0.22} strokeWidth={5} fill="none" strokeLinecap="round" />
+            <motion.path
+              d={r.d}
+              stroke="url(#brassRoute)"
+              strokeWidth={5}
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray="80 1600"
+              initial={{ strokeDashoffset: 0 }}
+              animate={{ strokeDashoffset: [-1680, 0] }}
+              transition={{ duration: r.dur, delay: r.delay, repeat: Infinity, ease: "linear" }}
+            />
+            <circle r={8} fill="#3a1f0a" stroke="#ffd88a" strokeWidth={3}>
+              <animateMotion dur={`${r.dur}s`} repeatCount="indefinite" begin={`${r.delay}s`} rotate="auto" path={r.d} />
+            </circle>
+          </g>
+        ))}
+
+        {pins.map((p, i) => (
+          <g key={`pin-${i}`} transform={`translate(${p.x} ${p.y})`}>
+            <circle r={28} fill="url(#pinGlow)" />
+            <motion.circle
+              r={6}
+              fill="#c58a3a"
+              opacity={0.6}
+              animate={{ r: [6, 28, 6], opacity: [0.6, 0, 0.6] }}
+              transition={{ duration: 2.4, delay: p.delay, repeat: Infinity, ease: "easeOut" }}
+            />
+            <circle r={5} fill="#3a1f0a" />
+            <circle r={2} fill="#fff4dc" />
+          </g>
+        ))}
+      </motion.svg>
+      <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-[#f5e6c8]/95 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#c99a5a]/60 to-transparent" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(60,30,8,0.35)_100%)]" />
+    </div>
   );
 }
 
@@ -402,28 +507,20 @@ function StatCard({
       initial={{ opacity: 0, y: 18, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ delay, type: "spring", stiffness: 220, damping: 22 }}
-      whileHover={{ y: -4, scale: 1.02, borderColor: "#F2CD7C" }}
-      className="group relative overflow-hidden rounded-2xl border border-[#7A5230]/60 bg-[#241a10]/70 p-4 sm:p-5 backdrop-blur-xl"
+      whileHover={{ y: -4, scale: 1.02, borderColor: "#b8722c" }}
+      className="group relative overflow-hidden rounded-2xl border border-[#7a4416]/30 bg-gradient-to-b from-[#fffaf0]/95 via-[#fff4dc]/90 to-[#f7e2b8]/90 p-4 sm:p-5 shadow-lg backdrop-blur-xl text-[#2e1808]"
     >
-      <motion.div
-        className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100"
-        style={{
-          background:
-            "radial-gradient(600px circle at var(--x,50%) var(--y,50%), rgba(242,205,124,0.15), transparent 40%)",
-        }}
-        transition={{ duration: 0.4 }}
-      />
       <div className="flex items-center justify-between">
-        <p className="text-xs uppercase tracking-widest text-[#C9AE86] font-medium">{label}</p>
-        <Icon className="h-4 w-4 text-[#D9A521]/80" />
+        <p className="text-xs uppercase tracking-widest text-[#7a4416] font-semibold">{label}</p>
+        <Icon className="h-4 w-4 text-[#b8722c]" />
       </div>
-      <h2 className="mt-2 text-2xl sm:text-3xl font-bold truncate text-[#F6ECDA]">{children}</h2>
-      <div className="mt-3 h-[3px] w-full overflow-hidden rounded-full bg-[#3B2818]">
+      <h2 className="mt-2 text-2xl sm:text-3xl font-bold truncate text-[#2e1808]" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>{children}</h2>
+      <div className="mt-3 h-[3px] w-full overflow-hidden rounded-full bg-[#7a4416]/20">
         <motion.div
           initial={{ x: "-100%" }}
           animate={{ x: "100%" }}
           transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay }}
-          className="h-full w-1/3 bg-gradient-to-r from-transparent via-[#F2CD7C]/80 to-transparent"
+          className="h-full w-1/3 bg-gradient-to-r from-transparent via-[#b8722c] to-transparent"
         />
       </div>
     </motion.div>
@@ -432,7 +529,7 @@ function StatCard({
 
 function StatusPulse({ color, label }: { color: string; label: string }) {
   return (
-    <span className="relative inline-flex items-center gap-2 rounded-full border border-[#7A5230] bg-[#241a10]/80 px-3 py-1 text-xs font-semibold text-[#F6ECDA] backdrop-blur console-readout">
+    <span className="relative inline-flex items-center gap-2 rounded-full border border-[#7a4416]/30 bg-[#fffaf0]/90 px-3.5 py-1 text-xs font-semibold text-[#3a1f0a] shadow-sm backdrop-blur console-readout">
       <span className="relative flex h-2.5 w-2.5">
         <motion.span
           className="absolute inline-flex h-full w-full rounded-full"
@@ -453,9 +550,9 @@ function RideStepper({ status }: { status: RideStatus }) {
   return (
     <div className="w-full">
       <div className="relative flex items-center justify-between">
-        <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-[#3B2818]" />
+        <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-[#7a4416]/20" />
         <motion.div
-          className="absolute left-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-gradient-to-r from-[#7A5230] via-[#D9A521] to-[#F2CD7C]"
+          className="absolute left-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-gradient-to-r from-[#7a4416] via-[#b8722c] to-[#ffd88a]"
           initial={{ width: 0 }}
           animate={{ width: `${progress * 100}%` }}
           transition={{ type: "spring", stiffness: 90, damping: 20 }}
@@ -468,21 +565,21 @@ function RideStepper({ status }: { status: RideStatus }) {
               <motion.div
                 animate={
                   current
-                    ? { scale: [1, 1.15, 1], boxShadow: ["0 0 0 0 #D9A52166", "0 0 0 10px #D9A52100"] }
+                    ? { scale: [1, 1.15, 1], boxShadow: ["0 0 0 0 rgba(184,114,44,0.4)", "0 0 0 10px rgba(184,114,44,0)"] }
                     : { scale: 1 }
                 }
                 transition={{ duration: 1.4, repeat: current ? Infinity : 0 }}
                 className={`h-6 w-6 rounded-full border-2 flex items-center justify-center ${
                   done
-                    ? "bg-[#D9A521] border-[#F2CD7C] text-[#1B130C]"
-                    : "bg-[#241a10] border-[#5A4128] text-[#C9AE86]"
+                    ? "bg-gradient-to-br from-[#3a1f0a] to-[#7a4416] border-[#ffd88a] text-[#ffd88a]"
+                    : "bg-[#fffaf0] border-[#7a4416]/30 text-[#7a4416]"
                 }`}
               >
-                {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <span className="text-[10px] font-bold console-readout">{i + 1}</span>}
+                {done ? <CheckCircle2 className="h-3.5 w-3.5 text-[#ffd88a]" /> : <span className="text-[10px] font-bold console-readout">{i + 1}</span>}
               </motion.div>
               <span
-                className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wider ${
-                  current ? "text-[#F2CD7C]" : "text-[#8D7350]"
+                className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider ${
+                  current ? "text-[#b8722c]" : "text-[#7a4416]/70"
                 }`}
               >
                 {s.label}
@@ -495,7 +592,6 @@ function RideStepper({ status }: { status: RideStatus }) {
   );
 }
 
-/** Magnetic + rippling premium button — brass gradient, sheen sweep, click ripple. */
 function ShineButton({
   children,
   onClick,
@@ -510,10 +606,10 @@ function ShineButton({
   variant?: "primary" | "success" | "danger" | "muted";
 }) {
   const styles: Record<string, string> = {
-    primary: "bg-gradient-to-br from-[#D9A521] via-[#B8860B] to-[#7A5230] text-[#1B130C]",
-    success: "bg-gradient-to-br from-[#A9C171] via-[#8FA34E] to-[#5F7538] text-[#12190A]",
-    danger: "bg-gradient-to-br from-[#D0654E] via-[#B54834] to-[#7A2E20] text-[#FBEBC9]",
-    muted: "bg-gradient-to-br from-[#7A5230] to-[#5A3D24] text-[#F0E2CC]",
+    primary: "bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] text-[#ffe9be] border border-[#c58a3a]/40 shadow-[0_18px_40px_-12px_rgba(58,31,10,0.7)]",
+    success: "bg-gradient-to-br from-emerald-950 via-emerald-900 to-stone-900 text-emerald-100 border border-emerald-500/30 shadow-[0_18px_40px_-12px_rgba(6,78,59,0.5)]",
+    danger: "bg-gradient-to-br from-rose-950 via-rose-900 to-stone-900 text-rose-100 border border-rose-500/30 shadow-[0_18px_40px_-12px_rgba(159,18,57,0.5)]",
+    muted: "bg-[#fffaf0] text-[#7a4416] border border-[#7a4416]/25 shadow-sm",
   };
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -549,16 +645,11 @@ function ShineButton({
       whileTap={{ scale: disabled ? 1 : 0.96 }}
       onClick={handleClick}
       disabled={disabled}
-      className={`relative overflow-hidden rounded-full px-6 py-3 text-sm sm:text-base font-bold shadow-[0_6px_20px_rgba(0,0,0,0.35)] border border-[#F2CD7C]/40 transition-shadow disabled:opacity-60 disabled:cursor-not-allowed ${styles[variant]} ${className}`}
+      className={`relative overflow-hidden rounded-xl px-6 py-3 text-sm sm:text-base font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed ${styles[variant]} ${className}`}
     >
       <span className="relative z-10 inline-flex items-center gap-2">{children}</span>
       {!disabled && (
-        <motion.span
-          aria-hidden
-          className="absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-[-20deg]"
-          animate={{ x: ["-50%", "450%"] }}
-          transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
-        />
+        <span className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-[#ffd88a]/60 to-transparent transition-transform duration-1000 group-hover:translate-x-[460%]" />
       )}
       {ripples.map((r) => (
         <motion.span
@@ -574,7 +665,6 @@ function ShineButton({
   );
 }
 
-/** Signature element: a brass instrument-cluster dial standing in for the online/offline switch. */
 function IgnitionDial({
   status,
   onToggle,
@@ -584,9 +674,9 @@ function IgnitionDial({
 }) {
   const angleMap: Record<DriverStatus, number> = { OFFLINE: -95, AVAILABLE: 0, BUSY: 60 };
   const glowMap: Record<DriverStatus, string> = {
-    OFFLINE: "#5A4128",
-    AVAILABLE: "#8FA34E",
-    BUSY: "#E8843A",
+    OFFLINE: "#7a4416",
+    AVAILABLE: "#34d399",
+    BUSY: "#b8722c",
   };
   const angle = angleMap[status];
   const glow = glowMap[status];
@@ -600,22 +690,20 @@ function IgnitionDial({
       className="relative h-28 w-28 sm:h-32 sm:w-32 shrink-0 rounded-full disabled:cursor-not-allowed focus:outline-none"
       style={{ animation: "dialGlow 3s ease-in-out infinite" }}
     >
-      {/* brass bezel */}
       <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full">
         <defs>
           <linearGradient id="bezelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#F2CD7C" />
-            <stop offset="45%" stopColor="#B8860B" />
-            <stop offset="100%" stopColor="#5A3D24" />
+            <stop offset="0%" stopColor="#ffd88a" />
+            <stop offset="45%" stopColor="#b8722c" />
+            <stop offset="100%" stopColor="#3a1f0a" />
           </linearGradient>
           <radialGradient id="faceGrad" cx="50%" cy="42%" r="65%">
-            <stop offset="0%" stopColor="#2B1D12" />
-            <stop offset="100%" stopColor="#160F09" />
+            <stop offset="0%" stopColor="#fffaf0" />
+            <stop offset="100%" stopColor="#f5e6c8" />
           </radialGradient>
         </defs>
         <circle cx="60" cy="60" r="58" fill="url(#bezelGrad)" />
-        <circle cx="60" cy="60" r="49" fill="url(#faceGrad)" stroke="#7A5230" strokeWidth="1.5" />
-        {/* tick marks */}
+        <circle cx="60" cy="60" r="49" fill="url(#faceGrad)" stroke="#7a4416" strokeWidth="1.5" />
         {Array.from({ length: 12 }).map((_, i) => {
           const a = (i / 12) * 360;
           const rad = (a * Math.PI) / 180;
@@ -623,7 +711,7 @@ function IgnitionDial({
           const y1 = 60 - 41 * Math.cos(rad);
           const x2 = 60 + 46 * Math.sin(rad);
           const y2 = 60 - 46 * Math.cos(rad);
-          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#A67C4E" strokeWidth="1.5" />;
+          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#7a4416" strokeWidth="1.5" opacity={0.6} />;
         })}
         <motion.g
           animate={{ rotate: angle }}
@@ -631,7 +719,7 @@ function IgnitionDial({
           style={{ originX: "60px", originY: "60px" }}
         >
           <line x1="60" y1="60" x2="60" y2="24" stroke={glow} strokeWidth="3.5" strokeLinecap="round" />
-          <circle cx="60" cy="60" r="6" fill="#F2CD7C" stroke="#5A3D24" strokeWidth="1.5" />
+          <circle cx="60" cy="60" r="6" fill="#ffd88a" stroke="#3a1f0a" strokeWidth="1.5" />
         </motion.g>
       </svg>
       <div className="absolute inset-0 flex items-center justify-center pt-9">
@@ -649,7 +737,6 @@ function IgnitionDial({
   );
 }
 
-/** Quick-action tile with a subtle 3D tilt toward the cursor. */
 function TiltTile({
   emoji,
   label,
@@ -684,18 +771,18 @@ function TiltTile({
       style={{ rotateX: srx, rotateY: sry, transformPerspective: 600 }}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.97 }}
-      className="relative overflow-hidden h-24 sm:h-28 rounded-3xl border border-[#7A5230]/60 bg-[#241a10]/80 text-[#F6ECDA] shadow-[0_8px_24px_rgba(0,0,0,0.35)] w-full flex items-center justify-between px-6 group"
+      className="relative overflow-hidden h-24 sm:h-28 rounded-3xl border border-[#7a4416]/25 bg-gradient-to-b from-[#fffaf0]/95 via-[#fff4dc]/90 to-[#f7e2b8]/90 text-[#2e1808] shadow-lg w-full flex items-center justify-between px-6 group backdrop-blur-xl"
     >
-      <span className="pointer-events-none absolute top-0 left-0 h-4 w-4 border-t-2 border-l-2 border-[#F2CD7C]/70 rounded-tl-3xl" />
-      <span className="pointer-events-none absolute bottom-0 right-0 h-4 w-4 border-b-2 border-r-2 border-[#F2CD7C]/70 rounded-br-3xl" />
-      <span className="flex items-center gap-3 text-base sm:text-lg font-semibold">
+      <span className="pointer-events-none absolute top-0 left-0 h-4 w-4 border-t-2 border-l-2 border-[#c58a3a]/60 rounded-tl-3xl" />
+      <span className="pointer-events-none absolute bottom-0 right-0 h-4 w-4 border-b-2 border-r-2 border-[#c58a3a]/60 rounded-br-3xl" />
+      <span className="flex items-center gap-3 text-base sm:text-lg font-bold">
         <span className="text-2xl">{emoji}</span>
         {label}
       </span>
-      <ChevronRight className="h-5 w-5 text-[#D9A521] group-hover:translate-x-1 transition-transform" />
+      <ChevronRight className="h-5 w-5 text-[#b8722c] group-hover:translate-x-1 transition-transform" />
       <motion.span
         aria-hidden
-        className="absolute inset-y-0 -left-full w-1/2 bg-gradient-to-r from-transparent via-[#F2CD7C]/25 to-transparent skew-x-[-20deg]"
+        className="absolute inset-y-0 -left-full w-1/2 bg-gradient-to-r from-transparent via-[#ffd88a]/60 to-transparent skew-x-[-20deg]"
         animate={{ x: ["0%", "300%"] }}
         transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut", delay: index * 0.4 }}
       />
@@ -1008,41 +1095,43 @@ export default function DriverDashboard() {
 
   if (!profile || profile.verificationStatus != "APPROVED") {
     return (
-      <div className="console-root min-h-screen w-full bg-[#160F09] p-6 flex items-center justify-center">
+      <div className="console-root relative min-h-screen w-full bg-[#f5e6c8] p-6 flex items-center justify-center font-sans text-[#2e1808] overflow-hidden">
+        <CityMapBackground />
         <ConsoleStyleSheet />
         <motion.div
           initial={{ opacity: 0, y: 24, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ type: "spring", stiffness: 200, damping: 22 }}
-          className="w-full max-w-4xl rounded-3xl bg-[#241a10] border border-[#7A5230] p-8 shadow-2xl"
+          className="relative z-10 w-full max-w-4xl rounded-[2.5rem] border border-[#fff4dc]/70 bg-gradient-to-b from-[#fffaf0]/95 via-[#fff4dc]/90 to-[#f7e2b8]/90 p-8 shadow-2xl backdrop-blur-2xl"
         >
+          {/* Brass top rail */}
+          <div className="pointer-events-none absolute inset-x-8 top-0 h-[3px] rounded-full bg-gradient-to-r from-transparent via-[#c58a3a] to-transparent" />
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-[#D9A521] to-[#7A5230] text-[#1B130C] flex items-center justify-center">
-              <Shield className="h-5 w-5" />
+            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#3a1f0a] to-[#7a4416] text-[#ffd88a] flex items-center justify-center shadow-md">
+              <Shield className="h-6 w-6" />
             </div>
-            <h1 className="console-display text-3xl font-bold text-[#F6ECDA]">Driver dashboard</h1>
+            <h1 className="console-display text-3xl font-bold text-[#2e1808]" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>Driver dashboard</h1>
           </div>
           {error ? (
-            <div className="mt-4 rounded-2xl border border-[#7A5230] bg-[#2B1D12] p-4 text-sm text-[#E2A08E]">
+            <div className="mt-4 rounded-2xl border border-rose-500/30 bg-rose-950/20 p-4 text-sm text-rose-900">
               {error}
             </div>
           ) : (
-            <p className="mt-4 text-[#C9AE86]">
+            <p className="mt-4 text-[#6b3a12] font-medium">
               Driver profile not found or awaiting verification. Please complete the driver registration flow.
             </p>
           )}
           <div className="mt-6 flex flex-wrap gap-3">
             <Button
-              variant="secondary"
               onClick={() => navigate("/driver-registration")}
-              className="bg-[#3B2818] text-[#F2CD7C] hover:bg-[#4a331f] border border-[#7A5230]"
+              className="rounded-xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] text-[#ffe9be] hover:opacity-90 border border-[#c58a3a]/40 shadow-md"
             >
               Register as driver
             </Button>
             <Button
               variant="outline"
               onClick={() => navigate("/dashboard")}
-              className="border-[#7A5230] text-[#C9AE86] hover:bg-[#2B1D12]"
+              className="rounded-xl border-[#7a4416]/30 bg-[#fffaf0]/80 text-[#3a1f0a] hover:bg-[#fff4dc]"
             >
               Go to rider dashboard
             </Button>
@@ -1056,7 +1145,7 @@ export default function DriverDashboard() {
     ? { lat: driverLocation.latitude, lng: driverLocation.longitude }
     : currentRide
       ? { lat: currentRide.pickup.coordinates.latitude, lng: currentRide.pickup.coordinates.longitude }
-      : { lat: 12.9716, lng: 77.5946 };
+      : { lat: 22.5726, lng: 88.3639 }; // default Kolkata center
 
   const mapMarkers = [
     ...(driverLocation
@@ -1097,7 +1186,7 @@ export default function DriverDashboard() {
     BUSY: "You're on an active trip. You'll go back to available automatically once it ends.",
   };
 
-  const statusDot = driverStatus === "AVAILABLE" ? "#8FA34E" : driverStatus === "BUSY" ? "#E8843A" : "#8D7350";
+  const statusDot = driverStatus === "AVAILABLE" ? "#34d399" : driverStatus === "BUSY" ? "#b8722c" : "#7a4416";
   const VehicleIcon = VEHICLE_TYPE_ICON[profile.vehicle.type];
 
   const containerVariants = {
@@ -1110,9 +1199,9 @@ export default function DriverDashboard() {
   };
 
   return (
-    <div className="console-root relative min-h-screen w-full overflow-x-hidden bg-[#160F09] text-[#F6ECDA]">
+    <div className="console-root relative min-h-screen w-full overflow-x-hidden bg-[#f5e6c8] text-[#2e1808]">
       <ConsoleStyleSheet />
-      <DashboardAtmosphere />
+      <CityMapBackground />
 
       {/* Completion flash */}
       <AnimatePresence>
@@ -1121,9 +1210,9 @@ export default function DriverDashboard() {
             initial={{ opacity: 0, y: -30, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] rounded-full bg-gradient-to-r from-[#8FA34E] to-[#5F7538] text-[#12190A] px-6 py-3 shadow-2xl flex items-center gap-3 border border-[#F2CD7C]/50"
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] rounded-full bg-gradient-to-r from-emerald-600 to-emerald-800 text-white px-6 py-3 shadow-2xl flex items-center gap-3 border border-emerald-400/50"
           >
-            <Sparkles className="h-5 w-5" />
+            <Sparkles className="h-5 w-5 text-emerald-200" />
             <span className="font-bold console-readout">Trip completed! +{formatPaise(showEarningsFlash)}</span>
           </motion.div>
         )}
@@ -1133,29 +1222,29 @@ export default function DriverDashboard() {
         variants={containerVariants}
         initial="hidden"
         animate="show"
-        className="relative w-full px-4 sm:px-8 lg:px-12 py-6 space-y-8"
+        className="relative z-10 w-full px-4 sm:px-8 lg:px-12 py-6 space-y-8 max-w-7xl mx-auto"
       >
         {/* Header */}
         <motion.header variants={itemRise} className="sticky top-4 z-50 w-full">
-          <div className="w-full rounded-3xl border border-[#7A5230]/60 bg-[#1D140D]/85 backdrop-blur-xl shadow-lg px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+          <div className="w-full rounded-[2rem] border border-[#fff4dc]/70 bg-gradient-to-b from-[#fffaf0]/90 via-[#fff4dc]/85 to-[#f7e2b8]/85 backdrop-blur-xl shadow-xl px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <motion.div
                 whileHover={{ rotate: 8, scale: 1.05 }}
-                className="relative h-11 w-11 rounded-2xl bg-gradient-to-br from-[#D9A521] via-[#B8860B] to-[#5A3D24] flex items-center justify-center shadow-md"
+                className="relative h-12 w-12 rounded-2xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] flex items-center justify-center shadow-md text-[#ffd88a]"
               >
-                <VehicleIcon className="h-5 w-5 text-[#1B130C]" />
+                <VehicleIcon className="h-6 w-6" />
                 <motion.span
-                  className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#1D140D]"
+                  className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[#fffaf0]"
                   style={{ backgroundColor: statusDot }}
                   animate={{ scale: [1, 1.25, 1] }}
                   transition={{ duration: 1.6, repeat: Infinity }}
                 />
               </motion.div>
               <div>
-                <h2 className="console-display text-lg sm:text-2xl font-black text-[#F6ECDA] leading-tight">
+                <h2 className="console-display text-lg sm:text-2xl font-black text-[#2e1808] leading-tight" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>
                   Driver Console
                 </h2>
-                <p className="text-xs sm:text-sm text-[#C9AE86]">Drive safe • Earn smart</p>
+                <p className="text-xs sm:text-sm font-semibold text-[#6b3a12]">Drive safe • Earn smart</p>
               </div>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
@@ -1163,14 +1252,14 @@ export default function DriverDashboard() {
               <Button
                 variant="outline"
                 onClick={() => navigate("/dashboard")}
-                className="hidden sm:inline-flex border-[#7A5230] text-[#C9AE86] hover:bg-[#2B1D12]"
+                className="hidden sm:inline-flex rounded-xl border-[#7a4416]/30 bg-[#fffaf0] text-[#3a1f0a] hover:bg-[#fff4dc]"
               >
                 Rider Mode
               </Button>
               <Button
                 variant="destructive"
                 onClick={() => void logout().then(() => navigate("/login", { replace: true }))}
-                className="bg-gradient-to-br from-[#B54834] to-[#7A2E20] hover:from-[#C1543F] hover:to-[#87352A] text-[#FBEBC9]"
+                className="rounded-xl bg-gradient-to-br from-rose-950 via-rose-900 to-stone-900 text-rose-100 hover:opacity-90 border border-rose-500/30 shadow-md"
               >
                 <LogOut className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Logout</span>
@@ -1182,40 +1271,19 @@ export default function DriverDashboard() {
         {/* Hero */}
         <motion.section
           variants={itemRise}
-          className="relative w-full overflow-hidden rounded-[32px] p-6 sm:p-10 text-[#F6ECDA] shadow-2xl border border-[#7A5230]/50"
-          style={{
-            background: "linear-gradient(135deg, #1D140D 0%, #2B1D12 35%, #3B2818 70%, #5A3D24 100%)",
-          }}
+          className="relative w-full overflow-hidden rounded-[2.5rem] p-6 sm:p-10 text-[#2e1808] shadow-2xl border border-[#fff4dc]/70 bg-gradient-to-b from-[#fffaf0]/90 via-[#fff4dc]/85 to-[#f7e2b8]/85"
         >
-          {/* animated shimmer */}
+          {/* Brass top rail */}
+          <div className="pointer-events-none absolute inset-x-8 top-0 h-[3px] rounded-full bg-gradient-to-r from-transparent via-[#c58a3a] to-transparent" />
+
+          {/* moving scanline sweep */}
           <motion.div
             aria-hidden
-            className="absolute inset-0 opacity-40"
-            style={{
-              background:
-                "radial-gradient(600px circle at 15% 0%, rgba(242,205,124,0.18), transparent 45%), radial-gradient(500px circle at 90% 100%, rgba(232,132,58,0.15), transparent 40%)",
-            }}
-            animate={{ opacity: [0.35, 0.55, 0.35] }}
-            transition={{ duration: 6, repeat: Infinity }}
-          />
-          {/* moving scanline sweep, instrument-panel style */}
-          <motion.div
-            aria-hidden
-            className="absolute inset-x-0 h-24 opacity-[0.06] pointer-events-none"
-            style={{ background: "linear-gradient(180deg, transparent, #F2CD7C, transparent)" }}
+            className="absolute inset-x-0 h-24 opacity-[0.04] pointer-events-none"
+            style={{ background: "linear-gradient(180deg, transparent, #b8722c, transparent)" }}
             animate={{ y: ["-10%", "120%"] }}
             transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
           />
-          {/* drifting car */}
-          <motion.div
-            aria-hidden
-            className="absolute -bottom-4 -left-8 text-[#F2CD7C]/10"
-            initial={{ x: 0 }}
-            animate={{ x: ["0%", "6%", "0%"] }}
-            transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <Car className="h-40 w-40" />
-          </motion.div>
 
           <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-3">
@@ -1223,7 +1291,7 @@ export default function DriverDashboard() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.1 }}
-                className="text-xs sm:text-sm uppercase tracking-[0.3em] text-[#D9A521] font-semibold inline-flex items-center gap-2"
+                className="text-xs sm:text-sm uppercase tracking-[0.3em] text-[#b8722c] font-bold inline-flex items-center gap-2"
               >
                 <Radio className="h-3.5 w-3.5" /> Driver Portal
               </motion.p>
@@ -1231,7 +1299,8 @@ export default function DriverDashboard() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15 }}
-                className="console-display text-3xl sm:text-5xl font-black tracking-tight brass-text"
+                className="console-display text-3xl sm:text-5xl font-black tracking-tight text-[#2e1808]"
+                style={{ fontFamily: "'Fraunces', Georgia, serif" }}
               >
                 Welcome back{" "}
                 <motion.span
@@ -1242,19 +1311,19 @@ export default function DriverDashboard() {
                   👋
                 </motion.span>
               </motion.h1>
-              <p className="max-w-xl text-[#D8C4A2] text-sm sm:text-base">
+              <p className="max-w-xl text-[#6b3a12] font-medium text-sm sm:text-base">
                 Ready to earn today? Go online and we'll instantly connect you with nearby riders.
               </p>
               <div className="flex flex-wrap items-center gap-2 pt-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#241a10]/70 border border-[#7A5230] px-3 py-1 text-xs">
-                  <VehicleIcon className="h-3.5 w-3.5" /> {VEHICLE_TYPE_LABEL[profile.vehicle.type]} •{" "}
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#fffaf0] border border-[#7a4416]/20 px-3.5 py-1 text-xs font-semibold text-[#3a1f0a] shadow-sm">
+                  <VehicleIcon className="h-3.5 w-3.5 text-[#b8722c]" /> {VEHICLE_TYPE_LABEL[profile.vehicle.type]} •{" "}
                   {profile.vehicle.brand} {profile.vehicle.model}
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#241a10]/70 border border-[#7A5230] px-3 py-1 text-xs">
-                  <Shield className="h-3.5 w-3.5 text-[#8FA34E]" /> {profile.verificationStatus}
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#fffaf0] border border-[#7a4416]/20 px-3.5 py-1 text-xs font-semibold text-[#3a1f0a] shadow-sm">
+                  <Shield className="h-3.5 w-3.5 text-emerald-600" /> {profile.verificationStatus}
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#241a10]/70 border border-[#7A5230] px-3 py-1 text-xs">
-                  <TrendingUp className="h-3.5 w-3.5" /> {acceptanceRate}% completion
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#fffaf0] border border-[#7a4416]/20 px-3.5 py-1 text-xs font-semibold text-[#3a1f0a] shadow-sm">
+                  <TrendingUp className="h-3.5 w-3.5 text-[#b8722c]" /> {acceptanceRate}% completion
                 </span>
               </div>
             </div>
@@ -1279,24 +1348,20 @@ export default function DriverDashboard() {
           </div>
         </motion.section>
 
-        {/* Go Online — brass ignition dial */}
+        {/* Go Online — brass ignition dial card */}
         <motion.section
           variants={itemRise}
-          className="w-full rounded-3xl bg-[#1D140D] border border-[#7A5230]/60 shadow-xl p-6 relative overflow-hidden"
+          className="w-full rounded-[2.5rem] border border-[#fff4dc]/70 bg-gradient-to-b from-[#fffaf0]/90 via-[#fff4dc]/85 to-[#f7e2b8]/85 shadow-xl p-6 sm:p-8 relative overflow-hidden backdrop-blur-2xl"
         >
-          <motion.div
-            aria-hidden
-            className="absolute -top-16 -right-16 h-56 w-56 rounded-full blur-3xl"
-            style={{ backgroundColor: statusDot, opacity: 0.15 }}
-            animate={{ scale: [1, 1.1, 1] }}
-            transition={{ duration: 4, repeat: Infinity }}
-          />
-          <div className="relative flex flex-col sm:flex-row items-center sm:items-center justify-between gap-4">
+          {/* Brass top rail */}
+          <div className="pointer-events-none absolute inset-x-8 top-0 h-[3px] rounded-full bg-gradient-to-r from-transparent via-[#c58a3a] to-transparent" />
+
+          <div className="relative flex flex-col sm:flex-row items-center sm:items-center justify-between gap-6">
             <div className="flex items-center gap-5">
               <IgnitionDial status={driverStatus} onToggle={handleToggleAvailability} />
               <div>
-                <h2 className="console-display text-xl font-bold text-[#F6ECDA] inline-flex items-center gap-2">
-                  <Gauge className="h-4 w-4 text-[#D9A521]" /> Driver Status
+                <h2 className="console-display text-xl font-bold text-[#2e1808] inline-flex items-center gap-2" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>
+                  <Gauge className="h-4 w-4 text-[#b8722c]" /> Driver Status
                 </h2>
                 <AnimatePresence mode="wait">
                   <motion.p
@@ -1304,12 +1369,12 @@ export default function DriverDashboard() {
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
-                    className="text-sm text-[#C9AE86] mt-0.5 max-w-xs"
+                    className="text-sm text-[#6b3a12] font-medium mt-0.5 max-w-xs"
                   >
                     {driverStatusCopy[driverStatus]}
                   </motion.p>
                 </AnimatePresence>
-                <p className="mt-1 text-[10px] uppercase tracking-widest text-[#8D7350]">Tap the dial to toggle</p>
+                <p className="mt-1 text-[10px] uppercase tracking-widest text-[#7a4416]/70 font-bold">Tap the dial to toggle</p>
               </div>
             </div>
             <ShineButton
@@ -1328,7 +1393,7 @@ export default function DriverDashboard() {
                 </>
               ) : (
                 <>
-                  <Flame className="h-4 w-4" /> Go Online
+                  <Flame className="h-4 w-4 text-[#ffd88a]" /> Go Online
                 </>
               )}
             </ShineButton>
@@ -1342,16 +1407,16 @@ export default function DriverDashboard() {
               initial={{ opacity: 0, y: -8, height: 0 }}
               animate={{ opacity: 1, y: 0, height: "auto" }}
               exit={{ opacity: 0, y: -8, height: 0 }}
-              className="w-full rounded-2xl border border-[#B54834]/50 bg-[#2B1D12] p-4 text-sm text-[#E2A08E] shadow-sm flex items-center gap-3"
+              className="w-full rounded-2xl border border-rose-500/30 bg-rose-950/20 p-4 text-sm text-rose-900 shadow-sm flex items-center gap-3 backdrop-blur-md"
             >
-              <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-              <span className="flex-1">{error}</span>
+              <AlertTriangle className="h-4 w-4 flex-shrink-0 text-rose-700" />
+              <span className="flex-1 font-medium">{error}</span>
               <button
                 onClick={() => setError("")}
-                className="rounded-full p-1 hover:bg-[#3B2818] transition"
+                className="rounded-full p-1 hover:bg-rose-500/10 transition"
                 aria-label="Dismiss"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4 text-rose-800" />
               </button>
             </motion.div>
           )}
@@ -1359,11 +1424,14 @@ export default function DriverDashboard() {
 
         {/* Current Ride + Map */}
         <motion.section variants={itemRise} className="grid gap-8 w-full">
-          <div className="w-full overflow-hidden rounded-[32px] bg-[#1D140D] border border-[#7A5230]/60 shadow-xl">
-            <div className="border-b border-[#7A5230]/50 p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="w-full overflow-hidden rounded-[2.5rem] border border-[#fff4dc]/70 bg-gradient-to-b from-[#fffaf0]/90 via-[#fff4dc]/85 to-[#f7e2b8]/85 shadow-xl backdrop-blur-2xl relative">
+            {/* Brass top rail */}
+            <div className="pointer-events-none absolute inset-x-8 top-0 h-[3px] rounded-full bg-gradient-to-r from-transparent via-[#c58a3a] to-transparent" />
+
+            <div className="border-b border-[#7a4416]/20 p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h2 className="console-display text-2xl font-black text-[#F6ECDA]">Current Ride</h2>
-                <p className="text-sm text-[#C9AE86] mt-1">Everything you need for the active trip.</p>
+                <h2 className="console-display text-2xl font-bold text-[#2e1808]" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>Current Ride</h2>
+                <p className="text-sm text-[#6b3a12] font-medium mt-1">Everything you need for the active trip.</p>
               </div>
               <AnimatePresence mode="wait">
                 {statusConfig && (
@@ -1372,7 +1440,7 @@ export default function DriverDashboard() {
                     initial={{ opacity: 0, scale: 0.9, x: 8 }}
                     animate={{ opacity: 1, scale: 1, x: 0 }}
                     exit={{ opacity: 0, scale: 0.95, x: -8 }}
-                    className={`w-fit rounded-full px-4 py-1.5 text-sm font-semibold ${statusConfig.badge}`}
+                    className={`w-fit rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider ${statusConfig.badge}`}
                   >
                     {statusConfig.label}
                   </motion.span>
@@ -1397,23 +1465,23 @@ export default function DriverDashboard() {
                 >
                   <div className="relative mx-auto flex h-24 w-24 items-center justify-center">
                     <motion.span
-                      className="absolute inset-0 rounded-full bg-[#D9A521]/20"
+                      className="absolute inset-0 rounded-full bg-[#b8722c]/20"
                       animate={{ scale: [1, 1.8], opacity: [0.6, 0] }}
                       transition={{ duration: 2, repeat: Infinity }}
                     />
                     <motion.span
-                      className="absolute inset-0 rounded-full bg-[#D9A521]/15"
+                      className="absolute inset-0 rounded-full bg-[#b8722c]/15"
                       animate={{ scale: [1, 1.8], opacity: [0.6, 0] }}
                       transition={{ duration: 2, repeat: Infinity, delay: 0.6 }}
                     />
-                    <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-[#3B2818] text-[#F2CD7C] shadow-inner border border-[#7A5230]">
-                      <Navigation className="h-8 w-8" />
+                    <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#3a1f0a] to-[#7a4416] text-[#ffd88a] shadow-inner border border-[#c58a3a]/40">
+                      <Navigation className="h-8 w-8 text-[#ffd88a]" />
                     </div>
                   </div>
-                  <h3 className="mt-5 console-display text-xl sm:text-2xl font-bold text-[#F6ECDA]">
+                  <h3 className="mt-5 console-display text-xl sm:text-2xl font-bold text-[#2e1808]" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>
                     {driverStatus === "AVAILABLE" ? "Scanning for nearby riders…" : "Waiting to go online"}
                   </h3>
-                  <p className="mt-2 text-sm sm:text-base text-[#C9AE86] max-w-md mx-auto">
+                  <p className="mt-2 text-sm sm:text-base text-[#6b3a12] font-medium max-w-md mx-auto">
                     {driverStatus === "AVAILABLE"
                       ? "You are online. Requests will appear here instantly with sound."
                       : "Tap the ignition dial above to start receiving ride requests."}
@@ -1428,40 +1496,40 @@ export default function DriverDashboard() {
                   className="grid lg:grid-cols-2 gap-6 p-6 sm:p-8"
                 >
                   <div className="space-y-4">
-                    {/* Route card with animated brass dashline */}
-                    <div className="relative rounded-2xl bg-[#241a10]/80 border border-[#7A5230]/60 p-5 overflow-hidden">
+                    {/* Route card */}
+                    <div className="relative rounded-2xl border border-[#7a4416]/20 bg-[#fffaf0]/90 p-5 overflow-hidden shadow-sm">
                       <div className="flex gap-4">
                         <div className="flex flex-col items-center pt-1">
-                          <span className="relative h-3 w-3 rounded-full bg-[#8FA34E]">
+                          <span className="relative h-3 w-3 rounded-full bg-emerald-500">
                             <motion.span
-                              className="absolute inset-0 rounded-full bg-[#8FA34E]"
+                              className="absolute inset-0 rounded-full bg-emerald-500"
                               animate={{ scale: [1, 2.2], opacity: [0.7, 0] }}
                               transition={{ duration: 1.6, repeat: Infinity }}
                             />
                           </span>
-                          <div className="relative my-1 h-16 w-[2px] overflow-hidden bg-[#5A4128]">
+                          <div className="relative my-1 h-16 w-[2px] overflow-hidden bg-[#7a4416]/30">
                             <motion.div
-                              className="absolute inset-0 bg-gradient-to-b from-transparent via-[#F2CD7C] to-transparent"
+                              className="absolute inset-0 bg-gradient-to-b from-transparent via-[#b8722c] to-transparent"
                               animate={{ y: ["-100%", "100%"] }}
                               transition={{ duration: 1.6, repeat: Infinity, ease: "linear" }}
                             />
                           </div>
-                          <MapPin className="h-3.5 w-3.5 text-[#B54834]" />
+                          <MapPin className="h-3.5 w-3.5 text-rose-600" />
                         </div>
                         <div className="flex-1 space-y-3">
                           <div>
-                            <p className="text-[10px] uppercase tracking-widest text-[#D9A521] font-bold">
+                            <p className="text-[10px] uppercase tracking-widest text-[#b8722c] font-bold">
                               Pickup
                             </p>
-                            <p className="text-sm sm:text-base font-semibold text-[#F6ECDA]">
+                            <p className="text-sm sm:text-base font-semibold text-[#2e1808]">
                               {currentRide.pickup.address}
                             </p>
                           </div>
                           <div>
-                            <p className="text-[10px] uppercase tracking-widest text-[#D9A521] font-bold">
+                            <p className="text-[10px] uppercase tracking-widest text-[#b8722c] font-bold">
                               Destination
                             </p>
-                            <p className="text-sm sm:text-base font-semibold text-[#F6ECDA]">
+                            <p className="text-sm sm:text-base font-semibold text-[#2e1808]">
                               {currentRide.destination.address}
                             </p>
                           </div>
@@ -1553,17 +1621,17 @@ export default function DriverDashboard() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.06 }}
                         whileHover={{ y: -3 }}
-                        className="rounded-2xl bg-gradient-to-br from-[#241a10] to-[#2E2013] border border-[#7A5230]/60 p-5 flex flex-col justify-between shadow-sm"
+                        className="rounded-2xl border border-[#7a4416]/20 bg-[#fffaf0]/90 p-5 flex flex-col justify-between shadow-sm backdrop-blur"
                       >
                         <div className="flex items-center justify-between">
-                          <p className="text-xs uppercase tracking-wider text-[#C9AE86] font-medium">
+                          <p className="text-xs uppercase tracking-wider text-[#7a4416] font-semibold">
                             {tile.isPayment ? "Payment" : tile.label}
                           </p>
-                          <tile.icon className="h-4 w-4 text-[#D9A521]" />
+                          <tile.icon className="h-4 w-4 text-[#b8722c]" />
                         </div>
                         <h3
                           className={`mt-2 console-readout text-lg sm:text-xl font-bold ${
-                            tile.isPayment ? paymentConfig?.badge : "text-[#F6ECDA]"
+                            tile.isPayment ? paymentConfig?.badge : "text-[#2e1808]"
                           }`}
                         >
                           {tile.value}
@@ -1572,15 +1640,15 @@ export default function DriverDashboard() {
                     ))}
                   </div>
 
-                  {/* Fare breakdown — ledger / receipt styling */}
+                  {/* Fare breakdown */}
                   {fareBreakdownData && (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.3 }}
-                      className="lg:col-span-2 rounded-2xl border border-dashed border-[#7A5230] bg-[#1D140D] p-5"
+                      className="lg:col-span-2 rounded-2xl border border-dashed border-[#7a4416]/40 bg-[#fffaf0]/80 p-5 shadow-sm"
                     >
-                      <p className="text-xs uppercase tracking-widest text-[#D9A521] font-bold mb-3">
+                      <p className="text-xs uppercase tracking-widest text-[#b8722c] font-bold mb-3">
                         Fare Breakdown
                       </p>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
@@ -1594,10 +1662,10 @@ export default function DriverDashboard() {
                           ["Total", fareBreakdownData.totalPaise],
                         ].map(([k, v]) => (
                           <div key={k as string} className="flex flex-col">
-                            <span className="text-[10px] uppercase tracking-wider text-[#8D7350]">{k}</span>
+                            <span className="text-[10px] uppercase tracking-wider text-[#7a4416]/80 font-semibold">{k}</span>
                             <span
                               className={`console-readout font-bold ${
-                                k === "You earn" ? "text-[#F2CD7C]" : "text-[#F6ECDA]"
+                                k === "You earn" ? "text-[#b8722c]" : "text-[#2e1808]"
                               }`}
                             >
                               {formatPaise(Number(v))}
@@ -1615,7 +1683,7 @@ export default function DriverDashboard() {
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mx-6 mb-6 rounded-2xl border border-[#7A5230]/60 bg-[#241a10]/80 p-4 text-sm text-[#E2A08E] flex flex-wrap items-center justify-between gap-3"
+                className="mx-6 mb-6 rounded-2xl border border-rose-500/30 bg-rose-950/20 p-4 text-sm text-rose-900 flex flex-wrap items-center justify-between gap-3 backdrop-blur-md"
               >
                 <span>
                   Cancelled{currentRide.cancelledBy ? ` by ${currentRide.cancelledBy.toLowerCase()}` : ""}
@@ -1624,7 +1692,7 @@ export default function DriverDashboard() {
                 <Button
                   variant="outline"
                   onClick={() => setCurrentRide(null)}
-                  className="border-[#7A5230] text-[#C9AE86] hover:bg-[#2B1D12] rounded-full px-4 py-2 text-xs font-bold"
+                  className="rounded-xl border-rose-500/30 bg-[#fffaf0] text-rose-900 hover:bg-rose-50 px-4 py-2 text-xs font-bold"
                 >
                   Back to searching
                 </Button>
@@ -1636,36 +1704,25 @@ export default function DriverDashboard() {
                 initial={{ opacity: 0, scale: 0.95, y: 8 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 transition={{ type: "spring", stiffness: 220, damping: 20 }}
-                className="relative mx-6 mb-6 rounded-2xl border border-[#7A5230] bg-[#241a10] p-6 text-center space-y-3 overflow-hidden"
+                className="relative mx-6 mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-6 text-center space-y-3 overflow-hidden backdrop-blur-md"
               >
-                <motion.div
-                  aria-hidden
-                  className="absolute inset-0 pointer-events-none"
-                  animate={{
-                    background: [
-                      "radial-gradient(circle at 30% 30%, #F2CD7C33, transparent 60%)",
-                      "radial-gradient(circle at 70% 60%, #F2CD7C33, transparent 60%)",
-                    ],
-                  }}
-                  transition={{ duration: 4, repeat: Infinity, repeatType: "reverse" }}
-                />
                 <EmberField count={8} />
-                <p className="relative text-xs uppercase tracking-widest text-[#8FA34E] font-bold">
+                <p className="relative text-xs uppercase tracking-widest text-emerald-800 font-bold">
                   Trip Completed
                 </p>
-                <h3 className="relative console-readout text-3xl font-black text-[#F2CD7C]">
+                <h3 className="relative console-readout text-3xl font-black text-emerald-900">
                   {fareBreakdownData
                     ? formatPaise(fareBreakdownData.driverEarningPaise)
                     : fare != null
                       ? formatPaise(fare)
                       : "₹0.00"}
                 </h3>
-                <p className="relative text-sm text-[#C9AE86]">Driver earnings added successfully.</p>
+                <p className="relative text-sm font-medium text-emerald-900/80">Driver earnings added successfully.</p>
                 <div className="relative">
                   <Button
                     variant="outline"
                     onClick={() => setCurrentRide(null)}
-                    className="border-[#8FA34E]/50 text-[#C7D69E] hover:bg-[#2E3820] rounded-full px-6 py-2 text-xs font-bold mt-2"
+                    className="rounded-xl border-emerald-500/30 bg-[#fffaf0] text-emerald-950 hover:bg-emerald-50 px-6 py-2 text-xs font-bold mt-2 shadow-sm"
                   >
                     Back to searching
                   </Button>
@@ -1677,12 +1734,15 @@ export default function DriverDashboard() {
           {/* Live map */}
           <motion.div
             variants={itemRise}
-            className="w-full overflow-hidden rounded-[32px] bg-[#1D140D] border border-[#7A5230]/60 shadow-xl"
+            className="w-full overflow-hidden rounded-[2.5rem] border border-[#fff4dc]/70 bg-gradient-to-b from-[#fffaf0]/90 via-[#fff4dc]/85 to-[#f7e2b8]/85 shadow-xl backdrop-blur-2xl relative"
           >
-            <div className="border-b border-[#7A5230]/50 p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            {/* Brass top rail */}
+            <div className="pointer-events-none absolute inset-x-8 top-0 h-[3px] rounded-full bg-gradient-to-r from-transparent via-[#c58a3a] to-transparent" />
+
+            <div className="border-b border-[#7a4416]/20 p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
-                <h2 className="console-display text-xl font-bold text-[#F6ECDA]">Live Route Map</h2>
-                <p className="text-sm text-[#C9AE86]">Your live location and active route.</p>
+                <h2 className="console-display text-xl font-bold text-[#2e1808]" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>Live Route Map</h2>
+                <p className="text-sm text-[#6b3a12] font-medium">Your live location and active route.</p>
               </div>
               <StatusPulse
                 color={statusConfig ? statusConfig.accent : statusDot}
@@ -1691,20 +1751,19 @@ export default function DriverDashboard() {
             </div>
             <div className="relative h-[450px] sm:h-[550px] w-full">
               <MapView center={mapCenter} zoom={12} markers={mapMarkers} path={routePolyline} />
-              {/* corner GPS chip */}
               {driverLocation && (
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="absolute bottom-4 left-4 rounded-full bg-[#1D140D]/90 backdrop-blur px-3 py-1.5 text-xs font-semibold text-[#F6ECDA] shadow-md border border-[#7A5230] flex items-center gap-1.5 console-readout"
+                  className="absolute bottom-4 left-4 rounded-full bg-[#fffaf0]/95 backdrop-blur px-3.5 py-1.5 text-xs font-semibold text-[#2e1808] shadow-md border border-[#7a4416]/25 flex items-center gap-1.5 console-readout"
                 >
                   <span className="relative flex h-2 w-2">
                     <motion.span
-                      className="absolute inline-flex h-full w-full rounded-full bg-[#8FA34E]"
+                      className="absolute inline-flex h-full w-full rounded-full bg-emerald-500"
                       animate={{ scale: [1, 2], opacity: [0.7, 0] }}
                       transition={{ duration: 1.5, repeat: Infinity }}
                     />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-[#8FA34E]" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
                   </span>
                   GPS locked • {driverLocation.latitude.toFixed(4)}, {driverLocation.longitude.toFixed(4)}
                 </motion.div>
@@ -1728,7 +1787,7 @@ export default function DriverDashboard() {
           ))}
         </motion.section>
 
-        {/* Vehicle */}
+        {/* Vehicle & Documents */}
         <motion.div variants={itemRise} className="w-full space-y-6">
           <div className="grid gap-6 sm:grid-cols-3 w-full">
             {[
@@ -1746,18 +1805,17 @@ export default function DriverDashboard() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="rounded-3xl border border-[#7A5230]/60 bg-[#1D140D] p-5 sm:p-6 shadow-sm w-full"
+                className="rounded-[2rem] border border-[#fff4dc]/70 bg-gradient-to-b from-[#fffaf0]/90 via-[#fff4dc]/85 to-[#f7e2b8]/90 p-5 sm:p-6 shadow-sm w-full backdrop-blur-xl"
               >
-                <div className="flex items-center gap-2 text-[#C9AE86]">
-                  <v.icon className="h-4 w-4 text-[#D9A521]" />
-                  <p className="text-xs uppercase tracking-wider font-semibold">{v.label}</p>
+                <div className="flex items-center gap-2 text-[#7a4416]">
+                  <v.icon className="h-4 w-4 text-[#b8722c]" />
+                  <p className="text-xs uppercase tracking-wider font-bold">{v.label}</p>
                 </div>
-                <p className="mt-2 console-readout text-base sm:text-lg font-bold text-[#F6ECDA]">{v.value}</p>
+                <p className="mt-2 console-readout text-base sm:text-lg font-bold text-[#2e1808]">{v.value}</p>
               </motion.div>
             ))}
           </div>
 
-          {/* Documents */}
           <div className="grid gap-6 sm:grid-cols-3 w-full">
             {[
               {
@@ -1789,27 +1847,27 @@ export default function DriverDashboard() {
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
-                  className="relative rounded-3xl border border-[#7A5230]/60 bg-[#1D140D] p-6 shadow-sm w-full overflow-hidden"
+                  className="relative rounded-[2rem] border border-[#fff4dc]/70 bg-gradient-to-b from-[#fffaf0]/90 via-[#fff4dc]/85 to-[#f7e2b8]/90 p-6 shadow-sm w-full overflow-hidden backdrop-blur-xl"
                 >
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-[#C9AE86]">
+                    <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-[#7a4416]">
                       {doc.title}
                     </h3>
                     <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
                         doc.verified
-                          ? "bg-[#2E3820] text-[#C7D69E] border-[#8FA34E]/50"
-                          : "bg-[#3B2818] text-[#F2CD7C] border-[#D9A521]/50"
+                          ? "bg-emerald-500/15 text-emerald-900 border-emerald-500/30"
+                          : "bg-amber-500/15 text-amber-900 border-amber-500/30"
                       }`}
                     >
                       <Shield className="h-3 w-3" />
                       {doc.verified ? "Verified" : "Pending"}
                     </span>
                   </div>
-                  <p className="mt-3 text-sm font-medium text-[#F6ECDA]">{doc.number}</p>
+                  <p className="mt-3 text-sm font-bold text-[#2e1808]">{doc.number}</p>
                   <p
-                    className={`mt-1 text-xs console-readout ${
-                      expiringSoon ? "text-[#E2A08E] font-semibold" : "text-[#C9AE86]"
+                    className={`mt-1 text-xs console-readout font-medium ${
+                      expiringSoon ? "text-rose-700 font-semibold" : "text-[#6b3a12]"
                     }`}
                   >
                     Expires {expiryDate.toLocaleDateString()}

@@ -21,23 +21,35 @@ import ChooseMode from './ChooseMode.tsx'
 createRoot(document.getElementById('root')!).render(
   <BrowserRouter>
     <AuthContextProvider>
-      <Routes>
-        <Route path="/" element={<FinalLandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password/:token?" element={<ResetPasswordPage />} />
-        <Route path="/token/:token" element={<VerifyEmail />} />
+     <Routes>
+  {/* Public */}
+  <Route path="/" element={<FinalLandingPage />} />
+  <Route path="/login" element={<LoginPage />} />
+  <Route path="/signup" element={<SignupPage />} />
+  <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+  <Route path="/reset-password/:token?" element={<ResetPasswordPage />} />
+  <Route path="/token/:token" element={<VerifyEmail />} />
 
-        <Route element={<ProtectedRoutes allowedroles={["RIDER", "DRIVER"]} />}>
-          <Route path="/choose" element={<ChooseMode />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/history" element={<RideHistory />} />
-          <Route path="/driver-registration" element={<DriverRegistration />} />
-          <Route path="/driver-dashboard" element={<DriverDashboard />} />
-          <Route path="/ride/:rideId" element={<RideDetails />} />
-        </Route>
-      </Routes>
+  {/* Rider */}
+  <Route element={<ProtectedRoutes allowedroles={["RIDER"]} />}>
+    <Route path="/choose" element={<ChooseMode />} />
+    <Route path="/dashboard" element={<Dashboard />} />
+    <Route path="/history" element={<RideHistory />} />
+    <Route path="/ride/:rideId" element={<RideDetails />} />
+    <Route
+      path="/driver-registration"
+      element={<DriverRegistration />}
+    />
+  </Route>
+
+  {/* Driver */}
+  <Route element={<ProtectedRoutes allowedroles={["DRIVER"]} />}>
+    <Route
+      path="/driver-dashboard"
+      element={<DriverDashboard />}
+    />
+  </Route>
+</Routes>
     </AuthContextProvider>
   </BrowserRouter>
 )

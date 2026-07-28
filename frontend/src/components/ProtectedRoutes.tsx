@@ -2,7 +2,7 @@ import LoadingScreen from "./LoadingScreen";
 import { useAuthContext } from "../context/authContext";
 import { Navigate, Outlet } from "react-router-dom";
 import UnauthorizedPage from "./UnauthorizedPage";
-type UserRole = "RIDER" | "DRIVER" | "ADMIN";
+export type UserRole = "RIDER" | "DRIVER" | "ADMIN";
 
 export const ProtectedRoutes = ({
   allowedroles,
