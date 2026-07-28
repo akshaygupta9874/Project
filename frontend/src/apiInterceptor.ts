@@ -75,7 +75,7 @@ export const getAccessToken = () => accessToken;
 
 // ============================================================================
 
-const getCookieValue = (name: string) => {
+export const getCookieValue = (name: string) => {
   if (typeof document === "undefined") return "";
 
   const match = document.cookie.match(

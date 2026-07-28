@@ -6,7 +6,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import api, { clearAccessToken, setAccessToken } from "../apiInterceptor";
+import api, { clearAccessToken, getCookieValue, setAccessToken } from "../apiInterceptor";
 
 type UserRole = "RIDER" | "DRIVER" | "ADMIN";
 
@@ -74,6 +74,8 @@ export const AuthContextProvider = ({
     setLoading(true);
 
     try {
+      console.log(document.cookie);
+console.log(getCookieValue("csrfToken"));
       await api.post("/logout");
     } catch {
       // Ignore logout failures
