@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
-import type { User } from "../context/authContext";
 
 export type VerificationStatus =
   | "PENDING"
