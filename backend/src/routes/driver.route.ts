@@ -7,7 +7,6 @@ const driverRouter = Router();
 
 driverRouter.post("/register",uploadDriverDocuments,authMiddleware,driverRegistrationController)
 driverRouter.get("/profile",authMiddleware,driverProfileController);
-// driverRouter.patch("/updateLocation",authMiddleware,updateDriverLocationController)
 
 
 export default driverRouter;

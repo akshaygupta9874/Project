@@ -152,7 +152,7 @@ export default function DriverCTA({
           <CTAButton
             onClick={() => navigate("/driver-dashboard")}
           >
-            Go Online
+            Enter Driver Dashboard
           </CTAButton>
         </CardWrapper>
       );

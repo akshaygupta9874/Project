@@ -23,6 +23,7 @@ import { RedisKeys } from "../keys.js";
 import type {
     DriverPresence,
 } from "../types.js";
+import { removeDriverLocation } from "./geo.service.js";
 
 // ======================================================
 // Constants
@@ -116,6 +117,7 @@ export async function setDriverOnline(
         await ensurePresence(driverId);
 
     presence.online = true;
+    presence.available = false;
     presence.lastSeen = Date.now();
 
     await savePresence(
@@ -132,7 +134,8 @@ export async function setDriverOffline(
     driverId: string
 ): Promise<void> {
 
-    await redisClient.del(RedisKeys.DRIVER_PRESENCE(driverId))
+    await removeDriverLocation(driverId);
+    await redisClient.del(RedisKeys.DRIVER_PRESENCE(driverId));
 
 }
 
@@ -172,6 +175,7 @@ export async function setDriverAvailable(
     const presence =
         await ensurePresence(driverId);
 
+    presence.online = true;
     presence.available = true;
     presence.lastSeen = Date.now();
 
@@ -193,8 +197,11 @@ export async function setDriverBusy(
     const presence =
         await ensurePresence(driverId);
 
+    presence.online = true;
     presence.available = false;
     presence.lastSeen = Date.now();
+
+    await removeDriverLocation(driverId);
 
     await savePresence(
         driverId,

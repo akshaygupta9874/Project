@@ -4,8 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import os from 'node:os'
 import path from 'node:path'
 
-// https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(),tailwindcss()],
-  cacheDir: path.join(os.tmpdir(), 'uber-frontend-vite-cache'),
+  plugins: [react(), tailwindcss()],
+  cacheDir: path.join(os.tmpdir(), 'urbanfleet-frontend-vite-cache'),
 })

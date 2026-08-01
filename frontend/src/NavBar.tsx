@@ -54,7 +54,7 @@ function NavBar() {
             className="text-3xl font-bold tracking-tight text-[#2e1808] transition-opacity hover:opacity-80"
             style={{ fontFamily: "'Fraunces', Georgia, serif" }}
           >
-            Uber
+            UrbanFleet
           </h1>
         </div>
 

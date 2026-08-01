@@ -125,6 +125,8 @@ interface DriverProfileData {
 }
 
 const DriverEvents = {
+  GO_ONLINE: "driver:go-online",
+  GO_OFFLINE: "driver:go-offline",
   UPDATE_LOCATION: "driver:update-location",
   SET_AVAILABLE: "driver:set-available",
   SET_BUSY: "driver:set-busy",
@@ -153,9 +155,9 @@ const ServerEvents = {
   ERROR: "server:error",
 } as const;
 
-type DriverStatus = "OFFLINE" | "AVAILABLE" | "BUSY";
+type DriverStatus = "OFFLINE" | "ONLINE" | "AVAILABLE" | "BUSY";
 
-const BUSY_RIDE_STATUSES: RideStatus[] = ["DRIVER_ASSIGNED", "DRIVER_ARRIVING", "STARTED"];
+const BUSY_RIDE_STATUSES: RideStatus[] = ["DRIVER_ASSIGNED", "DRIVER_ARRIVING", "STARTED", "ARRIVED_AT_DESTINATION"];
 const TERMINAL_RIDE_STATUSES: RideStatus[] = ["COMPLETED", "CANCELLED"];
 const HEARTBEAT_INTERVAL_MS = 10000;
 
@@ -351,7 +353,6 @@ function EmberField({ count = 16 }: { count?: number }) {
   );
 }
 
-// ---------- Golden-brown animated city map background matching the rest of the app ----------
 function CityMapBackground() {
   const verticals = useMemo(
     () => [60, 140, 230, 320, 410, 500, 600, 700, 820, 940, 1060, 1180, 1300],
@@ -514,7 +515,7 @@ function StatCard({
         <p className="text-xs uppercase tracking-widest text-[#7a4416] font-semibold">{label}</p>
         <Icon className="h-4 w-4 text-[#b8722c]" />
       </div>
-      <h2 className="mt-2 text-2xl sm:text-3xl font-bold truncate text-[#2e1808]" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>{children}</h2>
+      <h2 className="mt-2 text-xl sm:text-2xl font-bold text-[#2e1808] break-words" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>{children}</h2>
       <div className="mt-3 h-[3px] w-full overflow-hidden rounded-full bg-[#7a4416]/20">
         <motion.div
           initial={{ x: "-100%" }}
@@ -569,18 +570,16 @@ function RideStepper({ status }: { status: RideStatus }) {
                     : { scale: 1 }
                 }
                 transition={{ duration: 1.4, repeat: current ? Infinity : 0 }}
-                className={`h-6 w-6 rounded-full border-2 flex items-center justify-center ${
-                  done
+                className={`h-6 w-6 rounded-full border-2 flex items-center justify-center ${done
                     ? "bg-gradient-to-br from-[#3a1f0a] to-[#7a4416] border-[#ffd88a] text-[#ffd88a]"
                     : "bg-[#fffaf0] border-[#7a4416]/30 text-[#7a4416]"
-                }`}
+                  }`}
               >
                 {done ? <CheckCircle2 className="h-3.5 w-3.5 text-[#ffd88a]" /> : <span className="text-[10px] font-bold console-readout">{i + 1}</span>}
               </motion.div>
               <span
-                className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider ${
-                  current ? "text-[#b8722c]" : "text-[#7a4416]/70"
-                }`}
+                className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider ${current ? "text-[#b8722c]" : "text-[#7a4416]/70"
+                  }`}
               >
                 {s.label}
               </span>
@@ -672,9 +671,10 @@ function IgnitionDial({
   status: DriverStatus;
   onToggle: () => void;
 }) {
-  const angleMap: Record<DriverStatus, number> = { OFFLINE: -95, AVAILABLE: 0, BUSY: 60 };
+  const angleMap: Record<DriverStatus, number> = { OFFLINE: -95, ONLINE: -45, AVAILABLE: 0, BUSY: 60 };
   const glowMap: Record<DriverStatus, string> = {
     OFFLINE: "#7a4416",
+    ONLINE: "#f59e0b",
     AVAILABLE: "#34d399",
     BUSY: "#b8722c",
   };
@@ -798,7 +798,7 @@ export default function DriverDashboard() {
   const [profile, setProfile] = useState<DriverProfileData | null>(null);
   const [currentRide, setCurrentRide] = useState<Ride | null>(null);
   const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [driverStatus, setDriverStatus] = useState<DriverStatus>("OFFLINE");
+  const [driverStatus, setDriverStatus] = useState<DriverStatus>("ONLINE");
   const [routePolyline, setRoutePolyline] = useState<Array<{ lat: number; lng: number }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -807,8 +807,11 @@ export default function DriverDashboard() {
   const watchIdRef = useRef<number | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
 
-  const driverStatusRef = useRef<DriverStatus>("OFFLINE");
+  const driverStatusRef = useRef<DriverStatus>("ONLINE");
   const currentRideRef = useRef<Ride | null>(null);
+  const hasEmittedOnlineRef = useRef(false);
+
+
 
   useEffect(() => {
     driverStatusRef.current = driverStatus;
@@ -826,7 +829,12 @@ export default function DriverDashboard() {
         ]);
         setProfile(profileResponse);
         if (rideResponse && rideResponse.data?.ride) {
-          setCurrentRide(rideResponse.data.ride);
+          const currentRideData = rideResponse.data.ride;
+          setCurrentRide(currentRideData);
+          if (BUSY_RIDE_STATUSES.includes(currentRideData.status)) {
+            setDriverStatus("BUSY");
+            driverStatusRef.current = "BUSY";
+          }
         }
       } catch (err: any) {
         setError(err?.response?.data?.message ?? "Unable to load driver profile.");
@@ -877,6 +885,10 @@ export default function DriverDashboard() {
     const driverSocket = connectDriverSocket({
       onReady: () => {
         setError("");
+        if (!hasEmittedOnlineRef.current) {
+          hasEmittedOnlineRef.current = true;
+          driverSocket.send(JSON.stringify({ event: DriverEvents.GO_ONLINE, data: {} }));
+        }
         if (currentRideRef.current && BUSY_RIDE_STATUSES.includes(currentRideRef.current.status)) {
           driverSocket.send(JSON.stringify({ event: DriverEvents.SET_BUSY, data: {} }));
           setDriverStatus("BUSY");
@@ -912,9 +924,9 @@ export default function DriverDashboard() {
             setCurrentRide((prev) =>
               prev
                 ? {
-                    ...prev,
-                    ...data.ride,
-                  }
+                  ...prev,
+                  ...data.ride,
+                }
                 : prev
             );
             break;
@@ -924,25 +936,16 @@ export default function DriverDashboard() {
           case ServerEvents.RIDE_COMPLETED: {
             setCurrentRide((prev) => {
               const updated = prev ? { ...prev, status: "COMPLETED" as RideStatus, ...data?.ride } : null;
-              const earnedPaise =
-                updated?.fare?.breakdown?.driverEarningPaise ??
-                updated?.fare?.fareBreakdown?.driverEarningPaise ??
-                0;
-              if (earnedPaise > 0) {
-                setShowEarningsFlash(earnedPaise);
-                setTimeout(() => setShowEarningsFlash(null), 3200);
-                setProfile((prevProf) =>
-                  prevProf
-                    ? {
-                        ...prevProf,
-                        statistics: {
-                          ...prevProf.statistics,
-                          completedTrips: prevProf.statistics.completedTrips + 1,
-                          totalEarnings: prevProf.statistics.totalEarnings + earnedPaise,
-                        },
-                      }
-                    : prevProf,
-                );
+              if (updated) {
+                applyCompletedRideStats(updated);
+                const earnedPaise =
+                  updated.fare?.breakdown?.driverEarningPaise ??
+                  updated.fare?.fareBreakdown?.driverEarningPaise ??
+                  0;
+                if (earnedPaise > 0) {
+                  setShowEarningsFlash(earnedPaise);
+                  setTimeout(() => setShowEarningsFlash(null), 3200);
+                }
               }
               return updated;
             });
@@ -973,19 +976,61 @@ export default function DriverDashboard() {
       }
     }, HEARTBEAT_INTERVAL_MS);
 
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      clearInterval(heartbeatInterval);
+      if (hasEmittedOnlineRef.current && driverSocket.readyState === WebSocket.OPEN) {
+        driverSocket.send(JSON.stringify({ event: DriverEvents.GO_OFFLINE, data: {} }));
+      }
+      hasEmittedOnlineRef.current = false;
+      driverSocket.close();
+    };
+  }, [profile]);
+
+  useEffect(() => {
+    if (!profile) return;
+
+    if (currentRide && BUSY_RIDE_STATUSES.includes(currentRide.status)) {
+      if (driverStatusRef.current !== "BUSY") {
+        driverStatusRef.current = "BUSY";
+        setDriverStatus("BUSY");
+      }
+      return;
+    }
+
+    if (driverStatus === "OFFLINE" || driverStatus === "ONLINE") {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      return;
+    }
+
     if (!navigator.geolocation) {
       setError("Geolocation is not supported in this browser.");
-      return () => {
-        clearInterval(heartbeatInterval);
-        driverSocket.close();
-      };
+      return;
     }
+
+    const syncLocation = (latitude: number, longitude: number) => {
+      setDriverLocation({ latitude, longitude });
+      sendDriverLocation(socketRef.current, latitude, longitude);
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        syncLocation(position.coords.latitude, position.coords.longitude);
+      },
+      (positionError) => setError(`Navigator : ${positionError.message} `),
+      { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 },
+    );
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        setDriverLocation({ latitude, longitude });
-        sendDriverLocation(driverSocket, latitude, longitude);
+        syncLocation(latitude, longitude);
       },
       (positionError) => setError(`Navigator : ${positionError.message} `),
       { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 },
@@ -998,14 +1043,13 @@ export default function DriverDashboard() {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
       }
-      clearInterval(heartbeatInterval);
-      driverSocket.close();
     };
-  }, [profile]);
+  }, [profile, driverStatus]);
 
   useEffect(() => {
     if (!currentRide) return;
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    if (driverStatusRef.current === "OFFLINE") return;
 
     if (BUSY_RIDE_STATUSES.includes(currentRide.status) && driverStatusRef.current !== "BUSY") {
       socketRef.current.send(JSON.stringify({ event: DriverEvents.SET_BUSY, data: {} }));
@@ -1016,6 +1060,31 @@ export default function DriverDashboard() {
     }
   }, [currentRide?.status]);
 
+  const applyCompletedRideStats = (ride: Ride | null | undefined) => {
+    if (!ride) return;
+
+    const completedTripsDelta = 1;
+    const earningPaise =
+      ride.fare?.breakdown?.driverEarningPaise ??
+      ride.fare?.fareBreakdown?.driverEarningPaise ??
+      0;
+    const distanceMeters = ride.distance?.actual ?? ride.distance?.estimated ?? 0;
+
+    setProfile((prevProfile) => {
+      if (!prevProfile) return prevProfile;
+
+      return {
+        ...prevProfile,
+        statistics: {
+          ...prevProfile.statistics,
+          completedTrips: prevProfile.statistics.completedTrips + completedTripsDelta,
+          totalEarnings: prevProfile.statistics.totalEarnings + earningPaise,
+          totalDistance: prevProfile.statistics.totalDistance + distanceMeters,
+        },
+      };
+    });
+  };
+
   const handleToggleAvailability = () => {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
       setError("Socket connection not ready.");
@@ -1025,11 +1094,15 @@ export default function DriverDashboard() {
       setError("You can't go offline while a ride is active.");
       return;
     }
-    const goingOnline = driverStatus === "OFFLINE";
-    socketRef.current.send(
-      JSON.stringify({ event: DriverEvents.SET_AVAILABLE, data: { available: goingOnline } }),
-    );
-    setDriverStatus(goingOnline ? "AVAILABLE" : "OFFLINE");
+
+    if (driverStatus === "ONLINE") {
+      socketRef.current.send(JSON.stringify({ event: DriverEvents.SET_AVAILABLE, data: { available: true } }));
+      setDriverStatus("AVAILABLE");
+      return;
+    }
+
+    socketRef.current.send(JSON.stringify({ event: DriverEvents.SET_AVAILABLE, data: { available: false } }));
+    setDriverStatus("ONLINE");
   };
 
   const handleAcceptRide = (rideId: string) => {
@@ -1079,6 +1152,7 @@ export default function DriverDashboard() {
     } else if (event === DriverEvents.START_RIDE) {
       setCurrentRide((prev) => (prev ? { ...prev, status: "STARTED" } : prev));
     } else if (event === DriverEvents.COMPLETE_RIDE) {
+      applyCompletedRideStats(currentRide);
       setCurrentRide((prev) => (prev ? { ...prev, status: "COMPLETED" } : prev));
     }
   };
@@ -1145,7 +1219,7 @@ export default function DriverDashboard() {
     ? { lat: driverLocation.latitude, lng: driverLocation.longitude }
     : currentRide
       ? { lat: currentRide.pickup.coordinates.latitude, lng: currentRide.pickup.coordinates.longitude }
-      : { lat: 22.5726, lng: 88.3639 }; // default Kolkata center
+      : { lat: 22.5726, lng: 88.3639 };
 
   const mapMarkers = [
     ...(driverLocation
@@ -1153,20 +1227,20 @@ export default function DriverDashboard() {
       : []),
     ...(currentRide
       ? [
-          {
-            position: { lat: currentRide.pickup.coordinates.latitude, lng: currentRide.pickup.coordinates.longitude },
-            label: "P",
-            title: "Pickup",
+        {
+          position: { lat: currentRide.pickup.coordinates.latitude, lng: currentRide.pickup.coordinates.longitude },
+          label: "P",
+          title: "Pickup",
+        },
+        {
+          position: {
+            lat: currentRide.destination.coordinates.latitude,
+            lng: currentRide.destination.coordinates.longitude,
           },
-          {
-            position: {
-              lat: currentRide.destination.coordinates.latitude,
-              lng: currentRide.destination.coordinates.longitude,
-            },
-            label: "D",
-            title: "Destination",
-          },
-        ]
+          label: "D",
+          title: "Destination",
+        },
+      ]
       : []),
   ];
 
@@ -1181,12 +1255,13 @@ export default function DriverDashboard() {
   const fareBreakdownData = currentRide?.fare?.breakdown ?? currentRide?.fare?.fareBreakdown ?? null;
 
   const driverStatusCopy: Record<DriverStatus, string> = {
-    OFFLINE: "Riders can only see you while you're online.",
+    OFFLINE: "You are not on the dashboard right now.",
+    ONLINE: "You are on the dashboard but not accepting rides yet.",
     AVAILABLE: "You are online and receiving requests.",
     BUSY: "You're on an active trip. You'll go back to available automatically once it ends.",
   };
 
-  const statusDot = driverStatus === "AVAILABLE" ? "#34d399" : driverStatus === "BUSY" ? "#b8722c" : "#7a4416";
+  const statusDot = driverStatus === "AVAILABLE" ? "#34d399" : driverStatus === "BUSY" ? "#b8722c" : driverStatus === "ONLINE" ? "#f59e0b" : "#7a4416";
   const VehicleIcon = VEHICLE_TYPE_ICON[profile.vehicle.type];
 
   const containerVariants = {
@@ -1285,7 +1360,7 @@ export default function DriverDashboard() {
             transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
           />
 
-          <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative flex flex-col gap-6">
             <div className="space-y-3">
               <motion.p
                 initial={{ opacity: 0, x: -10 }}
@@ -1328,7 +1403,8 @@ export default function DriverDashboard() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 w-full lg:w-auto">
+            {/* 4 StatCards positioned below Welcome back */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 w-full pt-2">
               <StatCard label="Trips" icon={RouteIcon} delay={0.05}>
                 <AnimatedNumber value={profile.statistics.completedTrips} />
               </StatCard>
@@ -1386,14 +1462,14 @@ export default function DriverDashboard() {
               className="px-8 py-4"
             >
               {driverStatus === "AVAILABLE" ? (
-                <>Go Offline</>
+                <>Go Unavailable</>
               ) : driverStatus === "BUSY" ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" /> On a Trip
                 </>
               ) : (
                 <>
-                  <Flame className="h-4 w-4 text-[#ffd88a]" /> Go Online
+                  <Flame className="h-4 w-4 text-[#ffd88a]" /> Available To Accept Rides
                 </>
               )}
             </ShineButton>
@@ -1630,9 +1706,8 @@ export default function DriverDashboard() {
                           <tile.icon className="h-4 w-4 text-[#b8722c]" />
                         </div>
                         <h3
-                          className={`mt-2 console-readout text-lg sm:text-xl font-bold ${
-                            tile.isPayment ? paymentConfig?.badge : "text-[#2e1808]"
-                          }`}
+                          className={`mt-2 console-readout text-lg sm:text-xl font-bold break-words ${tile.isPayment ? paymentConfig?.badge : "text-[#2e1808]"
+                            }`}
                         >
                           {tile.value}
                         </h3>
@@ -1664,9 +1739,8 @@ export default function DriverDashboard() {
                           <div key={k as string} className="flex flex-col">
                             <span className="text-[10px] uppercase tracking-wider text-[#7a4416]/80 font-semibold">{k}</span>
                             <span
-                              className={`console-readout font-bold ${
-                                k === "You earn" ? "text-[#b8722c]" : "text-[#2e1808]"
-                              }`}
+                              className={`console-readout font-bold ${k === "You earn" ? "text-[#b8722c]" : "text-[#2e1808]"
+                                }`}
                             >
                               {formatPaise(Number(v))}
                             </span>
@@ -1811,7 +1885,7 @@ export default function DriverDashboard() {
                   <v.icon className="h-4 w-4 text-[#b8722c]" />
                   <p className="text-xs uppercase tracking-wider font-bold">{v.label}</p>
                 </div>
-                <p className="mt-2 console-readout text-base sm:text-lg font-bold text-[#2e1808]">{v.value}</p>
+                <p className="mt-2 console-readout text-base sm:text-lg font-bold text-[#2e1808] break-words">{v.value}</p>
               </motion.div>
             ))}
           </div>
@@ -1854,21 +1928,19 @@ export default function DriverDashboard() {
                       {doc.title}
                     </h3>
                     <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
-                        doc.verified
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${doc.verified
                           ? "bg-emerald-500/15 text-emerald-900 border-emerald-500/30"
                           : "bg-amber-500/15 text-amber-900 border-amber-500/30"
-                      }`}
+                        }`}
                     >
                       <Shield className="h-3 w-3" />
                       {doc.verified ? "Verified" : "Pending"}
                     </span>
                   </div>
-                  <p className="mt-3 text-sm font-bold text-[#2e1808]">{doc.number}</p>
+                  <p className="mt-3 text-sm font-bold text-[#2e1808] break-words">{doc.number}</p>
                   <p
-                    className={`mt-1 text-xs console-readout font-medium ${
-                      expiringSoon ? "text-rose-700 font-semibold" : "text-[#6b3a12]"
-                    }`}
+                    className={`mt-1 text-xs console-readout font-medium ${expiringSoon ? "text-rose-700 font-semibold" : "text-[#6b3a12]"
+                      }`}
                   >
                     Expires {expiryDate.toLocaleDateString()}
                     {expiringSoon && daysLeft >= 0 ? ` • ${daysLeft}d left` : ""}

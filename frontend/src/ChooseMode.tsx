@@ -113,9 +113,9 @@ export default function ChooseMode() {
         if (!rideData) return;
         setIsCreatingRide(true);
         try {
-            const activeModeObj = RIDE_MODES.find(m => m.id === selectedMode);
-            const baseFareValue = rideData.routeDistance ? Math.round((rideData.routeDistance) * 500 * 4) : 160;
-            const calculatedFare = Math.round(baseFareValue * (activeModeObj?.multiplier || 1));
+            const distanceKm = rideData.routeDistance ? Number((rideData.routeDistance / 1000).toFixed(3)) : 5;
+            const selectedMultiplier = RIDE_MODES.find((mode) => mode.id === selectedMode)?.multiplier ?? 1.2;
+            const calculatedFare = Math.round((2500 + Math.round(distanceKm * 500) + 400) * selectedMultiplier);
 
             // Create ride document in MongoDB now with vehicleType and estimated fare
             const response = await appApi.post<{ message: string; ride: { _id: string } }>("/ride", {
@@ -124,7 +124,7 @@ export default function ChooseMode() {
                 pickup: { address: rideData.pickup, coordinates: rideData.pickupCoords },
                 destination: { address: rideData.destination, coordinates: rideData.destinationCoords },
                 fare: { estimated: calculatedFare },
-                distance: { estimated: rideData.routeDistance ? Number((rideData.routeDistance / 1000).toFixed(1)) : 5 },
+                distance: { estimated: distanceKm },
                 duration: { estimated: rideData.routeDuration ? Math.round(rideData.routeDuration/60) : 14 },
             });
 
@@ -172,7 +172,8 @@ export default function ChooseMode() {
         );
     }
 
-    const baseFareValue = rideData.routeDistance ? Math.round((rideData.routeDistance / 100) * 5) : 160;
+    const distanceKm = rideData.routeDistance ? Number((rideData.routeDistance / 1000).toFixed(3)) : 5;
+    const baseFareValue = 2500 + Math.round(distanceKm * 500) + 400;
 
     return (
         <div 

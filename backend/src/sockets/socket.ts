@@ -12,7 +12,6 @@ import { socketRegistry } from "./registry/socket.registry.js";
 import { UserRole } from "../models/user.model.js";
 
 import {
-    setDriverOnline,
     setDriverOffline,
 } from "../redis/services/driver-presence.service.js";
 
@@ -59,24 +58,6 @@ export function initializeWebSocketServer(
                             authenticatedSocket
                         );
 
-                        console.log(socketRegistry)
-
-                        //--------------------------------------------------
-                        // Driver Connected
-                        //--------------------------------------------------
-
-                        if (
-                            authenticatedSocket.user.role.includes(UserRole.DRIVER) &&
-                            authenticatedSocket.user.driverId
-                        ) {
-
-                            await setDriverOnline(
-                                authenticatedSocket.user.driverId
-                            );
-
-                        }
-
-                        
 
                         //--------------------------------------------------
                         // Register Socket Handlers

@@ -7,7 +7,9 @@ import { sendSocketError } from "../utils/send-error.js";
 import { getDriverCurrentRide } from "../../services/ride.service.js";
 import { emitDriverLocation } from "../emitters/rider.emitter.js";
 import { RideStatus } from "../../models/ride.model.js";
-import { setDriverAvailable, setDriverBusy, updateDriverHeartbeat, setDriverOffline } from "../../redis/services/driver-presence.service.js";
+import {
+    setDriverOnline, setDriverOffline, setDriverAvailable, setDriverBusy, updateDriverHeartbeat
+} from "../../redis/services/driver-presence.service.js";
 import { DriverModel } from "../../models/driver.model.js";
 import * as RideService from "../../services/ride.service.js"
 export type DriverEventHandler = (
@@ -16,6 +18,8 @@ export type DriverEventHandler = (
 ) => Promise<void>;
 
 const handlers: Record<string, DriverEventHandler> = {
+      [DriverEvents.GO_ONLINE]: handleGoOnline,
+    [DriverEvents.GO_OFFLINE]: handleGoOffline,
     [DriverEvents.UPDATE_LOCATION]: handleUpdateLocation,
 
     [DriverEvents.HEARTBEAT]: handleHeartbeat,
@@ -36,6 +40,35 @@ const handlers: Record<string, DriverEventHandler> = {
 
     [DriverEvents.CANCEL_RIDE_BY_DRIVER]: handleCancelRideByDriver,
 };
+
+async function handleGoOnline(
+    socket: AuthenticatedSocket,
+    data: unknown
+) {
+    const driverId = socket.user.driverId;
+
+    if (!driverId) {
+        sendSocketError(socket, "Driver profile not found.");
+        return;
+    }
+
+    await setDriverOnline(driverId);
+
+}
+
+async function handleGoOffline(
+    socket: AuthenticatedSocket,
+    data: unknown
+) {
+    const driverId = socket.user.driverId;
+
+    if (!driverId) {
+        sendSocketError(socket, "Driver profile not found.");
+        return;
+    }
+
+    await setDriverOffline(driverId);
+}
 
 async function handleUpdateLocation(
     socket: AuthenticatedSocket,

@@ -15,7 +15,7 @@ const connectDB: () => Promise<void> = async () => {
 
     try {
         await mongoose.connect(MONGODB_URI, {
-            dbName: "uber"
+            dbName: "UrbanFleet"
         })
         console.log("Connected to Mongo DB")
 

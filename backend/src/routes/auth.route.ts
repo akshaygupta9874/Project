@@ -21,15 +21,7 @@ import {
     authMiddleware,
 } from "../middlewares/auth.middleware.js";
 
-import {
-    verifyCsrfToken,
-} from "../middlewares/csrfMiddleware.js";
-
 const router = express.Router();
-
-// ============================================================================
-// Public
-// ============================================================================
 
 router.post(
     "/register",
@@ -56,10 +48,6 @@ router.post(
     resetPasswordController
 );
 
-// ============================================================================
-// Email / OTP
-// ============================================================================
-
 router.post(
     "/verify/:token",
     verifyEmail
@@ -80,10 +68,6 @@ router.post(
     resendOtpController
 );
 
-// ============================================================================
-// Authenticated
-// ============================================================================
-
 router.get(
     "/me",
     authMiddleware,
@@ -93,7 +77,6 @@ router.get(
 router.post(
     "/logout",
     authMiddleware,
-    verifyCsrfToken,
     userLogoutController
 );
 

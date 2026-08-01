@@ -724,8 +724,6 @@ async handlePaymentCaptured(
   entity: RazorpayPaymentEntity
 ): Promise<void> {
 
-  console.log("hello from here")
-
   if (!entity.order_id || !entity.id) {
     throw new AppError(
       "Invalid Razorpay payment capture payload.",
@@ -852,13 +850,8 @@ async handlePaymentCaptured(
 
     });
 
-    console.log(updatedRide)
-
     // ✅ Emit only after transaction commits
     if (updatedRide) {
-      console.log("Ride driver:", updatedRide.driver.toString());
-console.log("Registry:");
-console.dir(socketRegistry, { depth: null });
       emitPaymentCaptured(
         updatedRide.driver.toString(),
         {

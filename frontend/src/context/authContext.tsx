@@ -6,7 +6,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import api, { clearAccessToken, getCookieValue, setAccessToken } from "../apiInterceptor";
+import api, { clearAccessToken, setAccessToken } from "../apiInterceptor";
 
 type UserRole = "RIDER" | "DRIVER" | "ADMIN";
 
@@ -74,11 +74,17 @@ export const AuthContextProvider = ({
     setLoading(true);
 
     try {
-      console.log(document.cookie);
-console.log(getCookieValue("csrfToken"));
       await api.post("/logout");
     } catch {
-      // Ignore logout failures
+      // A stale CSRF cookie should not leave a server session alive. Refresh
+      // once to receive a new CSRF cookie, then retry the authenticated logout.
+      try {
+        await api.post("/refresh");
+        await api.post("/logout");
+      } catch {
+        // Client credentials are still cleared below. The next protected API
+        // response cannot restore this client-side auth state.
+      }
     } finally {
       clearAccessToken();
       setUser(null);

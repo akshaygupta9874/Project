@@ -27,18 +27,6 @@ export function registerDispatcher(
 
             const { event, data } = result.data;
 
-            console.log("================================");
-            console.log("Received:", event);
-            console.log(
-                "Driver match:",
-                Object.values(DriverEvents).includes(event as DriverEvent)
-            );
-            console.log(
-                "Rider match:",
-                Object.values(RiderEvents).includes(event as RiderEvent)
-            );
-            console.log("================================");
-
             if (Object.values(DriverEvents).includes(event as DriverEvent)) {
                 await handleDriverEvent(socket, event as DriverEvent, data);
                 return;

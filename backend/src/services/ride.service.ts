@@ -155,7 +155,12 @@ export async function createRide(
             destination: input.destination,
 
             fare: {
-                estimated: input.estimatedFare,
+                // Keep the initial display amount and the final Razorpay
+                // amount on the same server-owned fare calculation.
+                estimated: fareService.calculateFareForDistance(
+                    input.estimatedDistance,
+                    vehicleType
+                ).totalPaise,
             },
 
             distance: {
@@ -658,7 +663,10 @@ export async function completeRide(
         ride.status = RideStatus.COMPLETED;
         ride.completedAt = new Date();
 
-        const finalFare = fareService.calculateFinalFare(ride,driver.vehicle.toString())
+        const finalFare = fareService.calculateFinalFare(
+            ride,
+            driver.vehicle?.type
+        )
 
         ride.fare.final = finalFare.totalPaise;
         ride.fare.breakdown =

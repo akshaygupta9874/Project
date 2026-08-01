@@ -5,5 +5,4 @@ export function registerSocketHandlers(
     socket: AuthenticatedSocket
 ): void {
     registerDispatcher(socket);
-
 }

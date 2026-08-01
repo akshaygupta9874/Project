@@ -458,7 +458,8 @@ export default function LandingPage() {
     }
   };
 
-  const baseFareValue = Math.round((calculatedDistanceMeters / 100) * 5);
+  // Base pricing used by the ride and payment backend before vehicle pricing.
+  const baseFareValue = 25 + (calculatedDistanceMeters / 1000) * 5 + 4;
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#f5e6c8] font-sans text-[#2e1808]">

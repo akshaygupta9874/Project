@@ -12,20 +12,32 @@ import UserModel from "../models/user.model.js";
 import { getCookieOptions, getCsrfCookieOptions } from "../utils/cookie.js";
 
 const SESSION_TTL = 60 * 60 * 24 * 7;
+const EMAIL_RATE_LIMIT_SECONDS = 60;
+
+/** Atomically reserve one email-send attempt. `get()` followed by `set()`
+ * allows parallel requests to send multiple emails before either stores a key. */
+async function claimEmailRateLimit(key: string): Promise<boolean> {
+    const result = await redisClient.set(key, "1", {
+        NX: true,
+        EX: EMAIL_RATE_LIMIT_SECONDS,
+    });
+
+    return result === "OK";
+}
 
 export const userRegistrationController = asyncTryCatchHandler(
     async (request: Request, response: Response) => {
         const validatedData = UserRegistrationSchema.safeParse(request.body);
         if (!validatedData.success) {
             return response.status(400).json({
-                message: "Please enter valid registration details."
+                message: "Please ensure your password contains at least one uppercase letter, one lowercase letter, and one digit, and check all registration details."
             })
         }
         const { firstName, lastName, email, password } = validatedData.data;
 
         const rateLimitKey = `register-rate-limit:${request.ip}:${email}`;
 
-        if (await redisClient.get(rateLimitKey)) {
+        if (!await claimEmailRateLimit(rateLimitKey)) {
             return response.status(429).json(
                 {
                     message: "Too many attempts. Please try again later."
@@ -78,8 +90,6 @@ export const userRegistrationController = asyncTryCatchHandler(
 
         await sendVerifyEmail({ email: email, token: verifyToken });
 
-        await redisClient.set(rateLimitKey, "true", { EX: 60 })
-
         response.status(200).json({
             message: "A verification link has been sent to your email. Please check your inbox."
         })
@@ -101,7 +111,7 @@ export const userLoginController = asyncTryCatchHandler(
 
         const rateLimitKey = `login-rate-limit:${request.ip}:${email}`;
 
-        if (await redisClient.get(rateLimitKey)) {
+        if (!await claimEmailRateLimit(rateLimitKey)) {
             return response.status(429).json(
                 {
                     message: "Too many attempts. Please try again later."
@@ -137,8 +147,6 @@ export const userLoginController = asyncTryCatchHandler(
 
         await sendOtpEmail({ email, otp, expiresInMinutes: 5 })
 
-        await redisClient.set(rateLimitKey, "true", { EX: 60 })
-
         response.status(200).json({
             message: "A verification code has been sent to your email."
         })
@@ -157,7 +165,7 @@ export const forgotPasswordController = asyncTryCatchHandler(
         const { email } = validatedData.data;
         const rateLimitKey = `forgot-password-rate-limit:${request.ip}:${email}`;
 
-        if (await redisClient.get(rateLimitKey)) {
+        if (!await claimEmailRateLimit(rateLimitKey)) {
             return response.status(429).json({
                 message: "Too many attempts. Please try again later."
             });
@@ -166,7 +174,6 @@ export const forgotPasswordController = asyncTryCatchHandler(
         const userFound = await UserModel.findOne({ email });
 
         if (!userFound) {
-            await redisClient.set(rateLimitKey, "true", { EX: 60 });
             return response.status(200).json({
                 message: "If an account exists for this email, a password reset link has been sent."
             });
@@ -177,8 +184,6 @@ export const forgotPasswordController = asyncTryCatchHandler(
 
         await redisClient.set(resetKey, JSON.stringify({ email }), { EX: 15 * 60 });
         await sendResetPasswordEmail({ email, token: resetToken });
-        await redisClient.set(rateLimitKey, "true", { EX: 60 });
-
         response.status(200).json({
             message: "If an account exists for this email, a password reset link has been sent."
         });
@@ -191,7 +196,7 @@ export const resetPasswordController = asyncTryCatchHandler(
         const validatedData = ResetPasswordSchema.safeParse(request.body);
         if (!validatedData.success) {
             return response.status(400).json({
-                message: "Please provide a valid password reset request."
+                message: "Please provide a valid password containing at least one uppercase letter, one lowercase letter, and one digit."
             });
         }
 
@@ -238,7 +243,7 @@ export const resendVerificationEmailController = asyncTryCatchHandler(
         const { email } = validatedData.data;
         const rateLimitKey = `resend-verification-rate-limit:${request.ip}:${email}`;
 
-        if (await redisClient.get(rateLimitKey)) {
+        if (!await claimEmailRateLimit(rateLimitKey)) {
             return response.status(429).json({
                 message: "Too many attempts. Please try again later."
             });
@@ -264,8 +269,6 @@ export const resendVerificationEmailController = asyncTryCatchHandler(
         await redisClient.set(verifyKey, pendingDataJSON, { EX: 300 });
         await redisClient.set(`verify:email:${email}`, pendingDataJSON, { EX: 300 });
         await sendVerifyEmail({ email, token: verifyToken });
-        await redisClient.set(rateLimitKey, "true", { EX: 60 });
-
         response.status(200).json({
             message: "Verification email resent successfully"
         });
@@ -284,7 +287,7 @@ export const resendOtpController = asyncTryCatchHandler(
         const { email,password } = validatedData.data;
         const rateLimitKey = `resend-otp-rate-limit:${request.ip}:${email}`;
 
-        if (await redisClient.get(rateLimitKey)) {
+        if (!await claimEmailRateLimit(rateLimitKey)) {
             return response.status(429).json({
                 message: "Too many attempts. Please try again later."
             });
@@ -312,8 +315,6 @@ export const resendOtpController = asyncTryCatchHandler(
 
         await redisClient.set(otpKey, otpJSON, { EX: 300 });
         await sendOtpEmail({ email, otp, expiresInMinutes: 5 });
-        await redisClient.set(rateLimitKey, "true", { EX: 60 });
-
         response.status(200).json({
             message: "OTP resent successfully"
         });
@@ -394,7 +395,8 @@ export const userLogoutController = asyncTryCatchHandler(
             });
         }
 
-        await revokeRefreshToken(userId, response, request.sessionID);
+        const currentSessionID = request.sessionID;
+        await revokeRefreshToken(userId, response, currentSessionID);
         await redisClient.del(`user:${userId}`);
         response.clearCookie("sessionId", getCookieOptions())
         response.clearCookie("refreshToken", getCookieOptions());

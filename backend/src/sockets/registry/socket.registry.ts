@@ -46,9 +46,6 @@ class SocketRegistry {
         }
 
         sockets.add(socket);
-        console.log("Driver Sockets : ",this.driverSockets);
-        console.log("Rider Sockets : ", this.riderSockets);
-        console.log("User Sockets : ",this.socketUsers)
     }
 
     unregister(socket: AuthenticatedSocket): void {

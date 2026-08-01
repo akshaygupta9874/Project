@@ -540,7 +540,10 @@ export const verifyOTP: RequestHandler = async (
     request.sessionID ?? undefined
   );
 
-  const csrfToken = generateCSRFToken(userId, response);
+  // generateCSRFToken sets the cookie itself. It must be awaited; otherwise a
+  // Promise is serialized as the cookie value and every CSRF-protected action
+  // (including logout) is rejected by the server.
+  await generateCSRFToken(userId, response);
 
 
   response.cookie(
@@ -548,14 +551,6 @@ export const verifyOTP: RequestHandler = async (
     refreshToken,
     getCookieOptions({
       maxAge: 7 * 24 * 60 * 60 * 1000,
-    })
-  );
-
-  response.cookie(
-    "csrfToken",
-    csrfToken,
-    getCsrfCookieOptions({
-      maxAge: 15 * 60 * 1000,
     })
   );
 

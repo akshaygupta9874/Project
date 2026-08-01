@@ -120,31 +120,17 @@ class WebhookService {
         eventId?: string
     ): Promise<void> {
 
-        console.log("Entered handleEvent");
-console.log("Event inside service:", payload.event);
-
         const dedupeKey =
             this.buildDedupeKey(
                 eventId,
                 payload
             );
-
-console.log("Checking duplicate...");
-
 const duplicate = await this.isDuplicate(dedupeKey);
-
-console.log("Duplicate?", duplicate);
 
 if (duplicate) {
     console.log("Returning because duplicate webhook");
     return;
 }
-
-console.log("Proceeding to switch...");
-        // Logger removed for now.
-
-        console.log("Expected:", RAZORPAY_WEBHOOK_EVENTS.PAYMENT_CAPTURED);
-console.log("Received:", payload.event);
 
         switch (payload.event) {
 

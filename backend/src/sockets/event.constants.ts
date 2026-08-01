@@ -1,18 +1,25 @@
 // sockets/event.constants.ts
-
 export const DriverEvents = {
+    GO_ONLINE: "driver:go-online",
+    GO_OFFLINE: "driver:go-offline",
+
     UPDATE_LOCATION: "driver:update-location",
+
     SET_AVAILABLE: "driver:set-available",
     SET_BUSY: "driver:set-busy",
-    SET_OFFLINE: "driver:set-offline",
+
     HEARTBEAT: "driver:heartbeat",
-    ACCEPT_RIDE: "driver:accept-ride",   // requires ack
+
+    ACCEPT_RIDE: "driver:accept-ride",
     REJECT_RIDE: "driver:reject-ride",
+
     ARRIVED_AT_PICKUP: "driver:arrived-at-pickup",
     ARRIVED_AT_DESTINATION: "driver:arrived-at-destination",
+
     START_RIDE: "driver:start-ride",
     COMPLETE_RIDE: "driver:complete-ride",
-    CANCEL_RIDE_BY_DRIVER: "driver:cancel-ride",   // requires ack
+
+    CANCEL_RIDE_BY_DRIVER: "driver:cancel-ride",
 } as const;
 
 export const RiderEvents = {

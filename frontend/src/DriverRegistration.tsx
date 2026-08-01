@@ -323,7 +323,7 @@ export default function DriverRegistration() {
             </button>
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-[#795548]">
-                Uber · Driver onboarding
+                UrbanFleet · Driver onboarding
               </p>
               <h1
                 className="text-xl sm:text-2xl font-semibold text-[#3E2723]"

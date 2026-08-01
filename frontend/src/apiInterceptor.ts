@@ -42,6 +42,11 @@ let failedQueue: Array<{
   reject: (reason?: unknown) => void;
 }> = [];
 
+type RetryableRequestConfig = AxiosRequestConfig & {
+  _retry?: boolean;
+  skipRefresh?: boolean;
+};
+
 const processQueue = (
   error: unknown,
   token: string | null = null
@@ -116,13 +121,15 @@ const attachAuthInterceptors = (instance: AxiosInstance) => {
     (response) => response,
 
     async (error: AxiosError) => {
-      const originalRequest =
-        error.config as AxiosRequestConfig & {
-          _retry?: boolean;
-        };
+      const originalRequest = error.config as RetryableRequestConfig;
 
-      // Don't try to refresh if the refresh endpoint itself failed.
-      if (originalRequest.url?.includes("/refresh")) {
+      const shouldSkipRefresh =
+        originalRequest.skipRefresh ||
+        originalRequest.url?.includes("/refresh") ||
+        originalRequest.url?.includes("/logout");
+
+      // Don't try to refresh for logout or refresh requests themselves.
+      if (shouldSkipRefresh) {
         clearAccessToken();
         return Promise.reject(error);
       }
