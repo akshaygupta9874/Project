@@ -21,7 +21,8 @@ import { connectRiderSocket } from "./lib/socket";
 import { useAuthContext } from "./context/authContext";
 import type { DriverProfile } from "./lib/driverApi";
 import DriverCTA from "./components/DriverCTA";
-import { searchPlaces } from "./services/geoapify.service";
+import { searchPlaces, reverseGeocode } from "./services/geoapify.service";
+import { PickupMap } from "./PickupMap";
 
 /**
  * Rider Dashboard — Unified Golden-Luxury Master Ticket Edition
@@ -233,6 +234,9 @@ export default function Dashboard() {
 
   const [isLocating, setIsLocating] = useState(false);
 
+  // Map Modal State for Location Selection
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+
   const socketRef = useRef<any>(null);
   const formRef = useRef<HTMLElement | null>(null);
 
@@ -407,8 +411,8 @@ export default function Dashboard() {
       (position) => {
         const { latitude, longitude } = position.coords;
         setPickupCoords({ latitude, longitude });
-        setPickup(`Current location (${latitude.toFixed(3)}, ${longitude.toFixed(3)})`);
         setIsLocating(false);
+        setIsMapModalOpen(true);
       },
       (error) => {
         setRideError(`Unable to access location: ${error.message}`);
@@ -416,6 +420,12 @@ export default function Dashboard() {
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
+  };
+
+  const handleConfirmPickup = (confirmedAddress: string, coords: { latitude: number; longitude: number }) => {
+    setPickup(confirmedAddress);
+    setPickupCoords(coords);
+    setIsMapModalOpen(false);
   };
 
   const handleProceedToChoose = () => {
@@ -863,6 +873,15 @@ export default function Dashboard() {
           )}
         </AnimatePresence>
       </motion.div>
+
+      {/* Interactive Fullscreen Leaflet Map Modal Component */}
+      <PickupMap
+        isOpen={isMapModalOpen}
+        onClose={() => setIsMapModalOpen(false)}
+        initialCoords={pickupCoords}
+        onConfirm={handleConfirmPickup}
+        reverseGeocodeFn={reverseGeocode}
+      />
     </div>
   );
 }

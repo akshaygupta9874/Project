@@ -22,7 +22,8 @@ import {
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { useNavigate } from "react-router-dom";
-import { searchPlaces } from "./services/geoapify.service";
+import { searchPlaces, reverseGeocode } from "./services/geoapify.service";
+import { PickupMap } from "./PickupMap";
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -304,6 +305,9 @@ export default function LandingPage() {
   const [isSearchingDestination, setIsSearchingDestination] = useState(false);
   const [isLocatingPickup, setIsLocatingPickup] = useState(false);
 
+  // Map Modal Visibility & Initial Location State
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+
   // Pricing display state
   const [showPrices, setShowPrices] = useState(false);
   const [isCalculatingPrices, setIsCalculatingPrices] = useState(false);
@@ -420,8 +424,8 @@ export default function LandingPage() {
       (position) => {
         const { latitude, longitude } = position.coords;
         setPickupCoords({ latitude, longitude });
-        setPickup(`Current location (${latitude.toFixed(3)}, ${longitude.toFixed(3)})`);
         setIsLocatingPickup(false);
+        setIsMapModalOpen(true);
       },
       (error) => {
         setPricingError(`Unable to retrieve location: ${error.message}`);
@@ -429,6 +433,12 @@ export default function LandingPage() {
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
+  };
+
+  const handleConfirmPickup= (confirmedAddress: string, coords: { latitude: number; longitude: number }) => {
+    setPickup(confirmedAddress);
+    setPickupCoords(coords);
+    setIsMapModalOpen(false);
   };
 
   const handleSeePricesClick = async () => {
@@ -458,7 +468,6 @@ export default function LandingPage() {
     }
   };
 
-  // Base pricing used by the ride and payment backend before vehicle pricing.
   const baseFareValue = 25 + (calculatedDistanceMeters / 1000) * 5 + 4;
 
   return (
@@ -827,6 +836,15 @@ export default function LandingPage() {
           </motion.div>
         </motion.div>
       </section>
+
+      {/* Reusable Pickup Map Modal Component */}
+      <PickupMap
+        isOpen={isMapModalOpen}
+        onClose={() => setIsMapModalOpen(false)}
+        initialCoords={pickupCoords}
+        onConfirm={handleConfirmPickup}
+        reverseGeocodeFn={reverseGeocode}
+      />
     </div>
   );
 }
