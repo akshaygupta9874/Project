@@ -13,6 +13,7 @@ import {
   Bus,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuthContext } from "./context/authContext";
 
 const loginImage =
   "https://tb-static.uber.com/prod/udam-assets/850e6b6d-a29e-4960-bcab-46de99547d24.svg";
@@ -70,6 +71,8 @@ const imageRevealVariants: Variants = {
 
 export default function LandingPage2() {
   const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuthContext();
+  const firstName = user?.firstName ? user.firstName : "Rider";
 
   return (
     <section className="relative mx-auto max-w-7xl px-6 py-24 overflow-hidden font-sans text-[#2e1808]">
@@ -109,7 +112,7 @@ export default function LandingPage2() {
         ))}
       </motion.div>
 
-      {/* LOGIN SECTION */}
+      {/* ACCOUNT / AUTH SECTION */}
       <div className="flex flex-col-reverse items-center gap-16 lg:flex-row">
         
         {/* Left Side (Text) */}
@@ -124,31 +127,48 @@ export default function LandingPage2() {
             className="max-w-lg text-4xl font-extrabold leading-[1.1] tracking-tight text-[#2e1808] sm:text-5xl"
             style={{ fontFamily: "'Fraunces', Georgia, serif" }}
           >
-            Log in to see your account details
+            {isAuthenticated
+              ? `Welcome back, ${firstName}.`
+              : "Log in to see your account details"}
           </h2>
 
           <p className="mt-6 max-w-md text-lg leading-relaxed font-medium text-[#6b3a12]">
-            View past trips, tailored suggestions, support resources, and more.
+            {isAuthenticated
+              ? "Access your active trips, tailored recommendations, and driver hub straight from your dashboard."
+              : "View past trips, tailored suggestions, support resources, and more."}
           </p>
 
           <div className="mt-10 flex flex-wrap items-center gap-6">
-            <Button
-              className="group relative h-14 overflow-hidden rounded-xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] px-8 text-base font-semibold text-[#ffe9be] shadow-[0_18px_40px_-12px_rgba(58,31,10,0.7),inset_0_1px_0_rgba(255,216,138,0.35)] transition-all hover:shadow-[0_24px_50px_-14px_rgba(58,31,10,0.85)] active:scale-95"
-              onClick={() => navigate("/login")}
-            >
-              <span className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-[#c58a3a]/40" />
-              <span className="relative z-10">Log in to your account</span>
-              <span className="absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-[#ffd88a]/60 to-transparent transition-transform duration-1000 group-hover:translate-x-[420%]" />
-            </Button>
+            {isAuthenticated ? (
+              <Button
+                className="group relative h-14 overflow-hidden rounded-xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] px-8 text-base font-semibold text-[#ffe9be] shadow-[0_18px_40px_-12px_rgba(58,31,10,0.7),inset_0_1px_0_rgba(255,216,138,0.35)] transition-all hover:shadow-[0_24px_50px_-14px_rgba(58,31,10,0.85)] active:scale-95"
+                onClick={() => navigate("/dashboard")}
+              >
+                <span className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-[#c58a3a]/40" />
+                <span className="relative z-10">Open your dashboard</span>
+                <span className="absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-[#ffd88a]/60 to-transparent transition-transform duration-1000 group-hover:translate-x-[420%]" />
+              </Button>
+            ) : (
+              <>
+                <Button
+                  className="group relative h-14 overflow-hidden rounded-xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] px-8 text-base font-semibold text-[#ffe9be] shadow-[0_18px_40px_-12px_rgba(58,31,10,0.7),inset_0_1px_0_rgba(255,216,138,0.35)] transition-all hover:shadow-[0_24px_50px_-14px_rgba(58,31,10,0.85)] active:scale-95"
+                  onClick={() => navigate("/login")}
+                >
+                  <span className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-[#c58a3a]/40" />
+                  <span className="relative z-10">Log in to your account</span>
+                  <span className="absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-[#ffd88a]/60 to-transparent transition-transform duration-1000 group-hover:translate-x-[420%]" />
+                </Button>
 
-            <button
-              type="button"
-              className="group relative text-base font-semibold text-[#6b3a12] transition-colors hover:text-[#3a1f0a]"
-              onClick={() => navigate("/signup")}
-            >
-              Create an account
-              <span className="absolute -bottom-1 left-0 h-[2px] w-full bg-[#7a4416]/30 transition-all duration-300 group-hover:bg-[#b8722c]"></span>
-            </button>
+                <button
+                  type="button"
+                  className="group relative text-base font-semibold text-[#6b3a12] transition-colors hover:text-[#3a1f0a]"
+                  onClick={() => navigate("/signup")}
+                >
+                  Create an account
+                  <span className="absolute -bottom-1 left-0 h-[2px] w-full bg-[#7a4416]/30 transition-all duration-300 group-hover:bg-[#b8722c]"></span>
+                </button>
+              </>
+            )}
           </div>
         </motion.div>
 

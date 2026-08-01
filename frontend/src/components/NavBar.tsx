@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Button } from "./components/ui/button";
-import { Menu, X, Car } from "lucide-react";
+import { Button } from "./ui/button";
+import { Menu, X, Car, UserCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { useAuthContext } from "../context/authContext";
 
 // 1. Extract links to an array to keep the code DRY
 const NAV_LINKS = [
@@ -16,6 +17,9 @@ function NavBar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuthContext();
+
+  const firstName = user?.firstName ? user.firstName : "Account";
 
   // 2. Detect scroll for a sleek glassmorphism parchment effect
   useEffect(() => {
@@ -74,23 +78,44 @@ function NavBar() {
           ))}
         </ul>
 
-        {/* Desktop Buttons */}
+        {/* Desktop Buttons / User Profile */}
         <div className="hidden items-center gap-3 md:flex">
-          <Button
-            variant="ghost"
-            className="rounded-xl text-[#3a1f0a] font-semibold transition-all hover:bg-[#fff4dc] hover:text-[#2e1808]"
-            onClick={() => navigate("/login")}
-          >
-            Log in
-          </Button>
+          {isAuthenticated ? (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 rounded-xl border border-[#7a4416]/20 bg-[#fffaf0]/80 px-4 py-2 shadow-sm">
+                <UserCircle size={18} className="text-[#b8722c]" />
+                <span className="text-sm font-bold text-[#3a1f0a]">
+                  Hey, {firstName}
+                </span>
+              </div>
 
-          <Button 
-            className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] px-6 py-2.5 text-sm font-semibold text-[#ffe9be] shadow-[0_12px_28px_-10px_rgba(58,31,10,0.6)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-12px_rgba(58,31,10,0.8)]"
-            onClick={() => navigate("/signup")}
-          >
-            <span className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-[#c58a3a]/40" />
-            <span className="relative z-10">Sign up</span>
-          </Button>
+              <Button 
+                className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] px-6 py-2.5 text-sm font-semibold text-[#ffe9be] shadow-[0_12px_28px_-10px_rgba(58,31,10,0.6)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-12px_rgba(58,31,10,0.8)]"
+                onClick={() => navigate("/dashboard")}
+              >
+                <span className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-[#c58a3a]/40" />
+                <span className="relative z-10">Dashboard</span>
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                className="rounded-xl text-[#3a1f0a] font-semibold transition-all hover:bg-[#fff4dc] hover:text-[#2e1808]"
+                onClick={() => navigate("/login")}
+              >
+                Log in
+              </Button>
+
+              <Button 
+                className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] px-6 py-2.5 text-sm font-semibold text-[#ffe9be] shadow-[0_12px_28px_-10px_rgba(58,31,10,0.6)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-12px_rgba(58,31,10,0.8)]"
+                onClick={() => navigate("/signup")}
+              >
+                <span className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-[#c58a3a]/40" />
+                <span className="relative z-10">Sign up</span>
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Mobile Menu Toggle */}
@@ -136,26 +161,50 @@ function NavBar() {
               </ul>
 
               <div className="mt-auto mb-10 flex flex-col gap-4 border-t border-[#7a4416]/20 pt-8">
-                <Button
-                  variant="ghost"
-                  className="w-full justify-center rounded-xl py-6 text-base font-semibold text-[#3a1f0a] hover:bg-[#fff4dc] border border-[#7a4416]/20"
-                  onClick={() => {
-                    setIsOpen(false);
-                    navigate("/login");
-                  }}
-                >
-                  Log in
-                </Button>
+                {isAuthenticated ? (
+                  <>
+                    <div className="flex items-center gap-3 rounded-2xl border border-[#7a4416]/20 bg-[#fffaf0] p-4 shadow-sm">
+                      <UserCircle size={24} className="text-[#b8722c]" />
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-[#7a4416]">Signed in as</p>
+                        <p className="text-base font-bold text-[#2e1808]">{firstName}</p>
+                      </div>
+                    </div>
 
-                <Button
-                  className="w-full rounded-xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] py-6 text-base font-semibold text-[#ffe9be] shadow-[0_14px_30px_-10px_rgba(58,31,10,0.7)]"
-                  onClick={() => {
-                    setIsOpen(false);
-                    navigate("/signup");
-                  }}
-                >
-                  Sign up
-                </Button>
+                    <Button
+                      className="w-full rounded-xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] py-6 text-base font-semibold text-[#ffe9be] shadow-[0_14px_30px_-10px_rgba(58,31,10,0.7)]"
+                      onClick={() => {
+                        setIsOpen(false);
+                        navigate("/dashboard");
+                      }}
+                    >
+                      Go to Dashboard
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-center rounded-xl py-6 text-base font-semibold text-[#3a1f0a] hover:bg-[#fff4dc] border border-[#7a4416]/20"
+                      onClick={() => {
+                        setIsOpen(false);
+                        navigate("/login");
+                      }}
+                    >
+                      Log in
+                    </Button>
+
+                    <Button
+                      className="w-full rounded-xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] py-6 text-base font-semibold text-[#ffe9be] shadow-[0_14px_30px_-10px_rgba(58,31,10,0.7)]"
+                      onClick={() => {
+                        setIsOpen(false);
+                        navigate("/signup");
+                      }}
+                    >
+                      Sign up
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

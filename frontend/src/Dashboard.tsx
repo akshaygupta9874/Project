@@ -17,12 +17,11 @@ import {
 import LoadingScreen from "./components/LoadingScreen";
 import { Input } from "./components/ui/input";
 import { appApi } from "./lib/api";
-import { connectRiderSocket } from "./lib/socket";
 import { useAuthContext } from "./context/authContext";
 import type { DriverProfile } from "./lib/driverApi";
 import DriverCTA from "./components/DriverCTA";
 import { searchPlaces, reverseGeocode } from "./services/geoapify.service";
-import { PickupMap } from "./PickupMap";
+import PinpointLocation from "./components/PinpointLocation";
 
 /**
  * Rider Dashboard — Unified Golden-Luxury Master Ticket Edition
@@ -212,7 +211,6 @@ export default function Dashboard() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [rideError, setRideError] = useState("");
-  const [serverMessage, setServerMessage] = useState("");
 
   const [pickup, setPickup] = useState("");
   const [destination, setDestination] = useState("");
@@ -234,10 +232,10 @@ export default function Dashboard() {
 
   const [isLocating, setIsLocating] = useState(false);
 
-  // Map Modal State for Location Selection
-  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+  // Map Modal States for Location Selection
+  const [isPickupMapOpen, setIsPickupMapOpen] = useState(false);
+  const [isDestinationMapOpen, setIsDestinationMapOpen] = useState(false);
 
-  const socketRef = useRef<any>(null);
   const formRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -286,25 +284,6 @@ export default function Dashboard() {
       cancelled = true;
     };
   }, [navigate]);
-
-  useEffect(() => {
-    const riderSocket = connectRiderSocket({
-      onReady: () => setServerMessage("Connected to live updates."),
-      onError: (message: string) => setServerMessage(message),
-      onRideAccepted: () => setServerMessage("Driver has accepted your ride."),
-      onDriverLocation: () => {},
-      onDriverArrived: () => setServerMessage("Driver has arrived at pickup."),
-      onRideStarted: () => setServerMessage("Your ride has started."),
-      onRideArrivedAtDestination: () => setServerMessage("Driver has arrived at destination."),
-      onRideCompleted: () => setServerMessage("Your ride is complete."),
-      onRideCancelled: (payload: any) =>
-        setServerMessage(`Ride cancelled by ${payload.cancelledBy.toLowerCase()}.`),
-      onNoDriversAvailable: () =>
-        setServerMessage("No drivers were available for your request."),
-    });
-    socketRef.current = riderSocket;
-    return () => riderSocket?.close();
-  }, []);
 
   useEffect(() => {
     if (activeField === "pickup" && pickup.trim().length > 2) {
@@ -411,8 +390,18 @@ export default function Dashboard() {
       (position) => {
         const { latitude, longitude } = position.coords;
         setPickupCoords({ latitude, longitude });
-        setIsLocating(false);
-        setIsMapModalOpen(true);
+        const fallback = `Current location (${latitude.toFixed(3)}, ${longitude.toFixed(3)})`;
+
+        (async () => {
+          try {
+            const address = await reverseGeocode(latitude, longitude);
+            setPickup(address);
+          } catch {
+            setPickup(fallback);
+          } finally {
+            setIsLocating(false);
+          }
+        })();
       },
       (error) => {
         setRideError(`Unable to access location: ${error.message}`);
@@ -425,7 +414,13 @@ export default function Dashboard() {
   const handleConfirmPickup = (confirmedAddress: string, coords: { latitude: number; longitude: number }) => {
     setPickup(confirmedAddress);
     setPickupCoords(coords);
-    setIsMapModalOpen(false);
+    setIsPickupMapOpen(false);
+  };
+
+  const handleConfirmDestination = (confirmedAddress: string, coords: { latitude: number; longitude: number }) => {
+    setDestination(confirmedAddress);
+    setDestinationCoords(coords);
+    setIsDestinationMapOpen(false);
   };
 
   const handleProceedToChoose = () => {
@@ -593,20 +588,6 @@ export default function Dashboard() {
                   seconds.
                 </span>
               </h1>
-
-              <motion.button
-                whileHover={{ x: 2 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={handleUseCurrentLocation}
-                className="self-start sm:self-auto inline-flex items-center gap-2 rounded-full border border-[#7a4416]/25 bg-[#fffaf0]/90 px-4 py-2 text-xs font-semibold text-[#3a1f0a] shadow-sm transition hover:bg-[#fff4dc] hover:border-[#b8722c]"
-              >
-                {isLocating ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Locate className="h-3.5 w-3.5 text-[#b8722c]" />
-                )}
-                Use current location
-              </motion.button>
             </div>
           </div>
 
@@ -653,8 +634,25 @@ export default function Dashboard() {
               <FieldRow
                 icon={<Dot color="dark" />}
                 trailing={
-                  <div className="grid h-8 w-8 place-items-center text-[#7a4416]">
-                    <MapPin className="h-4 w-4 text-[#b8722c]" />
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handleUseCurrentLocation}
+                      title="Use current location"
+                      className="grid h-8 w-8 place-items-center rounded-xl bg-[#3a1f0a] text-[#ffd88a] shadow-sm transition hover:scale-105"
+                    >
+                      {isLocating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Locate className="h-4 w-4" />}
+                    </button>
+                    {pickupCoords && (
+                      <button
+                        type="button"
+                        onClick={() => setIsPickupMapOpen(true)}
+                        title="Choose location on map"
+                        className="grid h-8 w-8 place-items-center rounded-xl border border-[#7a4416]/20 bg-[#fffaf0] text-[#3a1f0a] shadow-sm transition hover:scale-105"
+                      >
+                        <MapPin className="h-4 w-4 text-[#b8722c]" />
+                      </button>
+                    )}
                   </div>
                 }
                 label="Pickup Location"
@@ -712,8 +710,20 @@ export default function Dashboard() {
               <FieldRow
                 icon={<Dot color="brass" />}
                 trailing={
-                  <div className="grid h-8 w-8 place-items-center text-[#7a4416]">
-                    <Navigation className="h-4 w-4 text-[#b8722c]" />
+                  <div className="flex items-center gap-1.5">
+                    {destinationCoords && (
+                      <button
+                        type="button"
+                        onClick={() => setIsDestinationMapOpen(true)}
+                        title="Choose location on map"
+                        className="grid h-8 w-8 place-items-center rounded-xl border border-[#7a4416]/20 bg-[#fffaf0] text-[#3a1f0a] shadow-sm transition hover:scale-105"
+                      >
+                        <MapPin className="h-4 w-4 text-[#b8722c]" />
+                      </button>
+                    )}
+                    <div className="grid h-8 w-8 place-items-center text-[#7a4416]">
+                      <Navigation className="h-4 w-4 text-[#b8722c]" />
+                    </div>
                   </div>
                 }
                 label="Destination"
@@ -849,38 +859,28 @@ export default function Dashboard() {
 
         {/* Driver CTA Section */}
         <DriverCTA
-          user={user!}
           driver={driverProfile}
           loading={isLoadingDriver}
         />
-
-        {/* Passive server message */}
-        <AnimatePresence>
-          {serverMessage && (
-            <motion.div
-              variants={itemVariants}
-              initial="hidden"
-              animate="visible"
-              exit={{ opacity: 0, y: 8 }}
-              className="mx-auto flex items-center gap-2 rounded-full border border-[#7a4416]/25 bg-[#fffaf0]/90 px-4 py-2 text-xs font-medium text-[#3a1f0a] shadow-sm backdrop-blur"
-            >
-              <span className="relative grid h-2.5 w-2.5 place-items-center">
-                <span className="absolute inset-0 rounded-full bg-[#b8722c] animate-ping" />
-                <span className="h-2 w-2 rounded-full bg-[#7a4416]" />
-              </span>
-              {serverMessage}
-            </motion.div>
-          )}
-        </AnimatePresence>
       </motion.div>
 
-      {/* Interactive Fullscreen Leaflet Map Modal Component */}
-      <PickupMap
-        isOpen={isMapModalOpen}
-        onClose={() => setIsMapModalOpen(false)}
+      {/* Pinpoint Map Modals */}
+      <PinpointLocation
+        isOpen={isPickupMapOpen}
+        onClose={() => setIsPickupMapOpen(false)}
         initialCoords={pickupCoords}
         onConfirm={handleConfirmPickup}
         reverseGeocodeFn={reverseGeocode}
+        title="Set pickup location"
+      />
+
+      <PinpointLocation
+        isOpen={isDestinationMapOpen}
+        onClose={() => setIsDestinationMapOpen(false)}
+        initialCoords={destinationCoords}
+        onConfirm={handleConfirmDestination}
+        reverseGeocodeFn={reverseGeocode}
+        title="Set dropoff location"
       />
     </div>
   );

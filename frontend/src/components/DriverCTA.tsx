@@ -21,7 +21,6 @@ interface Driver {
 }
 
 interface DriverCTAProps {
-  user: User;
   driver: Driver | null;
   loading: boolean;
 }
@@ -39,7 +38,6 @@ const itemVariants: Variants = {
 };
 
 export default function DriverCTA({
-  user,
   driver,
   loading = false,
 }: DriverCTAProps) {
@@ -72,22 +70,6 @@ export default function DriverCTA({
           </p>
         </div>
       </motion.section>
-    );
-  }
-
-  if (user.role && !user.role.includes("DRIVER")) {
-    return (
-      <CardWrapper
-        icon={<Car className="h-7 w-7 text-[#FFD88A]" />}
-        title="Become a Driver"
-        description="Earn money by driving on our platform whenever you want."
-      >
-        <CTAButton
-          onClick={() => navigate("/driver-registration")}
-        >
-          Become Driver
-        </CTAButton>
-      </CardWrapper>
     );
   }
 

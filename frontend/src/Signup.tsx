@@ -487,7 +487,7 @@ export default function SignupPage() {
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#7a4416]/40 to-transparent" />
           </motion.div>
 
-          {/* Social Buttons */}
+          {/* Social Buttons
           <motion.div variants={itemVariants} className="mb-6 flex gap-3">
             <button className="group relative flex flex-1 items-center justify-center gap-3 overflow-hidden rounded-xl border border-[#7a4416]/20 bg-[#fffaf0]/90 py-3.5 text-base font-medium text-[#3a1f0a] shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[#fffaf0] hover:shadow-md active:scale-[0.98]">
               <span className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-white/60 transition-transform duration-700 group-hover:translate-x-[420%]" />
@@ -526,7 +526,7 @@ export default function SignupPage() {
               Apple
             </button>
           </motion.div>
-
+ */}
           {/* Sign in link */}
           <motion.div variants={itemVariants} className="mb-4 text-center">
             <button

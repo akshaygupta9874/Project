@@ -23,7 +23,8 @@ import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { searchPlaces, reverseGeocode } from "./services/geoapify.service";
-import { PickupMap } from "./PickupMap";
+import PinpointLocation from "./components/PinpointLocation";
+import { useAuthContext } from "./context/authContext";
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -286,6 +287,7 @@ export default function LandingPage() {
   const [isFocused, setIsFocused] = useState(false);
   const navigate = useNavigate();
   const formRef = useRef<HTMLDivElement | null>(null);
+  const { isAuthenticated } = useAuthContext();
 
   // Dynamic Current Location State
   const [currentLocationName, setCurrentLocationName] = useState("Kolkata, IN");
@@ -306,13 +308,15 @@ export default function LandingPage() {
   const [isLocatingPickup, setIsLocatingPickup] = useState(false);
 
   // Map Modal Visibility & Initial Location State
-  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+  const [isPickupMapOpen, setIsPickupMapOpen] = useState(false);
+  const [isDestinationMapOpen, setIsDestinationMapOpen] = useState(false);
 
   // Pricing display state
   const [showPrices, setShowPrices] = useState(false);
   const [isCalculatingPrices, setIsCalculatingPrices] = useState(false);
   const [pricingError, setPricingError] = useState("");
   const [calculatedDistanceMeters, setCalculatedDistanceMeters] = useState<number>(5000); // default 5km fallback
+  const [calculatedDurationSeconds, setCalculatedDurationSeconds] = useState<number>(840); // default ~14min fallback
 
   // Outside click listener to close suggestions
   useEffect(() => {
@@ -424,8 +428,18 @@ export default function LandingPage() {
       (position) => {
         const { latitude, longitude } = position.coords;
         setPickupCoords({ latitude, longitude });
-        setIsLocatingPickup(false);
-        setIsMapModalOpen(true);
+        const fallback = `Current location (${latitude.toFixed(3)}, ${longitude.toFixed(3)})`;
+
+        (async () => {
+          try {
+            const address = await reverseGeocode(latitude, longitude);
+            setPickup(address);
+          } catch {
+            setPickup(fallback);
+          } finally {
+            setIsLocatingPickup(false);
+          }
+        })();
       },
       (error) => {
         setPricingError(`Unable to retrieve location: ${error.message}`);
@@ -435,10 +449,16 @@ export default function LandingPage() {
     );
   };
 
-  const handleConfirmPickup= (confirmedAddress: string, coords: { latitude: number; longitude: number }) => {
+  const handleConfirmPickup = (confirmedAddress: string, coords: { latitude: number; longitude: number }) => {
     setPickup(confirmedAddress);
     setPickupCoords(coords);
-    setIsMapModalOpen(false);
+    setIsPickupMapOpen(false);
+  };
+
+  const handleConfirmDestination = (confirmedAddress: string, coords: { latitude: number; longitude: number }) => {
+    setDestination(confirmedAddress);
+    setDestinationCoords(coords);
+    setIsDestinationMapOpen(false);
   };
 
   const handleSeePricesClick = async () => {
@@ -459,6 +479,9 @@ export default function LandingPage() {
         if (data?.features?.[0]?.properties?.distance) {
           setCalculatedDistanceMeters(data.features[0].properties.distance);
         }
+        if (data?.features?.[0]?.properties?.time) {
+          setCalculatedDurationSeconds(data.features[0].properties.time);
+        }
       }
       await new Promise((r) => setTimeout(r, 500));
     } catch {
@@ -466,6 +489,31 @@ export default function LandingPage() {
     } finally {
       setIsCalculatingPrices(false);
     }
+  };
+
+  const handleSelectRideMode = (modeId: RideModeOption["id"]) => {
+    if (!isAuthenticated) {
+      navigate("/login");
+      return;
+    }
+
+    if (!pickupCoords || !destinationCoords) {
+      setPricingError("Please select both pickup and destination from the suggestions.");
+      return;
+    }
+
+    const payload = {
+      pickup,
+      destination,
+      pickupCoords,
+      destinationCoords,
+      routeDistance: calculatedDistanceMeters,
+      routeDuration: calculatedDurationSeconds,
+      selectedMode: modeId,
+    };
+
+    sessionStorage.setItem("pendingRide", JSON.stringify(payload));
+    navigate("/choose");
   };
 
   const baseFareValue = 25 + (calculatedDistanceMeters / 1000) * 5 + 4;
@@ -543,16 +591,32 @@ export default function LandingPage() {
                   }}
                   onFocus={() => setActiveField("pickup")}
                   placeholder="Pickup location"
-                  className="h-16 w-full rounded-2xl border border-[#7a4416]/20 bg-[#fffaf0]/95 pl-14 pr-14 text-lg text-[#2e1808] placeholder:text-[#7a4416]/45 shadow-sm backdrop-blur transition-all focus-within:border-[#b8722c] focus-within:bg-[#fffaf0] focus-within:ring-2 focus-within:ring-[#b8722c]/20 focus:outline-none"
+                  className="h-16 w-full rounded-2xl border border-[#7a4416]/20 bg-[#fffaf0]/95 pl-14 pr-24 text-lg text-[#2e1808] placeholder:text-[#7a4416]/45 shadow-sm backdrop-blur transition-all focus-within:border-[#b8722c] focus-within:bg-[#fffaf0] focus-within:ring-2 focus-within:ring-[#b8722c]/20 focus:outline-none"
                 />
-                <button
-                  type="button"
-                  onClick={handleUseCurrentLocationForPickup}
-                  title="Use current location for pickup"
-                  className="absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center justify-center rounded-xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] p-2.5 text-[#ffd88a] transition-all hover:scale-110 shadow-md"
-                >
-                  {isLocatingPickup ? <Loader2 className="animate-spin" size={18} /> : <Locate size={18} />}
-                </button>
+
+                {/* Single button if location not fetched yet, or both if fetched */}
+                <div className="absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleUseCurrentLocationForPickup}
+                    title="Use current location"
+                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] text-[#ffd88a] transition-all hover:scale-110 shadow-md"
+                  >
+                    {isLocatingPickup ? <Loader2 className="animate-spin" size={18} /> : <Locate size={18} />}
+                  </button>
+
+                  {/* Show Map Pin button ONLY after pickupCoords are available */}
+                  {pickupCoords && (
+                    <button
+                      type="button"
+                      onClick={() => setIsPickupMapOpen(true)}
+                      title="Select precise pickup on map"
+                      className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#fffaf0] text-[#3a1f0a] border border-[#7a4416]/20 shadow-md transition-all hover:scale-110"
+                    >
+                      <MapPin size={18} className="text-[#b8722c]" />
+                    </button>
+                  )}
+                </div>
 
                 {/* Pickup Dropdown */}
                 <AnimatePresence>
@@ -611,8 +675,20 @@ export default function LandingPage() {
                 }}
                 onFocus={() => setActiveField("destination")}
                 placeholder="Dropoff location"
-                className="h-16 w-full rounded-2xl border border-[#7a4416]/20 bg-[#fffaf0]/95 pl-14 text-lg text-[#2e1808] placeholder:text-[#7a4416]/45 shadow-sm backdrop-blur transition-all focus-within:border-[#b8722c] focus-within:bg-[#fffaf0] focus-within:ring-2 focus-within:ring-[#b8722c]/20 focus:outline-none"
+                className={`h-16 w-full rounded-2xl border border-[#7a4416]/20 bg-[#fffaf0]/95 pl-14 text-lg text-[#2e1808] placeholder:text-[#7a4416]/45 shadow-sm backdrop-blur transition-all focus-within:border-[#b8722c] focus-within:bg-[#fffaf0] focus-within:ring-2 focus-within:ring-[#b8722c]/20 focus:outline-none ${destinationCoords ? "pr-14" : "pr-4"}`}
               />
+
+              {/* Show Map Pin button for destination ONLY after destinationCoords are selected */}
+              {destinationCoords && (
+                <button
+                  type="button"
+                  onClick={() => setIsDestinationMapOpen(true)}
+                  title="Select precise dropoff on map"
+                  className="absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center justify-center rounded-xl bg-[#fffaf0] p-2.5 text-[#3a1f0a] border border-[#7a4416]/20 shadow-md transition-all hover:scale-110"
+                >
+                  <MapPin size={18} className="text-[#b8722c]" />
+                </button>
+              )}
 
               {/* Destination Dropdown */}
               <AnimatePresence>
@@ -716,7 +792,7 @@ export default function LandingPage() {
                       return (
                         <div
                           key={mode.id}
-                          onClick={() => navigate("/login")}
+                          onClick={() => handleSelectRideMode(mode.id)}
                           className="group flex cursor-pointer items-center justify-between rounded-2xl border border-[#7a4416]/20 bg-[#fffaf0]/80 p-4 transition-all hover:border-[#b8722c] hover:bg-[#fffaf0] hover:shadow-md"
                         >
                           <div className="flex items-center gap-3.5">
@@ -837,13 +913,23 @@ export default function LandingPage() {
         </motion.div>
       </section>
 
-      {/* Reusable Pickup Map Modal Component */}
-      <PickupMap
-        isOpen={isMapModalOpen}
-        onClose={() => setIsMapModalOpen(false)}
+      {/* Pinpoint map modals for pickup and dropoff */}
+      <PinpointLocation
+        isOpen={isPickupMapOpen}
+        onClose={() => setIsPickupMapOpen(false)}
         initialCoords={pickupCoords}
         onConfirm={handleConfirmPickup}
         reverseGeocodeFn={reverseGeocode}
+        title="Set pickup location"
+      />
+
+      <PinpointLocation
+        isOpen={isDestinationMapOpen}
+        onClose={() => setIsDestinationMapOpen(false)}
+        initialCoords={destinationCoords}
+        onConfirm={handleConfirmDestination}
+        reverseGeocodeFn={reverseGeocode}
+        title="Set dropoff location"
       />
     </div>
   );

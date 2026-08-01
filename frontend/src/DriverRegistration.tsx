@@ -24,13 +24,11 @@ import { useAuthContext } from "./context/authContext";
 import { registerDriver } from "./lib/driverApi";
 
 /**
- * Driver Registration — "Driver's Logbook"
- * - Fixed Zod parse payload by mapping form fields directly as flat key-value pairs 
- *   (e.g., vehicle.type, documents.drivingLicense.number) so standard multer / body-parser 
- *   middleware parses nested objects correctly without failing string-to-object coercion.
+ * Driver Registration — Golden-Luxury Edition
+ * - Styled consistently with UrbanFleet's premium brand aesthetic.
  */
 
-const DISPLAY_FONT = "'Fraunces', 'Iowan Old Style', Georgia, serif";
+const DISPLAY_FONT = "'Fraunces', Georgia, serif";
 const BODY_FONT = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
 
 type FormState = {
@@ -173,108 +171,82 @@ export default function DriverRegistration() {
     setFurthestStep((f) => Math.max(f, next));
   };
 
- const submitApplication = async () => {
-  setError("");
-  setStatus("");
+  const submitApplication = async () => {
+    setError("");
+    setStatus("");
 
-  if (!user?._id) {
-    setError("Unable to determine your account. Please log in again.");
-    return;
-  }
+    if (!user?._id) {
+      setError("Unable to determine your account. Please log in again.");
+      return;
+    }
 
-  const formData = new FormData();
+    const formData = new FormData();
 
-  formData.append("userId", user._id);
+    formData.append("userId", user._id);
 
-  formData.append(
-    "vehicle",
-    JSON.stringify({
-      type: form.vehicleType,
-      brand: form.vehicleBrand,
-      model: form.vehicleModel,
-      color: form.vehicleColor,
-      registrationNumber: form.registrationNumber,
-      registrationYear: form.registrationYear,
-    })
-  );
-
-  formData.append(
-    "documents",
-    JSON.stringify({
-      drivingLicense: {
-        number: form.licenseNumber,
-        expiryDate: form.licenseExpiry,
-      },
-      registrationCertificate: {
-        number: form.registrationCertificateNumber,
-      },
-      insurance: {
-        number: form.insuranceNumber,
-        expiryDate: form.insuranceExpiry,
-      },
-      pollutionCertificate: {
-        expiryDate: form.pollutionExpiry,
-      },
-    })
-  );
-
-  if (form.profilePhoto)
-    formData.append("profilePhoto", form.profilePhoto);
-
-  if (form.vehicleFront)
-    formData.append("vehicleFront", form.vehicleFront);
-
-  if (form.vehicleBack)
-    formData.append("vehicleBack", form.vehicleBack);
-
-  if (form.vehicleLeft)
-    formData.append("vehicleLeft", form.vehicleLeft);
-
-  if (form.vehicleRight)
-    formData.append("vehicleRight", form.vehicleRight);
-
-  if (form.vehicleInterior)
-    formData.append("vehicleInterior", form.vehicleInterior);
-
-  if (form.licenseFront)
-    formData.append("licenseFront", form.licenseFront);
-
-  if (form.licenseBack)
-    formData.append("licenseBack", form.licenseBack);
-
-  if (form.registrationCertificateImage)
     formData.append(
-      "registrationCertificate",
-      form.registrationCertificateImage
+      "vehicle",
+      JSON.stringify({
+        type: form.vehicleType,
+        brand: form.vehicleBrand,
+        model: form.vehicleModel,
+        color: form.vehicleColor,
+        registrationNumber: form.registrationNumber,
+        registrationYear: form.registrationYear,
+      })
     );
 
-  if (form.insuranceImage)
-    formData.append("insurance", form.insuranceImage);
-
-  if (form.pollutionImage)
-    formData.append("pollutionCertificate", form.pollutionImage);
-
-  setSubmitting(true);
-
-  try {
-    await registerDriver(formData);
-
-    setStatus(
-      "Application submitted successfully. Redirecting to dashboard..."
+    formData.append(
+      "documents",
+      JSON.stringify({
+        drivingLicense: {
+          number: form.licenseNumber,
+          expiryDate: form.licenseExpiry,
+        },
+        registrationCertificate: {
+          number: form.registrationCertificateNumber,
+        },
+        insurance: {
+          number: form.insuranceNumber,
+          expiryDate: form.insuranceExpiry,
+        },
+        pollutionCertificate: {
+          expiryDate: form.pollutionExpiry,
+        },
+      })
     );
 
-    setTimeout(() => {
-      navigate("/driver-dashboard", { replace: true });
-    }, 1200);
-  } catch (err: any) {
-    setError(
-      err?.response?.data?.message ??
-        "Unable to register as driver. Please try again."
-    );
-  } finally {
-    setSubmitting(false);
-  }
-}
+    if (form.profilePhoto) formData.append("profilePhoto", form.profilePhoto);
+    if (form.vehicleFront) formData.append("vehicleFront", form.vehicleFront);
+    if (form.vehicleBack) formData.append("vehicleBack", form.vehicleBack);
+    if (form.vehicleLeft) formData.append("vehicleLeft", form.vehicleLeft);
+    if (form.vehicleRight) formData.append("vehicleRight", form.vehicleRight);
+    if (form.vehicleInterior) formData.append("vehicleInterior", form.vehicleInterior);
+    if (form.licenseFront) formData.append("licenseFront", form.licenseFront);
+    if (form.licenseBack) formData.append("licenseBack", form.licenseBack);
+    if (form.registrationCertificateImage)
+      formData.append("registrationCertificate", form.registrationCertificateImage);
+    if (form.insuranceImage) formData.append("insurance", form.insuranceImage);
+    if (form.pollutionImage) formData.append("pollutionCertificate", form.pollutionImage);
+
+    setSubmitting(true);
+
+    try {
+      await registerDriver(formData);
+
+      setStatus("Application submitted successfully. Redirecting to dashboard...");
+
+      setTimeout(() => {
+        navigate("/dashboard", { replace: true });
+      }, 1200);
+    } catch (err: any) {
+      setError(
+        err?.response?.data?.message ?? "Unable to register as driver. Please try again."
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const photosAdded = [
     form.vehicleFront,
@@ -292,41 +264,41 @@ export default function DriverRegistration() {
   ].filter(Boolean).length;
 
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-[#EFEBE9] text-[#3E2723]" style={{ fontFamily: BODY_FONT }}>
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-[#f5e6c8] text-[#2e1808]" style={{ fontFamily: BODY_FONT }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap');
       `}</style>
 
-      {/* Ambient background */}
+      {/* Ambient background glow */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -left-32 h-96 w-96 rounded-full bg-[#D7CCC8]/30 blur-3xl" />
-        <div className="absolute top-1/3 -right-40 h-[28rem] w-[28rem] rounded-full bg-[#D7CCC8]/25 blur-3xl" />
-        <div className="absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-[#E4D8D3]/30 blur-3xl" />
+        <div className="absolute -top-40 -left-32 h-96 w-96 rounded-full bg-[#f4b860]/20 blur-[120px]" />
+        <div className="absolute top-1/3 -right-40 h-[28rem] w-[28rem] rounded-full bg-[#b8722c]/15 blur-[140px]" />
+        <div className="absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-[#c58a3a]/15 blur-[100px]" />
       </div>
 
-      <div className="relative w-full px-4 sm:px-8 lg:px-12 py-8 space-y-8">
+      <div className="relative w-full px-4 sm:px-8 lg:px-12 py-8 space-y-8 max-w-7xl mx-auto">
         
         {/* Header */}
         <motion.header
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
-          className="w-full rounded-3xl border border-[#D7CCC8]/60 bg-[#FAF6F0]/90 backdrop-blur-xl shadow-lg px-6 py-4 flex items-center justify-between gap-4"
+          className="w-full rounded-[2rem] border border-[#fff4dc]/70 bg-gradient-to-r from-[#fffaf0]/95 via-[#fff4dc]/90 to-[#f7e2b8]/90 backdrop-blur-xl shadow-xl px-6 py-5 flex items-center justify-between gap-4"
         >
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate(-1)}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#D7CCC8] bg-[#FAF6F0] text-[#5D4037] transition hover:bg-[#EFEBE9]"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-[#7a4416]/25 bg-[#fffaf0] text-[#3a1f0a] transition hover:bg-[#fff4dc] hover:scale-105 shadow-sm"
               aria-label="Go back"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4 text-[#b8722c]" />
             </button>
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-[#795548]">
-                UrbanFleet · Driver onboarding
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#7a4416]">
+                UrbanFleet · Driver Onboarding
               </p>
               <h1
-                className="text-xl sm:text-2xl font-semibold text-[#3E2723]"
+                className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#2e1808]"
                 style={{ fontFamily: DISPLAY_FONT }}
               >
                 Apply to drive with us
@@ -334,23 +306,23 @@ export default function DriverRegistration() {
             </div>
           </div>
 
-          <div className="hidden shrink-0 rounded-2xl border border-[#D7CCC8] bg-[#FAF6F0] px-4 py-2.5 text-right sm:block shadow-sm">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-[#795548]">Logbook no.</p>
-            <p className="text-sm font-bold text-[#5D4037]">{referenceCode}</p>
+          <div className="hidden shrink-0 rounded-2xl border border-[#7a4416]/25 bg-[#fffaf0]/90 px-5 py-2.5 text-right sm:block shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#7a4416]">Logbook No.</p>
+            <p className="text-sm font-extrabold text-[#3a1f0a]">{referenceCode}</p>
           </div>
         </motion.header>
 
         {/* Progress Tracker */}
-        <div className="w-full rounded-3xl border border-[#D7CCC8] bg-[#FAF6F0] p-6 shadow-sm">
-          <div className="mb-2 flex items-center justify-between text-xs font-semibold text-[#795548]">
+        <div className="w-full rounded-[2rem] border border-[#fff4dc]/70 bg-gradient-to-b from-[#fffaf0]/95 via-[#fff4dc]/90 to-[#f7e2b8]/90 p-6 shadow-xl backdrop-blur-xl">
+          <div className="mb-3 flex items-center justify-between text-xs font-bold uppercase tracking-wider text-[#7a4416]">
             <span>
               Step {currentStep + 1} of {STEPS.length}
             </span>
-            <span>{STEPS[currentStep].title}</span>
+            <span className="text-[#3a1f0a]">{STEPS[currentStep].title}</span>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-[#EFEBE9]">
+          <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#7a4416]/15">
             <motion.div
-              className="h-full rounded-full bg-[#5D4037]"
+              className="h-full rounded-full bg-gradient-to-r from-[#3a1f0a] via-[#6b3a12] to-[#b8722c]"
               animate={{ width: `${((currentStep + 1) / STEPS.length) * 100}%` }}
               transition={{ duration: 0.4, ease: "easeOut" }}
             />
@@ -364,7 +336,7 @@ export default function DriverRegistration() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="w-full overflow-hidden rounded-2xl border border-[#D7CCC8] bg-[#EFEBE9] p-4 text-sm text-[#5D4037]"
+              className="w-full overflow-hidden rounded-2xl border border-rose-500/30 bg-rose-950/20 p-4 text-sm font-semibold text-rose-900 shadow-sm"
             >
               {error}
             </motion.div>
@@ -374,7 +346,7 @@ export default function DriverRegistration() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="w-full overflow-hidden rounded-2xl border border-[#D7CCC8] bg-[#EFEBE9] p-4 text-sm text-[#3E2723] font-medium"
+              className="w-full overflow-hidden rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-4 text-sm font-semibold text-emerald-900 shadow-sm"
             >
               {status}
             </motion.div>
@@ -385,7 +357,7 @@ export default function DriverRegistration() {
         <div className="grid gap-8 lg:grid-cols-[280px_1fr] w-full items-start">
           
           {/* Step Rail Navigation */}
-          <div className="h-fit rounded-3xl border border-[#D7CCC8] bg-[#FAF6F0] p-4 shadow-xl lg:sticky lg:top-8 w-full">
+          <div className="h-fit rounded-[2.5rem] border border-[#fff4dc]/70 bg-gradient-to-b from-[#fffaf0]/95 via-[#fff4dc]/90 to-[#f7e2b8]/90 p-4 shadow-xl lg:sticky lg:top-8 w-full backdrop-blur-2xl">
             <div className="space-y-2">
               {STEPS.map((step, index) => (
                 <StepTab
@@ -402,7 +374,7 @@ export default function DriverRegistration() {
           </div>
 
           {/* Step Content Card */}
-          <div className="rounded-[32px] border border-[#D7CCC8] bg-[#FAF6F0] p-6 sm:p-10 shadow-xl w-full">
+          <div className="rounded-[2.5rem] border border-[#fff4dc]/70 bg-gradient-to-b from-[#fffaf0]/95 via-[#fff4dc]/90 to-[#f7e2b8]/90 p-6 sm:p-10 shadow-2xl w-full backdrop-blur-2xl">
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentStep}
@@ -419,7 +391,7 @@ export default function DriverRegistration() {
                       description="Upload a clear profile photo for verification and riders."
                     />
                     <div className="mb-6 flex items-center gap-4">
-                      <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-[#D7CCC8] bg-[#EFEBE9] shadow-inner">
+                      <div className="grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-[#b8722c]/40 bg-[#fffaf0] shadow-inner">
                         {form.profilePhoto ? (
                           <img
                             src={URL.createObjectURL(form.profilePhoto)}
@@ -427,11 +399,11 @@ export default function DriverRegistration() {
                             className="h-full w-full object-cover"
                           />
                         ) : (
-                          <User className="h-8 w-8 text-[#A1887F]" />
+                          <User className="h-10 w-10 text-[#7a4416]/50" />
                         )}
                       </div>
-                      <p className="text-sm text-[#795548]">
-                        Choose an image file from your device.
+                      <p className="text-sm font-medium text-[#6b3a12]">
+                        Choose a high-resolution portrait or image file from your device.
                       </p>
                     </div>
                     <FileField
@@ -456,9 +428,9 @@ export default function DriverRegistration() {
                         value={form.vehicleType}
                         onChange={(v) => updateField("vehicleType", v as FormState["vehicleType"])}
                         options={[
-                          { value: "CAR", label: "Car" },
-                          { value: "BIKE", label: "Bike" },
-                          { value: "AUTO", label: "Auto" },
+                          { value: "CAR", label: "Comfort Car" },
+                          { value: "BIKE", label: "Moto / Bike" },
+                          { value: "AUTO", label: "Auto Rickshaw" },
                         ]}
                         required
                       />
@@ -466,7 +438,7 @@ export default function DriverRegistration() {
                         label="Registration number"
                         value={form.registrationNumber}
                         onChange={(v) => updateField("registrationNumber", v.toUpperCase())}
-                        placeholder="WB 25 AB 1234"
+                        placeholder="e.g., WB 25 AB 1234"
                         required
                       />
                       <Field
@@ -694,7 +666,7 @@ export default function DriverRegistration() {
                         onEdit={() => goToStep(3)}
                       />
                     </div>
-                    <p className="mt-6 text-sm text-[#795548]">
+                    <p className="mt-6 text-sm font-medium text-[#6b3a12]">
                       Once approved by the admin, you'll be able to access your driver dashboard and
                       receive ride requests.
                     </p>
@@ -704,14 +676,14 @@ export default function DriverRegistration() {
             </AnimatePresence>
 
             {/* Step Navigation Footer */}
-            <div className="mt-10 flex items-center justify-between border-t border-dashed border-[#D7CCC8] pt-6">
+            <div className="mt-10 flex items-center justify-between border-t border-dashed border-[#7a4416]/25 pt-6">
               <button
                 type="button"
                 onClick={handleBack}
                 disabled={currentStep === 0}
-                className="inline-flex items-center gap-2 rounded-full border border-[#D7CCC8] bg-[#FAF6F0] px-5 py-2.5 text-sm font-semibold text-[#5D4037] transition hover:bg-[#EFEBE9] disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
+                className="inline-flex items-center gap-2 rounded-2xl border border-[#7a4416]/25 bg-[#fffaf0] px-6 py-3 text-sm font-bold text-[#3a1f0a] transition hover:bg-[#fff4dc] disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
               >
-                <ArrowLeft className="h-4 w-4" /> Back
+                <ArrowLeft className="h-4 w-4 text-[#b8722c]" /> Back
               </button>
 
               {currentStep < STEPS.length - 1 ? (
@@ -719,26 +691,32 @@ export default function DriverRegistration() {
                   type="button"
                   onClick={handleNext}
                   disabled={!isStepComplete(currentStep)}
-                  className="inline-flex items-center gap-2 rounded-full bg-[#5D4037] px-6 py-3 text-sm font-bold text-[#FAF6F0] shadow-lg shadow-[#3E2723]/20 transition hover:bg-[#4E342E] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="group relative inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] px-8 py-3.5 text-sm font-bold text-[#ffe9be] shadow-lg transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Continue <ArrowRight className="h-4 w-4" />
+                  <span className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-[#c58a3a]/40" />
+                  <span className="relative z-10 inline-flex items-center gap-2">
+                    Continue <ArrowRight className="h-4 w-4 text-[#ffd88a]" />
+                  </span>
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={submitApplication}
                   disabled={submitting}
-                  className="inline-flex items-center gap-2 rounded-full bg-[#5D4037] px-6 py-3 text-sm font-bold text-[#FAF6F0] shadow-lg shadow-[#3E2723]/20 transition hover:bg-[#4E342E] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="group relative inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] px-8 py-3.5 text-sm font-bold text-[#ffe9be] shadow-lg transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" /> Submitting…
-                    </>
-                  ) : (
-                    <>
-                      Submit application <ArrowRight className="h-4 w-4" />
-                    </>
-                  )}
+                  <span className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-[#c58a3a]/40" />
+                  <span className="relative z-10 inline-flex items-center gap-2">
+                    {submitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin text-[#ffd88a]" /> Submitting…
+                      </>
+                    ) : (
+                      <>
+                        Submit application <ArrowRight className="h-4 w-4 text-[#ffd88a]" />
+                      </>
+                    )}
+                  </span>
                 </button>
               )}
             </div>
@@ -776,28 +754,28 @@ function StepTab({
       disabled={!reachable}
       className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
         active
-          ? "bg-[#3E2723] text-[#FAF6F0] shadow-md shadow-[#3E2723]/20"
+          ? "bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] text-[#ffe9be] shadow-md shadow-[#3a1f0a]/30 ring-1 ring-[#c58a3a]/40"
           : complete
-            ? "bg-[#EFEBE9] text-[#5D4037] hover:bg-[#D7CCC8]/40"
-            : "text-[#795548] hover:bg-[#EFEBE9]/60"
+            ? "bg-[#fffaf0] text-[#3a1f0a] hover:bg-[#fff4dc]"
+            : "text-[#7a4416] hover:bg-[#fffaf0]/60"
       }`}
     >
       <span
         className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border ${
           active
-            ? "border-white/20 bg-[#5D4037] text-white"
+            ? "border-[#c58a3a]/50 bg-[#2e1808] text-[#ffd88a]"
             : complete
-              ? "border-[#D7CCC8] bg-[#FAF6F0] text-[#5D4037]"
-              : "border-[#D7CCC8] bg-[#FAF6F0] text-[#795548]"
+              ? "border-[#7a4416]/30 bg-[#fffaf0] text-[#3a1f0a]"
+              : "border-[#7a4416]/20 bg-[#fffaf0]/50 text-[#7a4416]"
         }`}
       >
         {complete && !active ? (
-          <Check className="h-4 w-4 text-[#5D4037]" />
+          <Check className="h-4 w-4 text-[#b8722c]" />
         ) : (
           <Icon className="h-4 w-4" />
         )}
       </span>
-      <span className="text-sm font-semibold">{title}</span>
+      <span className="text-sm font-bold">{title}</span>
     </button>
   );
 }
@@ -813,14 +791,14 @@ function StepHeader({
 }) {
   return (
     <div className="mb-6 flex items-start gap-4">
-      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#5D4037] text-[#FAF6F0] shadow-md shadow-[#3E2723]/20">
-        <Icon className="h-6 w-6" />
+      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] text-[#ffd88a] shadow-md border border-[#c58a3a]/40">
+        <Icon className="h-6 w-6 text-[#ffd88a]" />
       </div>
       <div>
-        <h2 className="text-xl font-bold text-[#3E2723]" style={{ fontFamily: DISPLAY_FONT }}>
+        <h2 className="text-2xl font-bold tracking-tight text-[#2e1808]" style={{ fontFamily: DISPLAY_FONT }}>
           {title}
         </h2>
-        <p className="mt-1 text-sm text-[#795548]">{description}</p>
+        <p className="mt-1 text-sm font-medium text-[#6b3a12]">{description}</p>
       </div>
     </div>
   );
@@ -843,9 +821,9 @@ function Field({
 }) {
   return (
     <label className="block w-full">
-      <span className="mb-2 block text-xs font-bold uppercase tracking-widest text-[#795548]">
+      <span className="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-[#7a4416]">
         {label}
-        {required && <span className="text-[#5D4037]"> *</span>}
+        {required && <span className="text-[#b8722c]"> *</span>}
       </span>
       <input
         type={type}
@@ -853,7 +831,7 @@ function Field({
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         required={required}
-        className="w-full rounded-2xl border border-[#D7CCC8] bg-[#EFEBE9]/60 px-4 py-3.5 text-sm text-[#3E2723] outline-none transition placeholder:text-[#A1887F] focus:border-[#5D4037] focus:ring-2 focus:ring-[#5D4037]/20 shadow-sm"
+        className="w-full rounded-2xl border border-[#7a4416]/25 bg-[#fffaf0] px-4 py-3.5 text-sm text-[#2e1808] outline-none transition placeholder:text-[#7a4416]/45 focus:border-[#b8722c] focus:ring-2 focus:ring-[#b8722c]/20 shadow-sm"
       />
     </label>
   );
@@ -874,14 +852,14 @@ function SelectField({
 }) {
   return (
     <label className="block w-full">
-      <span className="mb-2 block text-xs font-bold uppercase tracking-widest text-[#795548]">
+      <span className="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-[#7a4416]">
         {label}
-        {required && <span className="text-[#5D4037]"> *</span>}
+        {required && <span className="text-[#b8722c]"> *</span>}
       </span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-[#D7CCC8] bg-[#EFEBE9]/60 px-4 py-3.5 text-sm text-[#3E2723] outline-none transition focus:border-[#5D4037] focus:ring-2 focus:ring-[#5D4037]/20 shadow-sm"
+        className="w-full rounded-2xl border border-[#7a4416]/25 bg-[#fffaf0] px-4 py-3.5 text-sm text-[#2e1808] outline-none transition focus:border-[#b8722c] focus:ring-2 focus:ring-[#b8722c]/20 shadow-sm"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -906,16 +884,16 @@ function FileField({
 }) {
   return (
     <label className="block w-full">
-      <span className="mb-2 block text-xs font-bold uppercase tracking-widest text-[#795548]">
+      <span className="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-[#7a4416]">
         {label}
-        {required && <span className="text-[#5D4037]"> *</span>}
+        {required && <span className="text-[#b8722c]"> *</span>}
       </span>
       <div className="flex items-center gap-3">
-        <label className="flex flex-1 cursor-pointer items-center justify-between rounded-2xl border border-[#D7CCC8] bg-[#EFEBE9]/60 px-4 py-3.5 text-sm text-[#3E2723] transition hover:bg-[#D7CCC8]/40 shadow-sm">
-          <span className="truncate text-sm text-[#5D4037]">
+        <label className="flex flex-1 cursor-pointer items-center justify-between rounded-2xl border border-[#7a4416]/25 bg-[#fffaf0] px-4 py-3.5 text-sm text-[#2e1808] transition hover:bg-[#fff4dc] shadow-sm">
+          <span className="truncate text-sm font-medium text-[#3a1f0a]">
             {file ? file.name : "Choose file..."}
           </span>
-          <Upload className="h-4 w-4 shrink-0 text-[#795548]" />
+          <Upload className="h-4 w-4 shrink-0 text-[#b8722c]" />
           <input
             type="file"
             accept="image/*"
@@ -941,17 +919,19 @@ function DocumentCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-3xl border border-[#D7CCC8] bg-[#EFEBE9]/40 p-6 shadow-sm">
+    <div className="rounded-3xl border border-[#7a4416]/20 bg-[#fffaf0]/80 p-6 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-full bg-[#D7CCC8]/60 text-[#5D4037]">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#7a4416]/10 text-[#b8722c] border border-[#7a4416]/20">
             <Icon className="h-5 w-5" />
           </div>
-          <p className="text-base font-bold text-[#3E2723]">{title}</p>
+          <p className="text-base font-bold text-[#2e1808]">{title}</p>
         </div>
         <span
-          className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
-            complete ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+          className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider border ${
+            complete
+              ? "bg-emerald-500/15 text-emerald-900 border-emerald-500/30"
+              : "bg-amber-500/15 text-amber-900 border-amber-500/30"
           }`}
         >
           {complete ? "Complete" : "Pending"}
@@ -964,17 +944,17 @@ function DocumentCard({
 
 function ReviewRow({ title, value, onEdit }: { title: string; value: string; onEdit: () => void }) {
   return (
-    <div className="flex items-center justify-between rounded-2xl border border-[#D7CCC8] bg-[#EFEBE9]/50 px-5 py-4 shadow-sm">
+    <div className="flex items-center justify-between rounded-2xl border border-[#7a4416]/20 bg-[#fffaf0] px-5 py-4 shadow-sm">
       <div>
-        <p className="text-xs font-bold uppercase tracking-widest text-[#795548]">{title}</p>
-        <p className="mt-1 text-sm font-semibold text-[#3E2723]">{value}</p>
+        <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#7a4416]">{title}</p>
+        <p className="mt-1 text-sm font-bold text-[#2e1808]">{value}</p>
       </div>
       <button
         type="button"
         onClick={onEdit}
-        className="inline-flex items-center gap-1.5 rounded-full border border-[#D7CCC8] bg-[#FAF6F0] px-4 py-2 text-xs font-bold text-[#5D4037] transition hover:bg-[#EFEBE9] shadow-sm"
+        className="inline-flex items-center gap-1.5 rounded-xl border border-[#7a4416]/25 bg-[#fffaf0] px-4 py-2 text-xs font-bold text-[#3a1f0a] transition hover:bg-[#fff4dc] shadow-sm"
       >
-        <Pencil className="h-3 w-3" /> Edit
+        <Pencil className="h-3 w-3 text-[#b8722c]" /> Edit
       </button>
     </div>
   );

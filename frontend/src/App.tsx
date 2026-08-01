@@ -1,7 +1,7 @@
-import NavBar from './NavBar'
+import NavBar from './components/NavBar'
 import LandingPage from './LandingPage'
 import LandingPage2 from './LandingPage2'
-import BottomBanner from './BottomBanner'
+import BottomBanner from './components/BottomBanner'
 
 function App() {
   

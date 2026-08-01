@@ -6,6 +6,7 @@ import { appApi } from './apiInterceptor';
 import { Button } from './components/ui/button';
 import { Bike, Car, Clock, IndianRupee, Check, Loader2, Sparkles, ArrowLeft } from 'lucide-react';
 import { useAuthContext } from "./context/authContext";
+import LoadingScreen from './components/LoadingScreen';
 
 interface RideModeOption {
     id: "bike" | "auto" | "car";
@@ -21,7 +22,7 @@ const RIDE_MODES: RideModeOption[] = [
         id: "bike",
         name: "Moto / Bike",
         description: "Fastest through traffic",
-        icon: <Bike className="h-5 w-5" />,
+        icon: <Bike className="h-5 w-5 text-[#ffd88a]" />,
         multiplier: 0.7,
         etaMinutes: 3,
     },
@@ -29,7 +30,7 @@ const RIDE_MODES: RideModeOption[] = [
         id: "auto",
         name: "Auto Rickshaw",
         description: "Affordable local ride",
-        icon: <Sparkles className="h-5 w-5" />,
+        icon: <Sparkles className="h-5 w-5 text-[#ffd88a]" />,
         multiplier: 0.9,
         etaMinutes: 5,
     },
@@ -37,13 +38,13 @@ const RIDE_MODES: RideModeOption[] = [
         id: "car",
         name: "Comfort Car",
         description: "Spacious & air-conditioned",
-        icon: <Car className="h-5 w-5" />,
+        icon: <Car className="h-5 w-5 text-[#ffd88a]" />,
         multiplier: 1.2,
         etaMinutes: 7,
     },
 ];
 
-const DISPLAY_FONT = "'Fraunces', 'Iowan Old Style', Georgia, serif";
+const DISPLAY_FONT = "'Fraunces', Georgia, serif";
 const BODY_FONT = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
 
 function formatPaiseToRupee(amount: number | null | undefined): string {
@@ -117,7 +118,6 @@ export default function ChooseMode() {
             const selectedMultiplier = RIDE_MODES.find((mode) => mode.id === selectedMode)?.multiplier ?? 1.2;
             const calculatedFare = Math.round((2500 + Math.round(distanceKm * 500) + 400) * selectedMultiplier);
 
-            // Create ride document in MongoDB now with vehicleType and estimated fare
             const response = await appApi.post<{ message: string; ride: { _id: string } }>("/ride", {
                 rider: user?._id,
                 vehicleType: selectedMode,
@@ -128,10 +128,7 @@ export default function ChooseMode() {
                 duration: { estimated: rideData.routeDuration ? Math.round(rideData.routeDuration/60) : 14 },
             });
 
-            // Clean up temporary session storage backup
             sessionStorage.removeItem("pendingRide");
-
-            // Redirect to active live tracking & matching screen
             navigate(`/ride/${response.data.ride._id}`, { replace: true });
         } catch {
             setError("Unable to create ride request. Please try again.");
@@ -140,29 +137,19 @@ export default function ChooseMode() {
     };
 
     if (isLoading) {
-        return (
-            <div 
-                className="grid min-h-screen place-items-center bg-[#EFEBE9] text-[#3E2723]"
-                style={{ fontFamily: BODY_FONT }}
-            >
-                <div className="flex flex-col items-center gap-3">
-                    <Loader2 className="h-8 w-8 animate-spin text-[#5D4037]" />
-                    <p className="text-sm font-medium">Preparing your journey options...</p>
-                </div>
-            </div>
-        );
+        return <LoadingScreen sublabel="Preparing your journey options..." />;
     }
 
     if (!rideData || error) {
         return (
             <div 
-                className="grid min-h-screen place-items-center bg-[#EFEBE9] px-6 text-center text-[#3E2723]"
+                className="grid min-h-screen place-items-center bg-[#f5e6c8] px-6 text-center text-[#2e1808]"
                 style={{ fontFamily: BODY_FONT }}
             >
                 <div>
-                    <p className="text-lg font-semibold">{error || "Invalid session data"}</p>
+                    <p className="text-lg font-semibold text-[#3a1f0a]">{error || "Invalid session data"}</p>
                     <Button
-                        className="mt-6 rounded-full bg-[#5D4037] text-[#FAF6F0] hover:bg-[#4E342E]" 
+                        className="mt-6 rounded-xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] px-6 py-3 font-semibold text-[#ffe9be] shadow-lg transition hover:scale-105" 
                         onClick={() => navigate("/dashboard")}
                     >
                         Back to dashboard
@@ -177,7 +164,7 @@ export default function ChooseMode() {
 
     return (
         <div 
-            className="relative h-screen w-screen overflow-hidden bg-[#EFEBE9] text-[#3E2723]"
+            className="relative h-screen w-screen overflow-hidden bg-[#f5e6c8] text-[#2e1808]"
             style={{ fontFamily: BODY_FONT }}
         >
             <style>{`
@@ -228,13 +215,13 @@ export default function ChooseMode() {
             </div>
 
             {/* FLOATING BACK BUTTON */}
-            <div className="absolute top-4 left-4 z-30">
+            <div className="absolute top-5 left-5 z-30">
                 <button
                     onClick={() => navigate("/dashboard")}
-                    className="grid h-11 w-11 place-items-center rounded-full border border-[#D7CCC8] bg-[#FAF6F0]/95 text-[#5D4037] shadow-lg backdrop-blur-xl transition hover:bg-[#FAF6F0]"
+                    className="grid h-12 w-12 place-items-center rounded-2xl border border-[#7a4416]/25 bg-[#fffaf0]/95 text-[#3a1f0a] shadow-xl backdrop-blur-xl transition hover:bg-[#fff4dc] hover:scale-105"
                     aria-label="Back"
                 >
-                    <ArrowLeft className="h-5 w-5" />
+                    <ArrowLeft className="h-5 w-5 text-[#b8722c]" />
                 </button>
             </div>
 
@@ -243,17 +230,17 @@ export default function ChooseMode() {
                 initial={{ y: 50, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ type: "spring", stiffness: 240, damping: 26 }}
-                className="absolute inset-x-0 bottom-0 z-20 flex flex-col rounded-t-[32px] border-t border-[#D7CCC8] bg-[#FAF6F0]/95 px-6 pt-5 pb-8 shadow-2xl backdrop-blur-xl max-h-[55vh] overflow-y-auto"
+                className="absolute inset-x-0 bottom-0 z-20 flex flex-col rounded-t-[2.5rem] border-t border-[#fff4dc]/70 bg-gradient-to-b from-[#fffaf0]/95 via-[#fff4dc]/95 to-[#f7e2b8]/95 px-6 pt-5 pb-8 shadow-[0_-20px_60px_rgba(58,31,10,0.3)] backdrop-blur-2xl max-h-[55vh] overflow-y-auto"
             >
-                <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[#D7CCC8]" />
+                <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[#7a4416]/30" />
 
                 <div className="flex items-center justify-between mb-4">
                     <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-[#795548]">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#7a4416]">
                             Select Ride Category
                         </p>
                         <h2 
-                            className="text-xl font-bold text-[#3E2723]"
+                            className="text-2xl font-bold tracking-tight text-[#2e1808]"
                             style={{ fontFamily: DISPLAY_FONT }}
                         >
                             Choose your ride mode
@@ -262,7 +249,7 @@ export default function ChooseMode() {
                 </div>
 
                 {/* THREE OPTIONS (BIKE, AUTO, CAR) */}
-                <div className="space-y-2.5">
+                <div className="space-y-3">
                     {RIDE_MODES.map((mode) => {
                         const isSelected = selectedMode === mode.id;
                         const calculatedFare = Math.round(baseFareValue * mode.multiplier);
@@ -272,34 +259,30 @@ export default function ChooseMode() {
                                 key={mode.id}
                                 whileTap={{ scale: 0.98 }}
                                 onClick={() => setSelectedMode(mode.id)}
-                                className={`flex cursor-pointer items-center justify-between rounded-2xl border p-3.5 transition-all ${
+                                className={`flex cursor-pointer items-center justify-between rounded-2xl border p-4 transition-all ${
                                     isSelected
-                                        ? "border-[#5D4037] bg-[#EFEBE9] shadow-md ring-1 ring-[#5D4037]"
-                                        : "border-[#D7CCC8] bg-[#FAF6F0] hover:bg-[#EFEBE9]/50"
+                                        ? "border-[#b8722c] bg-[#fffaf0] shadow-lg ring-2 ring-[#b8722c]/20"
+                                        : "border-[#7a4416]/20 bg-[#fffaf0]/80 hover:bg-[#fffaf0] hover:border-[#b8722c]/60"
                                 }`}
                             >
                                 <div className="flex items-center gap-3.5">
-                                    <div className={`grid h-12 w-12 place-items-center rounded-xl shadow-sm transition-colors ${
-                                        isSelected 
-                                            ? "bg-[#5D4037] text-[#FAF6F0]" 
-                                            : "bg-[#EFEBE9] text-[#5D4037]"
-                                    }`}>
+                                    <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] text-[#ffd88a] shadow-sm border border-[#c58a3a]/40">
                                         {mode.icon}
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2">
-                                            <p className="text-sm font-bold text-[#3E2723]">{mode.name}</p>
+                                            <span className="font-bold text-[#2e1808]">{mode.name}</span>
                                             {isSelected && (
-                                                <span className="grid h-4 w-4 place-items-center rounded-full bg-[#5D4037] text-white">
+                                                <span className="grid h-4 w-4 place-items-center rounded-full bg-[#b8722c] text-white">
                                                     <Check className="h-2.5 w-2.5" />
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="mt-0.5 flex items-center gap-2 text-xs text-[#795548]">
+                                        <div className="mt-0.5 flex items-center gap-2 text-xs font-medium text-[#6b3a12]">
                                             <span>{mode.description}</span>
                                             <span>•</span>
-                                            <span className="flex items-center gap-1 font-medium text-[#3E2723]">
-                                                <Clock className="h-3 w-3 text-[#795548]" />
+                                            <span className="flex items-center gap-1 font-semibold text-emerald-900 bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                                                <Clock className="h-3 w-3 text-emerald-800" />
                                                 {mode.etaMinutes} mins away
                                             </span>
                                         </div>
@@ -307,11 +290,11 @@ export default function ChooseMode() {
                                 </div>
 
                                 <div className="text-right">
-                                    <p className="text-base font-bold text-[#3E2723] flex items-center justify-end">
-                                        <IndianRupee className="h-3.5 w-3.5 mr-0.5" />
+                                    <p className="text-base font-extrabold text-[#2e1808] flex items-center justify-end">
+                                        <IndianRupee className="h-3.5 w-3.5 mr-0.5 text-[#b8722c]" />
                                         {formatPaiseToRupee(calculatedFare)}
                                     </p>
-                                    <p className="text-[10px] uppercase font-semibold text-[#795548]">Estimated</p>
+                                    <p className="text-[10px] uppercase font-semibold text-[#7a4416]">Estimated</p>
                                 </div>
                             </motion.div>
                         );
@@ -319,20 +302,23 @@ export default function ChooseMode() {
                 </div>
 
                 {/* CONFIRM & START RIDE BUTTON */}
-                <div className="mt-5">
+                <div className="mt-6">
                     <Button
                         onClick={handleConfirmAndStart}
                         disabled={isCreatingRide}
-                        className="w-full rounded-full bg-[#5D4037] py-6 text-sm font-semibold text-[#FAF6F0] shadow-lg hover:bg-[#4E342E] transition disabled:opacity-60"
+                        className="group relative w-full h-14 overflow-hidden rounded-2xl bg-gradient-to-br from-[#3a1f0a] via-[#6b3a12] to-[#2e1808] text-base font-semibold text-[#ffe9be] shadow-[0_18px_40px_-12px_rgba(58,31,10,0.7),inset_0_1px_0_rgba(255,216,138,0.35)] transition-all hover:shadow-[0_24px_50px_-14px_rgba(58,31,10,0.85)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                        {isCreatingRide ? (
-                            <span className="flex items-center gap-2">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Matching with drivers...
-                            </span>
-                        ) : (
-                            "Confirm & Start Ride"
-                        )}
+                        <span className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-[#c58a3a]/40" />
+                        <span className="relative z-10 flex items-center justify-center gap-2">
+                            {isCreatingRide ? (
+                                <>
+                                    <Loader2 className="h-5 w-5 animate-spin text-[#ffd88a]" />
+                                    <span>Matching with drivers...</span>
+                                </>
+                            ) : (
+                                "Confirm & Start Ride"
+                            )}
+                        </span>
                     </Button>
                 </div>
             </motion.div>
